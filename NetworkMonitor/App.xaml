@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<Application
+    x:Class="NetworkMonitor.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:converters="using:NetworkMonitor.Converters">
+
+    <Application.Resources>
+
+        <ResourceDictionary>
+
+            <ResourceDictionary.MergedDictionaries>
+
+                <XamlControlsResources
+                    xmlns="using:Microsoft.UI.Xaml.Controls" />
+
+            </ResourceDictionary.MergedDictionaries>
+
+            <ResourceDictionary.ThemeDictionaries>
+
+                <ResourceDictionary
+                    x:Key="Default">
+
+                    <SolidColorBrush
+                        x:Key="DigestPanelBrush"
+                        Color="#FF202020" />
+
+                    <SolidColorBrush
+                        x:Key="DigestBorderBrush"
+                        Color="#FF404040" />
+
+                    <SolidColorBrush
+                        x:Key="DigestTextBrush"
+                        Color="#FFE0E0E0" />
+
+                    <SolidColorBrush
+                        x:Key="DigestHeaderBrush"
+                        Color="#FFF0F0F0" />
+
+                    <SolidColorBrush
+                        x:Key="DigestAccentTealBrush"
+                        Color="#FF4DB6AC" />
+
+                    <SolidColorBrush
+                        x:Key="DigestAccentBlueBrush"
+                        Color="#FF7FA8C9" />
+
+                </ResourceDictionary>
+
+                <ResourceDictionary
+                    x:Key="Light">
+
+                    <SolidColorBrush
+                        x:Key="DigestPanelBrush"
+                        Color="#FFEEEEEE" />
+
+                    <SolidColorBrush
+                        x:Key="DigestBorderBrush"
+                        Color="#FFCCCCCC" />
+
+                    <SolidColorBrush
+                        x:Key="DigestTextBrush"
+                        Color="#FF505050" />
+
+                    <SolidColorBrush
+                        x:Key="DigestHeaderBrush"
+                        Color="#FF303030" />
+
+                    <SolidColorBrush
+                        x:Key="DigestAccentTealBrush"
+                        Color="#FF00796B" />
+
+                    <SolidColorBrush
+                        x:Key="DigestAccentBlueBrush"
+                        Color="#FF3E6EA5" />
+
+                </ResourceDictionary>
+
+            </ResourceDictionary.ThemeDictionaries>
+
+            <converters:OnlineStatusConverter
+                x:Key="OnlineStatusConverter" />
+
+            <converters:InverseBoolConverter
+                x:Key="InverseBoolConverter" />
+
+            <converters:InverseBoolVisibilityConverter
+                x:Key="InverseBoolVisConverter" />
+
+            <converters:BoolToVisibilityConverter
+                x:Key="BoolToVisibilityConverter" />
+
+            <converters:EventTypeConverter
+                x:Key="EventTypeConverter" />
+
+            <converters:BytesConverter
+                x:Key="BytesConverter" />
+
+            <converters:BoolToFontWeightConverter
+                x:Key="BoolToFontWeightConverter" />
+
+            <converters:DoubleFormatConverter
+                x:Key="DoubleFormatConverter" />
+
+            <converters:NotesToolTipConverter
+                x:Key="NotesToolTipConverter" />
+
+        </ResourceDictionary>
+
+    </Application.Resources>
+
+</Application>

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<Page
+    x:Class="NetworkMonitor.Views.DevicesHostPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+
+    <Grid
+        RowDefinitions="Auto,*">
+
+        <SelectorBar
+            Grid.Row="0"
+            x:Name="TabBar"
+            FontSize="13"
+            Margin="24,12,24,0"
+            SelectionChanged="TabBarSelectionChanged">
+
+            <SelectorBarItem
+                Tag="Devices"
+                Text="All" />
+
+            <SelectorBarItem
+                Tag="Approved"
+                Text="Approved" />
+
+            <SelectorBarItem
+                Tag="Unapproved"
+                Text="Unapproved" />
+
+            <SelectorBarItem
+                Tag="History"
+                Text="History" />
+
+        </SelectorBar>
+
+        <Frame
+            Grid.Row="1"
+            x:Name="DevicesFrame"
+            Margin="0,8,0,0" />
+
+        <Frame
+            Grid.Row="1"
+            x:Name="ApprovedFrame"
+            Visibility="Collapsed"
+            Margin="0,8,0,0" />
+
+        <Frame
+            Grid.Row="1"
+            x:Name="UnapprovedFrame"
+            Visibility="Collapsed"
+            Margin="0,8,0,0" />
+
+        <Frame
+            Grid.Row="1"
+            x:Name="HistoryFrame"
+            Visibility="Collapsed"
+            Margin="0,8,0,0" />
+
+    </Grid>
+
+</Page>

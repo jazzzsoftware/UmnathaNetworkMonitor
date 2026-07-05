@@ -1,0 +1,25 @@
+# Normalize line endings: stored as LF in the repo, checked out per the rules below.
+* text=auto
+
+# Windows source/project files use CRLF in the working tree.
+*.cs        text eol=crlf
+*.xaml      text eol=crlf
+*.csproj    text eol=crlf
+*.sln       text eol=crlf
+*.slnx      text eol=crlf
+*.json      text eol=crlf
+*.config    text eol=crlf
+*.manifest  text eol=crlf
+*.resx      text eol=crlf
+*.txt       text eol=crlf
+*.md        text eol=crlf
+
+# Binary assets — never touch line endings.
+*.ico   binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.db    binary
+*.db-shm binary
+*.db-wal binary

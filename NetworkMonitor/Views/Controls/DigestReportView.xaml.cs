@@ -1,0 +1,143 @@
+using System.Runtime.InteropServices.WindowsRuntime;
+using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media.Imaging;
+using NetworkMonitor.Models;
+using Windows.Storage.Streams;
+using NetworkMonitor.Services.Digest;
+
+namespace NetworkMonitor.Views.Controls
+{
+    public sealed partial class DigestReportView : UserControl
+    {
+        public static readonly DependencyProperty SummaryProperty = DependencyProperty.Register(
+            nameof(Summary),
+            typeof(DigestSummary),
+            typeof(DigestReportView),
+            new PropertyMetadata(null, OnSummaryChanged));
+
+        public static readonly DependencyProperty ReportProperty = DependencyProperty.Register(
+            nameof(Report),
+            typeof(DigestReport),
+            typeof(DigestReportView),
+            new PropertyMetadata(null, OnReportChanged));
+
+        private readonly DigestChartRenderer _chartRenderer;
+
+        public DigestReportView()
+        {
+            _chartRenderer = App.AppHost.Services.GetRequiredService<DigestChartRenderer>();
+            InitializeComponent();
+        }
+
+        public DigestSummary? Summary
+        {
+            get => (DigestSummary?)GetValue(SummaryProperty);
+            set => SetValue(SummaryProperty, value);
+        }
+
+        public DigestReport? Report
+        {
+            get => (DigestReport?)GetValue(ReportProperty);
+            set => SetValue(ReportProperty, value);
+        }
+
+        private static void OnSummaryChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
+        {
+
+            if (sender is DigestReportView view)
+            {
+                _ = view.RenderAsync();
+            }
+
+        }
+
+        private static void OnReportChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
+        {
+
+            if (sender is DigestReportView view)
+            {
+                view.UpdateSubheader();
+            }
+
+        }
+
+        private void UpdateSubheader()
+        {
+            DigestReport? report = Report;
+
+            if (report is null)
+            {
+                PeriodSubtitle.Text = string.Empty;
+                GeneratedText.Text = string.Empty;
+            }
+            else
+            {
+                string periodStart = report.PeriodStart.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
+                string periodEnd = report.PeriodEnd.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
+                string generated = report.GeneratedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
+                PeriodSubtitle.Text = $"Report: {periodStart} – {periodEnd}";
+                GeneratedText.Text = $"Generated: {generated}";
+            }
+
+        }
+
+        private async Task RenderAsync()
+        {
+            DigestSummary? summary = Summary;
+
+            if (summary is null)
+            {
+                TrafficChartImage.Source = null;
+                TrafficSplitImage.Source = null;
+                ThroughputChartImage.Source = null;
+                LatencyChartImage.Source = null;
+                TopAppsTable.ItemsSource = null;
+                AllTable.ItemsSource = null;
+                UnapprovedTable.ItemsSource = null;
+                SpeedTable.ItemsSource = null;
+            }
+            else
+            {
+                TopAppsTable.ItemsSource = summary.TopApps;
+                AllTable.ItemsSource = summary.AllDevices;
+                UnapprovedTable.ItemsSource = summary.UnapprovedDevices;
+                SpeedTable.ItemsSource = summary.SpeedTests.OrderByDescending(test => test.Timestamp).ToList();
+
+                bool lightBackground = ActualTheme != ElementTheme.Dark;
+                double rasterizationScale = XamlRoot?.RasterizationScale ?? 1.0;
+                float screenDpi = (float)(96.0 * rasterizationScale);
+
+                byte[] trafficPng = await Task.Run(() => _chartRenderer.RenderTrafficChart(summary, lightBackground, screenDpi));
+                TrafficChartImage.Source = await ToBitmapAsync(trafficPng);
+
+                byte[] trafficSplitPng = await Task.Run(() => _chartRenderer.RenderTrafficSplitChart(summary, lightBackground, screenDpi));
+                TrafficSplitImage.Source = await ToBitmapAsync(trafficSplitPng);
+
+                byte[] throughputPng = await Task.Run(() => _chartRenderer.RenderSpeedThroughputChart(summary, lightBackground, screenDpi));
+                ThroughputChartImage.Source = await ToBitmapAsync(throughputPng);
+
+                byte[] latencyPng = await Task.Run(() => _chartRenderer.RenderSpeedLatencyChart(summary, lightBackground, screenDpi));
+                LatencyChartImage.Source = await ToBitmapAsync(latencyPng);
+            }
+
+        }
+
+        private static async Task<BitmapImage> ToBitmapAsync(byte[] png)
+        {
+            BitmapImage image = new BitmapImage();
+
+            using (InMemoryRandomAccessStream stream = new InMemoryRandomAccessStream())
+            {
+                await stream.WriteAsync(png.AsBuffer());
+                stream.Seek(0);
+                await image.SetSourceAsync(stream);
+            }
+
+            return image;
+        }
+
+    }
+}

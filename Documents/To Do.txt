@@ -1,0 +1,161 @@
+
+Done - Bug my phone still marked as unknown when connects
+Done - Add option to have notifications, all or just unknown. 
+Done - Close to tray
+Done - Search does not work
+Done - Add search to history
+Done - Bug cannot Mark New item as Known, all greyed out because New device already in Known devices????
+Done - Change row background for unknown devices
+Done - Purge history after x days
+Done - Reorder settings page and make save always visible.
+Done - Create architecture docs in Documents\Architecture
+Done - Stop duplicate instances
+Done - Auto detect network ip range etc.
+Done - Give it an icon
+Done - Allow copying ip and mac
+Done - Center settings screen items
+Done - Add a History item button to devices
+Done - Test history longer than 24hrs
+Done - Change Bandwidth icon
+Done - add 5 min option, default to 5, remember when change pages
+Done - Bug, when change app in list always goes to all apps first, have to click twice.
+Done - Make text in chart bigger eg All Apps - Last Hour
+Done - Change order of Sent and Received columns
+Done - On Settings change name to Device scan
+Done - Add above, above, a new section called Bandwidth scan
+Done - Add a seperate scan interval 1 sec to 60 sec.
+Done - Rename Bandwith to Traffic everywhere
+Done - Play around with smoothing.
+Done - Bug - I use https://fiber.google.com/speedtest/ to test. I expect the chart to show a DL peak and then an UL peak. What I see is them on top of each other and then seperating over time.
+Done - Add a details button/hover to show app full name and path
+Done - Show an accurate scale of the chart eg. when running the speed test the chart is scaled to 0 to 400mbps. I still want to autoscale but show the scale somewhere.
+Done - Add a hover info to chart when you hover over the chart to se values draw vertical line where mouse pointing so can easily see.
+Done - Test Dark vs Light mode.
+Done - Split into own repoDone -Split into own repo
+Done - Do a code style review
+Done - Double click pauses chart
+Done - Add MBps
+Done - Add scrollview to settings
+Done - Add updated app name and explanation.
+Done - Notifications seem to have stopped
+Done - Is same amount of smoothing being applied to other times periods as for 5 min. Was a datacapture frequency problem.
+Done - Limit data collection to 7 days only to reduce db size.
+Done - Add purge Traffic data button, split settings into tabs
+Done - Trim automaticcaly beyond 7 days
+Done - Adjust traffic vindows to max 7 days
+Done - Export/Import approved devices to csv
+Done - Add all devices pages into tabs
+Done - Got problem where windows explorer has no close/min/max buttons - caused by displayfusion
+Done - When click in chart show apps for that time period.
+Done - Not implementing. MVVM pattern - CommunityToolkit.Mvvm
+Done - Inno Installer
+Done - Add tests
+Done - Make chart changes smooth withy scrolling.
+Done - Sign up for github.
+Done - settings pages element widths
+Done - could not replicate on Dell laptop, 4k 200% scaling issues
+Done - add delete to unapproved list
+Done - clicking app list is sometimes unresponsive	
+Done - Add a splash screen.
+Done - add icon to about box.
+Done - There are old entries in unapproved list that are older than 24 hours
+Done - is correct as 30 days - History has entries older than 7 days
+Done - Remove the white border from the splash screen.
+Done - Run without admin rights - Rather do two things. 1. Add  the "Run at Windows Startup" toggle to settings. 2. Add a checkbox to the installer to do the same. This will add/remove a task in task scheduler.
+Done - 4k 200% scaling issues - is there a setting monitoring full screen.
+Done - Export to csv only on history page and must export all reports. Rename to "Export all reports to CSV"
+Done - Complete Traffic daily digest.
+Done - Completed Devices daily digest.
+Done - Blurry images in reports
+Done - When windows starts up and runs the app start minimized. When run from VS in debug start normally.
+Done - Backup the database every 24 hours. Add to backup folder and add timestamp to file. No ui to restore.
+Done - Code review
+Done - Create a code review procedure doc in the root Review folder and summary doc in date folder.
+Done - OnSettings changed show toast msg confirmation
+Done - If I dont have digest reports screate one.
+Done - Does this app cater for dynamic Mac's like you have on phones.
+Done - When click in traffic chart show dashed line to indicate where you are
+Done - Only keep 3 backups
+Done - Bug - Before code review devices would come and go. I am not seeing this behaviour. Is scan working correctly.
+Done - add logging.
+Done - Test unapproved devices
+Done - Had a lot of regressions after code review
+Done - How long working on this project from Claude session time.
+Done - Make notes text bigger
+Done - Export device history
+Done - Periodic speed tests, where to put it, traffic or reports
+Done - Add speed test results to digest report. Above All deviuces.
+Done - In settings group settings into cards
+Done - 4k 200% scaling issues - is there a setting monitoring full screen.
+Done - Move speed test setting into traffic section
+Done - No change, working - Add scroll view for speed results
+Done - Run speed test on the hour
+Done - Speed test 2 hours out in UI
+Done - In digest report in speed test section format date the same as devices section. Also latest first
+Done - Do not allow device history to be imported as  Approved devices
+Done - Make speed test more accurate/longer
+Done -Speed test chart not filled on first test run
+Done - App is not minimized at startup of windows
+Done - Digest report does not have both Mbps and MBps columns. Use colour to goup Mbps and MBps columns in both.
+Done - Release notes in app
+Done - In digest and all reports check both Mbps and Mbps are shown.
+Done - Improve CloudFlare ping/latency methodology
+Done - Rename Received/Sent to Download/Upload everywhere including code, db etc.
+Done - Update all docs.
+Done - Fix Exception
+2026-06-30 17:56:22.403 [ERROR] [TrafficPage.OnTrafficFlushed] System.Runtime.InteropServices.COMException: 
+   at WinRT.ExceptionHelpers.<ThrowExceptionForHR>g__Throw|38_0(Int32 hr)
+   at Microsoft.UI.Xaml.DependencyObject.SetValue(DependencyProperty dp, Object value)
+   at NetworkMonitor.Views.Controls.TrafficAreaChart.set_ChartPoints(IReadOnlyList`1 value) in NetworkMonitor\Views\Controls\TrafficAreaChart.xaml.cs:line 93
+   at NetworkMonitor.Views.TrafficPage.XamlBindingSetters.Set_NetworkMonitor_Views_Controls_TrafficAreaChart_ChartPoints(TrafficAreaChart obj, IReadOnlyList`1 value, String targetNullValue) in NetworkMonitor\obj\x64\Release\net10.0-windows10.0.19041.0\win-x64\Views\TrafficPage.g.cs:line 43
+   at NetworkMonitor.Views.TrafficPage.TrafficPage_obj1_Bindings.Update_ViewModel_ChartPoints(ObservableCollection`1 obj, Int32 phase) in NetworkMonitor\obj\x64\Release\net10.0-windows10.0.19041.0\win-x64\Views\TrafficPage.g.cs:line 985
+   at NetworkMonitor.Views.TrafficPage.TrafficPage_obj1_Bindings.TrafficPage_obj1_BindingsTracking.PropertyChanged_ViewModel(Object sender, PropertyChangedEventArgs e) in NetworkMonitor\obj\x64\Release\net10.0-windows10.0.19041.0\win-x64\Views\TrafficPage.g.cs:line 1080
+   at CommunityToolkit.Mvvm.ComponentModel.ObservableObject.OnPropertyChanged(PropertyChangedEventArgs e) in /_/src/CommunityToolkit.Mvvm/ComponentModel/ObservableObject.cs:line 49
+   at CommunityToolkit.Mvvm.ComponentModel.ObservableObject.OnPropertyChanged(String propertyName) in /_/src/CommunityToolkit.Mvvm/ComponentModel/ObservableObject.cs:line 75
+   at CommunityToolkit.Mvvm.ComponentModel.ObservableObject.SetProperty[T](T& field, T newValue, String propertyName) in /_/src/CommunityToolkit.Mvvm/ComponentModel/ObservableObject.cs:line 126
+   at NetworkMonitor.ViewModels.TrafficViewModel.set_ChartPoints(ObservableCollection`1 value) in NetworkMonitor\ViewModels\TrafficViewModel.cs:line 69
+   at NetworkMonitor.ViewModels.TrafficViewModel.LoadAsync(Boolean showLoading) in NetworkMonitor\ViewModels\TrafficViewModel.cs:line 113
+   at NetworkMonitor.ViewModels.TrafficViewModel.ApplyLiveFlushAsync(IReadOnlyList`1 entries) in NetworkMonitor\ViewModels\TrafficViewModel.cs:line 155
+   at NetworkMonitor.Views.TrafficPage.<>c__DisplayClass15_0.<<OnTrafficFlushed>b__0>d.MoveNext() in NetworkMonitor\Views\TrafficPage.xaml.cs:line 73
+Done - Make traffic chart legend nearest 10 like speed chart
+Done - Can I use this like a portable app and just copy bin folder to laptop, assuming app is already installed - Yes, just copy bin folder.
+Done - n Settings data folder desc move \before folder names
+Done - In logs add ping and jitter to entry
+Done - Disable auto 5 min scan complete notification
+Done - In light mode digest report chart background is black.
+Done - by design - Not creating a report on startup if none. Dont create if DB empty.
+Done - Performance investigation
+Done - Change text to add a "S" - "Run periodic speed test"
+Done - Cant scroll to bottom of Traffic apps list as constantly updated.
+Done - Fixed - Added logging for 4k 200% screen restore - Not remembering full screen on 4k 200%. Working on laptop	
+Done - Bub - Devicve scanning stopped. Manual scan just spinning.
+Done - Check all grid column names/widths for consistancy
+Done - Release to GitHub
+Done - Audit the GitHub repo for compliance with the release plan (Documents\Release Review\2026-07-01\public-release-checklist.md)
+
+Do not replace vendor text with Randomized Mac. Show vendor info
+
+Does this app monitor local traffic
+
+add an mDNS probe to enrich name/model for randomized macs.
+Auto update
+
+
+
+
+
+
+
+	
+
+
+
+
+New name 
+"Ulwembu"  is a real isiZulu word, and it fits the web idea well. It means web / cobweb (and by extension the spider itself, and even a thin film). English meanings for ulwembu include web, spider and film. Pronounced roughly ool-WEM-boo.
+or 
+Umnatha in Xhosa
+That's a strong find — possibly the most on-the-nose of everything we've looked at. In isiXhosa, "net" translates to "umnatha." It's the literal word for a net, and it's also the root used in modern isiXhosa for networks and 
+the internet (you'll see umnatha used for "the Web" / online network in tech contexts). 
+Translate.com
+Pronounced roughly oom-NAH-tah. Clean, no clicks, easy for anyone to say, and genuinely Xhosa — which fits the Cape perfectly.

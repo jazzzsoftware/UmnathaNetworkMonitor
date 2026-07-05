@@ -1,0 +1,95 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>NetworkMonitor.Tests</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.*" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.6.0" />
+    <PackageReference Include="xunit.v3" Version="3.2.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\NetworkMonitor\Models\Device.cs">
+      <Link>Linked\Device.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Models\DeviceType.cs">
+      <Link>Linked\DeviceType.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Models\ChartPoint.cs">
+      <Link>Linked\ChartPoint.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Services\Traffic\TrafficRateFormatter.cs">
+      <Link>Linked\TrafficRateFormatter.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Services\Traffic\TrafficWindow.cs">
+      <Link>Linked\TrafficWindow.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Data\OuiDatabase.cs">
+      <Link>Linked\OuiDatabase.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Services\Csv\CsvField.cs">
+      <Link>Linked\CsvField.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Services\Csv\DeviceCsvExporter.cs">
+      <Link>Linked\DeviceCsvExporter.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Services\Csv\DeviceCsvImporter.cs">
+      <Link>Linked\DeviceCsvImporter.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Services\Scanning\MacNormalizer.cs">
+      <Link>Linked\MacNormalizer.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Services\Common\Watchdog.cs">
+      <Link>Linked\Watchdog.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Services\Common\CollectionReconciler.cs">
+      <Link>Linked\CollectionReconciler.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Models\DeviceEvent.cs">
+      <Link>Linked\DeviceEvent.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Models\DeviceEventType.cs">
+      <Link>Linked\DeviceEventType.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Models\DigestSummary.cs">
+      <Link>Linked\DigestSummary.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Models\AppTrafficTotal.cs">
+      <Link>Linked\AppTrafficTotal.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Services\Digest\DigestSummaryBuilder.cs">
+      <Link>Linked\DigestSummaryBuilder.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Services\Digest\DigestSchedule.cs">
+      <Link>Linked\DigestSchedule.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Services\Digest\DigestCsvExporter.cs">
+      <Link>Linked\DigestCsvExporter.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Services\SpeedTest\SpeedTestMath.cs">
+      <Link>Linked\SpeedTestMath.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Models\SpeedTestResult.cs">
+      <Link>Linked\SpeedTestResult.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Services\SpeedTest\SpeedTestMessage.cs">
+      <Link>Linked\SpeedTestMessage.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Services\Csv\SpeedTestCsvExporter.cs">
+      <Link>Linked\SpeedTestCsvExporter.cs</Link>
+    </Compile>
+  </ItemGroup>
+
+</Project>

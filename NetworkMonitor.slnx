@@ -1,0 +1,66 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+    <Platform Name="ARM64" />
+  </Configurations>
+  <Folder Name="/AI/">
+    <File Path="CLAUDE.md" />
+  </Folder>
+  <Folder Name="/Project Config/">
+    <File Path=".editorconfig" />
+    <File Path="CONTRIBUTING.md" />
+    <File Path="LICENSE" />
+    <File Path="NOTICE.md" />
+    <File Path="README.md" />
+    <File Path="SECURITY.md" />
+  </Folder>
+  <Folder Name="/Documents/">
+    <File Path="Documents/Architecture.md" />
+    <File Path="Documents/Claude Session Time.md" />
+    <File Path="Documents/Overview.md" />
+    <File Path="Documents/Project Bin folder description.md" />
+    <File Path="Documents/To Do.txt" />
+  </Folder>
+  <Folder Name="/Documents/Code Review/">
+    <File Path="Documents/Code Review/code-review-procedure.md" />
+  </Folder>
+  <Folder Name="/Documents/Code Review/2026-06-23/">
+    <File Path="Documents/Code Review/2026-06-23/chunk-1-app-lifecycle.md" />
+    <File Path="Documents/Code Review/2026-06-23/chunk-2-traffic-capture.md" />
+    <File Path="Documents/Code Review/2026-06-23/chunk-3-data-layer.md" />
+    <File Path="Documents/Code Review/2026-06-23/chunk-4-scanning.md" />
+    <File Path="Documents/Code Review/2026-06-23/chunk-5-daily-digest.md" />
+    <File Path="Documents/Code Review/2026-06-23/chunk-6-devices-reports-ui.md" />
+    <File Path="Documents/Code Review/2026-06-23/chunk-7-backup.md" />
+    <File Path="Documents/Code Review/2026-06-23/progress.md" />
+    <File Path="Documents/Code Review/2026-06-23/smoke-checklist.md" />
+    <File Path="Documents/Code Review/2026-06-23/summary.md" />
+  </Folder>
+  <Folder Name="/Documents/Performance Review/2026-07-01/">
+    <File Path="Documents/Performance Review/2026-07-01/performance-review.md" />
+  </Folder>
+  <Folder Name="/Documents/Superpowers/" />
+  <Folder Name="/Documents/Superpowers/Plans/">
+    <File Path="Documents/superpowers/plans/2026-05-26-unapproved-devices-page.md" />
+    <File Path="Documents/Superpowers/Plans/2026-06-02-bandwidth-usage.md" />
+    <File Path="Documents/superpowers/plans/2026-06-19-daily-digest.md" />
+    <File Path="Documents/superpowers/plans/2026-06-28-speed-test.md" />
+  </Folder>
+  <Folder Name="/Documents/Superpowers/Specs/">
+    <File Path="Documents/superpowers/specs/2026-05-26-unapproved-devices-page-design.md" />
+    <File Path="Documents/Superpowers/Specs/2026-06-02-bandwidth-usage-design.md" />
+    <File Path="Documents/superpowers/specs/2026-06-14-traffic-live-history-indicator-design.md" />
+    <File Path="Documents/superpowers/specs/2026-06-15-smooth-chart-transitions-design.md" />
+    <File Path="Documents/superpowers/specs/2026-06-19-daily-digest-design.md" />
+    <File Path="Documents/superpowers/specs/2026-06-28-speed-test-design.md" />
+  </Folder>
+  <Folder Name="/Installer/">
+    <File Path="Installer/build-installer.ps1" />
+    <File Path="Installer/NetworkMonitor.iss" />
+  </Folder>
+  <Project Path="NetworkMonitor\NetworkMonitor.csproj">
+    <Platform Solution="Debug|x64" Project="x64" />
+  </Project>
+  <Project Path="NetworkMonitor.Tests\NetworkMonitor.Tests.csproj" />
+</Solution>

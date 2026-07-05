@@ -1,0 +1,100 @@
+using Microsoft.Diagnostics.Tracing.Parsers;
+using Microsoft.Diagnostics.Tracing.Session;
+using Microsoft.Extensions.Hosting;
+using NetworkMonitor.Services.Platform;
+using System.Collections.Concurrent;
+
+namespace NetworkMonitor.Services.Traffic
+{
+    public class TrafficCollector : BackgroundService
+    {
+        private const string SessionName = "NetworkMonitorTraffic";
+        private readonly ConcurrentDictionary<int, long[]> _counters = new();
+        private TraceEventSession? _session;
+
+        public Dictionary<int, (long Upload, long Download)> DrainAndReset()
+        {
+            Dictionary<int, (long Upload, long Download)> snapshot = new();
+
+            foreach (KeyValuePair<int, long[]> entry in _counters)
+            {
+                long[] counter = entry.Value;
+
+                long upload = Interlocked.Exchange(ref counter[0], 0);
+                long download = Interlocked.Exchange(ref counter[1], 0);
+
+                if (upload > 0 || download > 0)
+                {
+                    snapshot[entry.Key] = (upload, download);
+                }
+
+            }
+
+            return snapshot;
+        }
+
+        protected override async Task ExecuteAsync(CancellationToken ct)
+        {
+
+            try
+            {
+                StopOrphanedSession();
+
+                _session = new TraceEventSession(SessionName);
+                _session.EnableKernelProvider(KernelTraceEventParser.Keywords.NetworkTCPIP);
+
+                _session.Source.Kernel.TcpIpSend += args => AddBytes(args.ProcessID, args.size, upload: true);
+                _session.Source.Kernel.TcpIpRecv += args => AddBytes(args.ProcessID, args.size, upload: false);
+                _session.Source.Kernel.UdpIpSend += args => AddBytes(args.ProcessID, args.size, upload: true);
+                _session.Source.Kernel.UdpIpRecv += args => AddBytes(args.ProcessID, args.size, upload: false);
+
+                ct.Register(() => _session.Stop());
+
+                await Task.Run(() => _session.Source.Process(), CancellationToken.None);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception exception)
+            {
+                AppLog.Error("TrafficCollector.ExecuteAsync", exception);
+            }
+
+        }
+
+        public override void Dispose()
+        {
+            _session?.Dispose();
+            base.Dispose();
+        }
+
+        private static void StopOrphanedSession()
+        {
+
+            foreach (string activeSession in TraceEventSession.GetActiveSessionNames())
+            {
+
+                if (string.Equals(activeSession, SessionName, StringComparison.OrdinalIgnoreCase))
+                {
+                    using TraceEventSession leftover = new TraceEventSession(SessionName, TraceEventSessionOptions.Attach);
+                    leftover.Stop();
+                }
+
+            }
+
+        }
+
+        private void AddBytes(int pid, int bytes, bool upload)
+        {
+
+            if (pid >= 0 && bytes > 0)
+            {
+                long[] counter = _counters.GetOrAdd(pid, static key => new long[2]);
+                int slot = upload ? 0 : 1;
+
+                Interlocked.Add(ref counter[slot], bytes);
+            }
+
+        }
+    }
+}

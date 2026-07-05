@@ -1,0 +1,790 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<UserControl
+    x:Class="NetworkMonitor.Views.Controls.DigestReportView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:converters="using:NetworkMonitor.Converters"
+    xmlns:models="using:NetworkMonitor.Models">
+
+    <UserControl.Resources>
+
+        <converters:BytesConverter
+            x:Key="BytesConverter" />
+
+        <converters:UnapprovedHighlightConverter
+            x:Key="UnapprovedHighlightConverter" />
+
+        <DataTemplate
+            x:Key="DeviceRowTemplate"
+            x:DataType="models:UnapprovedDeviceSummary">
+
+            <Grid
+                ColumnDefinitions="1.4*,0.6*,2*,1.3*,1.6*,1.8*,1.2*"
+                Background="{x:Bind Highlight, Converter={StaticResource UnapprovedHighlightConverter}}">
+
+                <Border
+                    Grid.Column="0"
+                    BorderBrush="{ThemeResource DigestBorderBrush}"
+                    BorderThickness="0,0,1,1"
+                    Padding="8,4">
+
+                    <TextBlock
+                        Foreground="{ThemeResource DigestTextBrush}"
+                        Text="{x:Bind LastSeenDisplay}" />
+
+                </Border>
+
+                <Border
+                    Grid.Column="1"
+                    BorderBrush="{ThemeResource DigestBorderBrush}"
+                    BorderThickness="0,0,1,1"
+                    Padding="8,4">
+
+                    <TextBlock
+                        HorizontalAlignment="Center"
+                        Foreground="{ThemeResource DigestTextBrush}"
+                        Text="{x:Bind TypeIcon}" />
+
+                </Border>
+
+                <Border
+                    Grid.Column="2"
+                    BorderBrush="{ThemeResource DigestBorderBrush}"
+                    BorderThickness="0,0,1,1"
+                    Padding="8,4">
+
+                    <TextBlock
+                        TextTrimming="CharacterEllipsis"
+                        Foreground="{ThemeResource DigestTextBrush}"
+                        Text="{x:Bind DisplayName}" />
+
+                </Border>
+
+                <Border
+                    Grid.Column="3"
+                    BorderBrush="{ThemeResource DigestBorderBrush}"
+                    BorderThickness="0,0,1,1"
+                    Padding="8,4">
+
+                    <TextBlock
+                        Foreground="{ThemeResource DigestTextBrush}"
+                        Text="{x:Bind IpAddress}" />
+
+                </Border>
+
+                <Border
+                    Grid.Column="4"
+                    BorderBrush="{ThemeResource DigestBorderBrush}"
+                    BorderThickness="0,0,1,1"
+                    Padding="8,4">
+
+                    <TextBlock
+                        Foreground="{ThemeResource DigestTextBrush}"
+                        Text="{x:Bind MacAddress}" />
+
+                </Border>
+
+                <Border
+                    Grid.Column="5"
+                    BorderBrush="{ThemeResource DigestBorderBrush}"
+                    BorderThickness="0,0,1,1"
+                    Padding="8,4">
+
+                    <TextBlock
+                        TextTrimming="CharacterEllipsis"
+                        Foreground="{ThemeResource DigestTextBrush}"
+                        Text="{x:Bind Vendor}" />
+
+                </Border>
+
+                <Border
+                    Grid.Column="6"
+                    BorderBrush="{ThemeResource DigestBorderBrush}"
+                    BorderThickness="0,0,1,1"
+                    Padding="8,4">
+
+                    <TextBlock
+                        HorizontalAlignment="Center"
+                        Foreground="{ThemeResource DigestTextBrush}"
+                        Text="{x:Bind ConnectActivity}" />
+
+                </Border>
+
+            </Grid>
+
+        </DataTemplate>
+
+    </UserControl.Resources>
+
+    <StackPanel
+        Spacing="16">
+
+        <TextBlock
+            x:Name="PeriodSubtitle"
+            Style="{ThemeResource SubtitleTextBlockStyle}"
+            TextWrapping="Wrap" />
+
+        <TextBlock
+            x:Name="GeneratedText"
+            FontSize="12"
+            Opacity="0.7"
+            TextWrapping="Wrap" />
+
+        <Border
+            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="8"
+            Padding="16">
+
+            <StackPanel
+                Spacing="12">
+
+                <TextBlock
+                    FontWeight="SemiBold"
+                    Text="Traffic — Download vs Upload" />
+
+                <Image
+                    x:Name="TrafficSplitImage"
+                    Stretch="Uniform" />
+
+                <TextBlock
+                    FontWeight="SemiBold"
+                    Text="Top apps by traffic" />
+
+                <Image
+                    x:Name="TrafficChartImage"
+                    Stretch="Uniform" />
+
+                <Border
+                    Background="{ThemeResource DigestPanelBrush}"
+                    BorderBrush="{ThemeResource DigestBorderBrush}"
+                    BorderThickness="1,1,0,0">
+
+                    <StackPanel>
+
+                        <Grid
+                            ColumnDefinitions="2*,*,*">
+
+                            <Border
+                                Grid.Column="0"
+                                BorderBrush="{ThemeResource DigestBorderBrush}"
+                                BorderThickness="0,0,1,1"
+                                Padding="8,4">
+
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Foreground="{ThemeResource DigestHeaderBrush}"
+                                    Text="Process" />
+
+                            </Border>
+
+                            <Border
+                                Grid.Column="1"
+                                BorderBrush="{ThemeResource DigestBorderBrush}"
+                                BorderThickness="0,0,1,1"
+                                Padding="8,4">
+
+                                <TextBlock
+                                    HorizontalAlignment="Right"
+                                    FontWeight="SemiBold"
+                                    Foreground="{ThemeResource DigestHeaderBrush}"
+                                    Text="Download" />
+
+                            </Border>
+
+                            <Border
+                                Grid.Column="2"
+                                BorderBrush="{ThemeResource DigestBorderBrush}"
+                                BorderThickness="0,0,1,1"
+                                Padding="8,4">
+
+                                <TextBlock
+                                    HorizontalAlignment="Right"
+                                    FontWeight="SemiBold"
+                                    Foreground="{ThemeResource DigestHeaderBrush}"
+                                    Text="Upload" />
+
+                            </Border>
+
+                        </Grid>
+
+                        <ItemsControl
+                            x:Name="TopAppsTable">
+
+                            <ItemsControl.ItemTemplate>
+
+                                <DataTemplate
+                                    x:DataType="models:TrafficAppSummary">
+
+                                    <Grid
+                                        ColumnDefinitions="2*,*,*">
+
+                                        <Border
+                                            Grid.Column="0"
+                                            BorderBrush="{ThemeResource DigestBorderBrush}"
+                                            BorderThickness="0,0,1,1"
+                                            Padding="8,4">
+
+                                            <TextBlock
+                                                TextTrimming="CharacterEllipsis"
+                                                Foreground="{ThemeResource DigestTextBrush}"
+                                                Text="{x:Bind ProcessName}" />
+
+                                        </Border>
+
+                                        <Border
+                                            Grid.Column="1"
+                                            BorderBrush="{ThemeResource DigestBorderBrush}"
+                                            BorderThickness="0,0,1,1"
+                                            Padding="8,4">
+
+                                            <TextBlock
+                                                HorizontalAlignment="Right"
+                                                Foreground="{ThemeResource DigestTextBrush}"
+                                                Text="{x:Bind BytesDownloaded, Converter={StaticResource BytesConverter}}" />
+
+                                        </Border>
+
+                                        <Border
+                                            Grid.Column="2"
+                                            BorderBrush="{ThemeResource DigestBorderBrush}"
+                                            BorderThickness="0,0,1,1"
+                                            Padding="8,4">
+
+                                            <TextBlock
+                                                HorizontalAlignment="Right"
+                                                Foreground="{ThemeResource DigestTextBrush}"
+                                                Text="{x:Bind BytesUploaded, Converter={StaticResource BytesConverter}}" />
+
+                                        </Border>
+
+                                    </Grid>
+
+                                </DataTemplate>
+
+                            </ItemsControl.ItemTemplate>
+
+                        </ItemsControl>
+
+                    </StackPanel>
+
+                </Border>
+
+            </StackPanel>
+
+        </Border>
+
+        <Border
+            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="8"
+            Padding="16">
+
+            <StackPanel
+                Spacing="12">
+
+                <TextBlock
+                    FontWeight="SemiBold"
+                    Text="Speed tests (last 24 hours)" />
+
+                <Image
+                    x:Name="ThroughputChartImage"
+                    Stretch="Uniform" />
+
+                <Image
+                    x:Name="LatencyChartImage"
+                    Stretch="Uniform" />
+
+                <Border
+                    Background="{ThemeResource DigestPanelBrush}"
+                    BorderBrush="{ThemeResource DigestBorderBrush}"
+                    BorderThickness="1,1,0,0">
+
+                    <StackPanel>
+
+                        <Grid
+                            ColumnDefinitions="1.6*,1.2*,1.2*,1.2*,1.2*,1*,1*,1.2*">
+
+                            <Border
+                                Grid.Column="0"
+                                BorderBrush="{ThemeResource DigestBorderBrush}"
+                                BorderThickness="0,0,1,1"
+                                Padding="8,4">
+
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Foreground="{ThemeResource DigestHeaderBrush}"
+                                    Text="Time" />
+
+                            </Border>
+
+                            <Border
+                                Grid.Column="1"
+                                BorderBrush="{ThemeResource DigestBorderBrush}"
+                                BorderThickness="0,0,1,1"
+                                Padding="8,4">
+
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Foreground="{ThemeResource DigestAccentTealBrush}"
+                                    Text="Download (Mbps)" />
+
+                            </Border>
+
+                            <Border
+                                Grid.Column="2"
+                                BorderBrush="{ThemeResource DigestBorderBrush}"
+                                BorderThickness="0,0,1,1"
+                                Padding="8,4">
+
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Foreground="{ThemeResource DigestAccentTealBrush}"
+                                    Text="Upload (Mbps)" />
+
+                            </Border>
+
+                            <Border
+                                Grid.Column="3"
+                                BorderBrush="{ThemeResource DigestBorderBrush}"
+                                BorderThickness="0,0,1,1"
+                                Padding="8,4">
+
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Foreground="{ThemeResource DigestAccentBlueBrush}"
+                                    Text="Download (MBps)" />
+
+                            </Border>
+
+                            <Border
+                                Grid.Column="4"
+                                BorderBrush="{ThemeResource DigestBorderBrush}"
+                                BorderThickness="0,0,1,1"
+                                Padding="8,4">
+
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Foreground="{ThemeResource DigestAccentBlueBrush}"
+                                    Text="Upload (MBps)" />
+
+                            </Border>
+
+                            <Border
+                                Grid.Column="5"
+                                BorderBrush="{ThemeResource DigestBorderBrush}"
+                                BorderThickness="0,0,1,1"
+                                Padding="8,4">
+
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Foreground="{ThemeResource DigestHeaderBrush}"
+                                    Text="Latency (ms)" />
+
+                            </Border>
+
+                            <Border
+                                Grid.Column="6"
+                                BorderBrush="{ThemeResource DigestBorderBrush}"
+                                BorderThickness="0,0,1,1"
+                                Padding="8,4">
+
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Foreground="{ThemeResource DigestHeaderBrush}"
+                                    Text="Jitter (ms)" />
+
+                            </Border>
+
+                            <Border
+                                Grid.Column="7"
+                                BorderBrush="{ThemeResource DigestBorderBrush}"
+                                BorderThickness="0,0,1,1"
+                                Padding="8,4">
+
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Foreground="{ThemeResource DigestHeaderBrush}"
+                                    Text="Server" />
+
+                            </Border>
+
+                        </Grid>
+
+                        <ItemsControl
+                            x:Name="SpeedTable">
+
+                            <ItemsControl.ItemTemplate>
+
+                                <DataTemplate
+                                    x:DataType="models:SpeedTestRowSummary">
+
+                                    <Grid
+                                        ColumnDefinitions="1.6*,1.2*,1.2*,1.2*,1.2*,1*,1*,1.2*">
+
+                                        <Border
+                                            Grid.Column="0"
+                                            BorderBrush="{ThemeResource DigestBorderBrush}"
+                                            BorderThickness="0,0,1,1"
+                                            Padding="8,4">
+
+                                            <TextBlock
+                                                Foreground="{ThemeResource DigestTextBrush}"
+                                                Text="{x:Bind TimeDisplay}" />
+
+                                        </Border>
+
+                                        <Border
+                                            Grid.Column="1"
+                                            BorderBrush="{ThemeResource DigestBorderBrush}"
+                                            BorderThickness="0,0,1,1"
+                                            Padding="8,4">
+
+                                            <TextBlock
+                                                Foreground="{ThemeResource DigestAccentTealBrush}"
+                                                Text="{x:Bind DownloadDisplay}" />
+
+                                        </Border>
+
+                                        <Border
+                                            Grid.Column="2"
+                                            BorderBrush="{ThemeResource DigestBorderBrush}"
+                                            BorderThickness="0,0,1,1"
+                                            Padding="8,4">
+
+                                            <TextBlock
+                                                Foreground="{ThemeResource DigestAccentTealBrush}"
+                                                Text="{x:Bind UploadDisplay}" />
+
+                                        </Border>
+
+                                        <Border
+                                            Grid.Column="3"
+                                            BorderBrush="{ThemeResource DigestBorderBrush}"
+                                            BorderThickness="0,0,1,1"
+                                            Padding="8,4">
+
+                                            <TextBlock
+                                                Foreground="{ThemeResource DigestAccentBlueBrush}"
+                                                Text="{x:Bind DownloadMBpsDisplay}" />
+
+                                        </Border>
+
+                                        <Border
+                                            Grid.Column="4"
+                                            BorderBrush="{ThemeResource DigestBorderBrush}"
+                                            BorderThickness="0,0,1,1"
+                                            Padding="8,4">
+
+                                            <TextBlock
+                                                Foreground="{ThemeResource DigestAccentBlueBrush}"
+                                                Text="{x:Bind UploadMBpsDisplay}" />
+
+                                        </Border>
+
+                                        <Border
+                                            Grid.Column="5"
+                                            BorderBrush="{ThemeResource DigestBorderBrush}"
+                                            BorderThickness="0,0,1,1"
+                                            Padding="8,4">
+
+                                            <TextBlock
+                                                Foreground="{ThemeResource DigestTextBrush}"
+                                                Text="{x:Bind LatencyDisplay}" />
+
+                                        </Border>
+
+                                        <Border
+                                            Grid.Column="6"
+                                            BorderBrush="{ThemeResource DigestBorderBrush}"
+                                            BorderThickness="0,0,1,1"
+                                            Padding="8,4">
+
+                                            <TextBlock
+                                                Foreground="{ThemeResource DigestTextBrush}"
+                                                Text="{x:Bind JitterDisplay}" />
+
+                                        </Border>
+
+                                        <Border
+                                            Grid.Column="7"
+                                            BorderBrush="{ThemeResource DigestBorderBrush}"
+                                            BorderThickness="0,0,1,1"
+                                            Padding="8,4">
+
+                                            <TextBlock
+                                                Foreground="{ThemeResource DigestTextBrush}"
+                                                Text="{x:Bind Server}" />
+
+                                        </Border>
+
+                                    </Grid>
+
+                                </DataTemplate>
+
+                            </ItemsControl.ItemTemplate>
+
+                        </ItemsControl>
+
+                    </StackPanel>
+
+                </Border>
+
+            </StackPanel>
+
+        </Border>
+
+        <Border
+            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="8"
+            Padding="16">
+
+            <StackPanel
+                Spacing="12">
+
+                <TextBlock
+                    FontWeight="SemiBold"
+                    Text="All devices" />
+
+                <Border
+                    Background="{ThemeResource DigestPanelBrush}"
+                    BorderBrush="{ThemeResource DigestBorderBrush}"
+                    BorderThickness="1,1,0,0">
+
+                    <StackPanel>
+
+                        <Grid
+                            ColumnDefinitions="1.4*,0.6*,2*,1.3*,1.6*,1.8*,1.2*">
+
+                            <Border
+                                Grid.Column="0"
+                                BorderBrush="{ThemeResource DigestBorderBrush}"
+                                BorderThickness="0,0,1,1"
+                                Padding="8,4">
+
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Foreground="{ThemeResource DigestHeaderBrush}"
+                                    Text="Last seen" />
+
+                            </Border>
+
+                            <Border
+                                Grid.Column="1"
+                                BorderBrush="{ThemeResource DigestBorderBrush}"
+                                BorderThickness="0,0,1,1"
+                                Padding="8,4">
+
+                                <TextBlock
+                                    HorizontalAlignment="Center"
+                                    FontWeight="SemiBold"
+                                    Foreground="{ThemeResource DigestHeaderBrush}"
+                                    Text="Type" />
+
+                            </Border>
+
+                            <Border
+                                Grid.Column="2"
+                                BorderBrush="{ThemeResource DigestBorderBrush}"
+                                BorderThickness="0,0,1,1"
+                                Padding="8,4">
+
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Foreground="{ThemeResource DigestHeaderBrush}"
+                                    Text="Name" />
+
+                            </Border>
+
+                            <Border
+                                Grid.Column="3"
+                                BorderBrush="{ThemeResource DigestBorderBrush}"
+                                BorderThickness="0,0,1,1"
+                                Padding="8,4">
+
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Foreground="{ThemeResource DigestHeaderBrush}"
+                                    Text="IP Address" />
+
+                            </Border>
+
+                            <Border
+                                Grid.Column="4"
+                                BorderBrush="{ThemeResource DigestBorderBrush}"
+                                BorderThickness="0,0,1,1"
+                                Padding="8,4">
+
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Foreground="{ThemeResource DigestHeaderBrush}"
+                                    Text="MAC Address" />
+
+                            </Border>
+
+                            <Border
+                                Grid.Column="5"
+                                BorderBrush="{ThemeResource DigestBorderBrush}"
+                                BorderThickness="0,0,1,1"
+                                Padding="8,4">
+
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Foreground="{ThemeResource DigestHeaderBrush}"
+                                    Text="Vendor" />
+
+                            </Border>
+
+                            <Border
+                                Grid.Column="6"
+                                BorderBrush="{ThemeResource DigestBorderBrush}"
+                                BorderThickness="0,0,1,1"
+                                Padding="8,4">
+
+                                <TextBlock
+                                    HorizontalAlignment="Center"
+                                    FontWeight="SemiBold"
+                                    Foreground="{ThemeResource DigestHeaderBrush}"
+                                    Text="Conn / Disc" />
+
+                            </Border>
+
+                        </Grid>
+
+                        <ItemsControl
+                            x:Name="AllTable"
+                            ItemTemplate="{StaticResource DeviceRowTemplate}" />
+
+                    </StackPanel>
+
+                </Border>
+
+                <TextBlock
+                    FontWeight="SemiBold"
+                    Text="Unapproved devices" />
+
+                <Border
+                    Background="{ThemeResource DigestPanelBrush}"
+                    BorderBrush="{ThemeResource DigestBorderBrush}"
+                    BorderThickness="1,1,0,0">
+
+                    <StackPanel>
+
+                        <Grid
+                            ColumnDefinitions="1.4*,0.6*,2*,1.3*,1.6*,1.8*,1.2*">
+
+                            <Border
+                                Grid.Column="0"
+                                BorderBrush="{ThemeResource DigestBorderBrush}"
+                                BorderThickness="0,0,1,1"
+                                Padding="8,4">
+
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Foreground="{ThemeResource DigestHeaderBrush}"
+                                    Text="Last seen" />
+
+                            </Border>
+
+                            <Border
+                                Grid.Column="1"
+                                BorderBrush="{ThemeResource DigestBorderBrush}"
+                                BorderThickness="0,0,1,1"
+                                Padding="8,4">
+
+                                <TextBlock
+                                    HorizontalAlignment="Center"
+                                    FontWeight="SemiBold"
+                                    Foreground="{ThemeResource DigestHeaderBrush}"
+                                    Text="Type" />
+
+                            </Border>
+
+                            <Border
+                                Grid.Column="2"
+                                BorderBrush="{ThemeResource DigestBorderBrush}"
+                                BorderThickness="0,0,1,1"
+                                Padding="8,4">
+
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Foreground="{ThemeResource DigestHeaderBrush}"
+                                    Text="Name" />
+
+                            </Border>
+
+                            <Border
+                                Grid.Column="3"
+                                BorderBrush="{ThemeResource DigestBorderBrush}"
+                                BorderThickness="0,0,1,1"
+                                Padding="8,4">
+
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Foreground="{ThemeResource DigestHeaderBrush}"
+                                    Text="IP Address" />
+
+                            </Border>
+
+                            <Border
+                                Grid.Column="4"
+                                BorderBrush="{ThemeResource DigestBorderBrush}"
+                                BorderThickness="0,0,1,1"
+                                Padding="8,4">
+
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Foreground="{ThemeResource DigestHeaderBrush}"
+                                    Text="MAC Address" />
+
+                            </Border>
+
+                            <Border
+                                Grid.Column="5"
+                                BorderBrush="{ThemeResource DigestBorderBrush}"
+                                BorderThickness="0,0,1,1"
+                                Padding="8,4">
+
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Foreground="{ThemeResource DigestHeaderBrush}"
+                                    Text="Vendor" />
+
+                            </Border>
+
+                            <Border
+                                Grid.Column="6"
+                                BorderBrush="{ThemeResource DigestBorderBrush}"
+                                BorderThickness="0,0,1,1"
+                                Padding="8,4">
+
+                                <TextBlock
+                                    HorizontalAlignment="Center"
+                                    FontWeight="SemiBold"
+                                    Foreground="{ThemeResource DigestHeaderBrush}"
+                                    Text="Conn / Disc" />
+
+                            </Border>
+
+                        </Grid>
+
+                        <ItemsControl
+                            x:Name="UnapprovedTable"
+                            ItemTemplate="{StaticResource DeviceRowTemplate}" />
+
+                    </StackPanel>
+
+                </Border>
+
+            </StackPanel>
+
+        </Border>
+
+    </StackPanel>
+
+</UserControl>

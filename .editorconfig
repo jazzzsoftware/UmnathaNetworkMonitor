@@ -1,0 +1,39 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = crlf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+
+[*.cs]
+indent_size = 4
+
+# No `var` — always use explicit types.
+csharp_style_var_for_built_in_types = false:warning
+csharp_style_var_when_type_is_apparent = false:warning
+csharp_style_var_elsewhere = false:warning
+
+# Always use curly braces, even for single-line bodies.
+csharp_prefer_braces = true:warning
+
+# Allman style — opening brace on its own line.
+csharp_new_line_before_open_brace = all
+
+# Private fields use a leading underscore + camelCase (e.g. _fieldName).
+dotnet_naming_rule.private_fields_underscore.severity = warning
+dotnet_naming_rule.private_fields_underscore.symbols = private_fields
+dotnet_naming_rule.private_fields_underscore.style = underscore_prefix_style
+
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+
+dotnet_naming_style.underscore_prefix_style.required_prefix = _
+dotnet_naming_style.underscore_prefix_style.capitalization = camel_case
+
+[*.{xaml,xml}]
+indent_size = 4
+
+[*.json]
+indent_size = 2

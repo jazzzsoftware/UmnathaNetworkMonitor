@@ -1,0 +1,70 @@
+# ==========================================
+# Visual Studio 2026 & Core IDE ignores
+# ==========================================
+.vs/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+[Ll]og/
+
+# User-specific configuration and state
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.env
+
+# ==========================================
+# .NET / C# Build & Package Tools
+# ==========================================
+# NuGet Packages
+*.nuget.props
+*.nuget.targets
+project.lock.json
+project.fragment.lock.json
+
+# Test results
+[Tt]est[Rr]esult*/
+*.trx
+
+# Roslyn / Code Analysis
+.cr/
+*.generated.cs
+
+# Crash logs and diagnostics
+*.log
+mono_crash.*
+
+# ==========================================
+# Installer output
+# ==========================================
+Installer/Output/
+
+# ==========================================
+# Operating System files
+# ==========================================
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+.superpowers/
+
+# NCrunch
+*.ncrunchsolution
+*.ncrunchproject
+_NCrunch_*/
+.NCrunch_*/
+
+# Claude Code local settings (personal environment paths/tools)
+.claude/settings.local.json
+
+# ==========================================
+# Internal release-audit docs
+# ==========================================
+# Kept locally and on the DevOps 'legacy' branch; excluded from the public repo
+# because the checklist itself restates personal environment info (username, paths, tools).
+Documents/Release Review/
