@@ -132,10 +132,10 @@ Done - Bub - Devicve scanning stopped. Manual scan just spinning.
 Done - Check all grid column names/widths for consistancy
 Done - Release to GitHub
 Done - Audit the GitHub repo for compliance with the release plan (Documents\Release Review\2026-07-01\public-release-checklist.md)
+Done - Do not replace vendor text with Randomized Mac. Show vendor info
 
-Do not replace vendor text with Randomized Mac. Show vendor info
-
-Does this app monitor local traffic
+?????Bug after Macrium copy the traffic chart did not resize.
+Spec - Does this app monitor local traffic
 
 add an mDNS probe to enrich name/model for randomized macs.
 Auto update
