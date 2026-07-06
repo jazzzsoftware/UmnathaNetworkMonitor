@@ -284,7 +284,7 @@ The database uses `EnsureCreated` (no EF migrations) as the **sole** schema sour
 | Traffic — per-minute rollups (`TrafficRollups`) | 7 days | ✅ `Settings.TrafficPurgeDays` | `ScanWorker` purge loop |
 | Speed test results (`SpeedTestResults`) | 7 days | ✅ `Settings.TrafficPurgeDays` (folded into traffic purge) | `ScanWorker` purge loop |
 | Daily digests (`DigestReports`) | 30 days | ✅ `Settings.DigestPurgeDays` (Settings → Other) | `DigestWorker` purge |
-| Database backups (`.db` + approved-devices `.csv`) | 3 days | ❌ `DatabaseBackupWorker.RetentionDays` const | pruned after each successful backup |
+| Database backups (`.db` + approved-devices `.csv`) | 3 days | ❌ `DatabaseBackupWorker.RetentionDays` const | pruned after each successful backup (retention is by **age**, not count — see note below) |
 | Diagnostic logs (`Log-*.txt`) | 7 days | ❌ `AppLog.RetentionDays` const | pruned on startup when logging is enabled |
 
 ## Diagnostic logging
@@ -364,6 +364,8 @@ SQLite WAL mode is used by default. On a clean exit (tray → Exit), `PRAGMA wal
 - `approved-devices_yyyy-MM-dd_HH-mm-ss.csv` — the approved (known) devices exported through `DeviceCsvExporter`, sharing the same timestamp as the `.db` snapshot.
 
 To avoid redundant copies when the app restarts often, a backup runs at startup only if the newest existing `.db` backup is older than 24 hours; otherwise it waits out the remainder of the interval (cadence keyed off the timestamp embedded in the backup filename). Backups older than **3 days** are pruned after each successful backup; on a failed CSV export the just-written `.db` is removed so a `.db`/`.csv` pair is all-or-nothing. There is no in-app restore — restoring is a manual file operation.
+
+> **Note — you may see 4 backups, not 3.** Retention is by **age** (delete anything older than 3 days), not by **count**. With the ~24-hour cadence, a 3-day window holds today's backup plus the three previous days, so **up to 4 `.db`/`.csv` pairs** can be present at once (a file lands right on the 3-day boundary before the next prune removes it). This is intended behaviour of an age-based policy — it is not a bug. If exactly 3 files were ever required, retention would need to switch from age-based (`RetentionDays`) to count-based ("keep newest 3").
 
 ## Unapproved device row highlighting
 
