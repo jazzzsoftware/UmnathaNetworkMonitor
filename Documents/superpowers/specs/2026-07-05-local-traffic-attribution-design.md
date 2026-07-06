@@ -1,18 +1,18 @@
 # Local Traffic Attribution — Design Spec
 
 - **Date:** 2026-07-05
-- **Status:** Decision spec (for discussion — not yet approved to build)
+- **Status:** Decisions resolved (2026-07-06) — ready for a follow-up build spec / plan
 - **Author:** Brainstormed with Claude
 - **Related area:** `NetworkMonitor/Services/Traffic/` (TrafficCollector, TrafficTracker), Traffic UI
 
 ## Purpose of this document
 
 This is a **decision spec**, not a build spec. It captures a problem discovered while
-testing the Traffic feature, explains the root cause, and lays out the options so a
-direction can be chosen through discussion. It commits to a *foundation* (capture the
-remote address and classify LAN-local traffic) and deliberately leaves the finer
-sub-decisions open. Nothing should be implemented directly from this document until the
-open questions in section 8 are resolved and a follow-up build spec / plan is written.
+testing the Traffic feature, explains the root cause, and lays out the options. It commits
+to a *foundation* (capture the remote address and classify LAN-local traffic). The
+sub-decisions that were originally left open were resolved on 2026-07-06 and are recorded
+inline in section 8. Implementation should still flow through a follow-up build spec / plan
+rather than being coded directly from this document.
 
 ## 1. Background — what was observed
 
@@ -107,28 +107,66 @@ problem with only approximate solutions, documented here so it is not re-litigat
 None of these is part of the foundation. If pursued, the endpoint-level tab can carry the
 app as a *secondary, best-effort* column.
 
-## 8. Open questions for discussion (deliberately unresolved)
+## 8. Resolved decisions (2026-07-06)
 
-1. **App attribution overlay** — do we want the handle-based hint at all in v1, or pure
-   endpoint attribution first?
-2. **Data model** — add a remote-endpoint dimension to `TrafficEntry` / `TrafficRollups`, or
-   introduce a separate LAN-traffic aggregation keyed by endpoint? Impacts row cardinality
-   and storage. A backup touching one NAS is low-cardinality; many endpoints is not.
-3. **Hot-path cost** — keying the collector by `(pid, remoteIp)` instead of `pid` adds work
-   to a very high-frequency ETW callback during a backup. The aggregation must stay lean
-   (e.g. a concurrent dictionary keyed by a packed endpoint value).
-4. **IP→device mapping freshness** — the ARP/known-device table can lag; how stale a mapping
-   is acceptable before an endpoint is shown as a bare IP.
-5. **IPv6** — in scope or explicitly deferred (see section 6 note).
-6. **Retention / purge** — does LAN-endpoint data follow the existing `TrafficPurgeDays`
-   policy, or its own?
+Each question below was resolved through discussion. These are the decisions the build spec
+must implement.
+
+1. **App attribution overlay → DEFERRED. v1 is pure endpoint attribution.**
+   The identification win is the endpoint→device mapping, not app-level attribution. The
+   `NtQuerySystemInformation` handle hint (section 7) is approximate, needs native interop,
+   and adds cost for a "maybe Macrium" guess. Ship endpoint-only; revisit the app overlay
+   only if the endpoint view proves insufficient.
+
+2. **Data model → a separate LAN-only table keyed by `(MinuteEpoch, RemoteIp)`.**
+   Do **not** add a remote-endpoint dimension to `TrafficEntry` / `TrafficRollup`: that would
+   explode cardinality on the internet view (every remote IP a browser touches) and change
+   the by-process key the existing tab depends on. Introduce a new
+   `LocalTrafficRollup { MinuteEpoch, RemoteIp, BytesUploaded, BytesDownloaded }` table; only
+   LAN-classified bytes land in it, and the existing tables are untouched. Process is kept
+   out of the key (endpoint-only). No separate raw per-flush LAN table — per-minute rollups
+   are sufficient for up / down / rate / peak, and live rate comes from the in-memory drain
+   delta as it does today.
+
+3. **Hot-path cost → keep the existing `pid` dictionary as-is; add a second, parallel
+   LAN-only dictionary.**
+   Do not re-key `TrafficCollector` by `(pid, remoteIp)`. Keep `pid → (up,down)` exactly as
+   it is, and accumulate into a second dictionary **only when the remote IP classifies as
+   LAN**. Internet packets are classified out with a few integer bitmask compares and never
+   touch the second map, so its cardinality stays naturally bounded to the handful of LAN
+   endpoints. Precompute the active subnet ranges as start/end `uint` pairs once on
+   network-change so the callback is integer compares + one `Interlocked.Add`. Build-spec
+   detail to verify: read the IPv4 address off the ETW event in the lowest-allocation way
+   (avoid a per-packet `IPAddress.GetAddressBytes()` if a packed-int accessor exists).
+
+4. **IP→device mapping freshness → resolve at display time; no staleness policy.**
+   Store only the raw `RemoteIp`. When rendering the tab, resolve against the *current*
+   known-device list (`Device.IpAddress` → `Device.DisplayName`); an unmatched IP shows as a
+   bare IP. Historical rows then auto-acquire names as devices become known, and there is no
+   threshold to tune. DHCP reassignment (an IP later belonging to a different device) is
+   accepted for LAN identification and out of scope for v1.
+
+5. **IPv6 → DEFERRED. v1 is IPv4-only, but the schema accommodates IPv6 with no later
+   change.**
+   SMB/NAS backups — the motivating case — are overwhelmingly IPv4 on SOHO LANs; wiring the
+   `...IPV6` ETW variants plus 128-bit classification (`fe80::/10`, `fc00::/7`) doubles the
+   surface for little near-term value. The in-memory collector uses a packed `uint` (IPv4);
+   the DB `RemoteIp` column stores the **canonical string** form (converted on the cold flush
+   path), so IPv6 rows fit later without a migration. Document explicitly in-app/logs that
+   IPv6 LAN traffic is uncounted in v1.
+
+6. **Retention / purge → follow the existing `TrafficPurgeDays` / 7-day trim.**
+   Same class of data; no second retention knob. Wire `LocalTrafficRollup` into the current
+   purge + trim routine.
 
 ## 9. Database impact
 
-If built, this introduces a schema change (new column(s) or table for the endpoint
-dimension). The project uses EF Core `EnsureCreated` with **no migrations**, so the change
-would require a **one-time local DB delete** on upgrade. (No DB delete is needed for this
-spec itself — it is documentation only.)
+Per decision 8.2, this introduces exactly one new table — `LocalTrafficRollup`
+(`MinuteEpoch`, `RemoteIp` string, `BytesUploaded`, `BytesDownloaded`) — and no changes to
+the existing `TrafficEntry` / `TrafficRollup` schema. The project uses EF Core
+`EnsureCreated` with **no migrations**, so adding the table requires a **one-time local DB
+delete** on upgrade. (No DB delete is needed for this spec itself — it is documentation
+only.)
 
 ## 10. Testing considerations
 
