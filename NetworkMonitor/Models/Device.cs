@@ -69,12 +69,36 @@ namespace NetworkMonitor.Models
             }
         }
 
+        private string? _mdnsName;
+
+        public string? MdnsName
+        {
+            get => _mdnsName;
+            set
+            {
+
+                if (SetProperty(ref _mdnsName, value))
+                {
+                    OnPropertyChanged(nameof(DisplayName));
+                }
+
+            }
+        }
+
         private string? _vendor;
 
         public string? Vendor
         {
             get => _vendor;
             set => SetProperty(ref _vendor, value);
+        }
+
+        private string? _model;
+
+        public string? Model
+        {
+            get => _model;
+            set => SetProperty(ref _model, value);
         }
 
         private DeviceType _type = DeviceType.Unknown;
@@ -150,7 +174,7 @@ namespace NetworkMonitor.Models
         }
 
         [NotMapped]
-        public string DisplayName => FriendlyName ?? Hostname ?? IpAddress;
+        public string DisplayName => FriendlyName ?? MdnsName ?? Hostname ?? IpAddress;
 
         [NotMapped]
         public string LastSeenLabel
@@ -223,8 +247,10 @@ namespace NetworkMonitor.Models
             MacAddress = other.MacAddress;
             IpAddress = other.IpAddress;
             Hostname = other.Hostname;
+            MdnsName = other.MdnsName;
             FriendlyName = other.FriendlyName;
             Vendor = other.Vendor;
+            Model = other.Model;
             Type = other.Type;
             IsApproved = other.IsApproved;
             IsOnline = other.IsOnline;

@@ -52,6 +52,54 @@ namespace NetworkMonitor.Tests
         }
 
         [Fact]
+        public void DisplayNamePrefersFriendlyNameOverMdnsName()
+        {
+            Device device = new()
+            {
+                FriendlyName = "Mark's Laptop",
+                MdnsName = "Kitchen HomePod",
+                Hostname = "laptop.local",
+                IpAddress = "192.168.1.50"
+            };
+
+            string displayName = device.DisplayName;
+
+            Assert.Equal("Mark's Laptop", displayName);
+        }
+
+        [Fact]
+        public void DisplayNameUsesMdnsNameWhenNoFriendlyName()
+        {
+            Device device = new()
+            {
+                FriendlyName = null,
+                MdnsName = "Kitchen HomePod",
+                Hostname = "laptop.local",
+                IpAddress = "192.168.1.50"
+            };
+
+            string displayName = device.DisplayName;
+
+            Assert.Equal("Kitchen HomePod", displayName);
+        }
+
+        [Fact]
+        public void DisplayNameFallsBackToHostnameWhenNoFriendlyOrMdnsName()
+        {
+            Device device = new()
+            {
+                FriendlyName = null,
+                MdnsName = null,
+                Hostname = "laptop.local",
+                IpAddress = "192.168.1.50"
+            };
+
+            string displayName = device.DisplayName;
+
+            Assert.Equal("laptop.local", displayName);
+        }
+
+        [Fact]
         public void LastSeenLabelIsOnlineWhenOnline()
         {
             Device device = new()
