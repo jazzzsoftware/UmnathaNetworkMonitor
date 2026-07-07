@@ -56,6 +56,7 @@
     <File Path="Documents/superpowers/specs/2026-06-19-daily-digest-design.md" />
     <File Path="Documents/superpowers/specs/2026-06-28-speed-test-design.md" />
     <File Path="Documents/superpowers/specs/2026-07-05-local-traffic-attribution-design.md" />
+    <File Path="Documents/superpowers/specs/2026-07-07-mdns-enrichment-design.md" />
   </Folder>
   <Folder Name="/Installer/">
     <File Path="Installer/build-installer.ps1" />
