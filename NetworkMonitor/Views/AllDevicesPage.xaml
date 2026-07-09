@@ -265,6 +265,11 @@
                     Width="200"
                     Binding="{Binding Vendor}" />
 
+                <controls:DataGridTextColumn
+                    Header="Model"
+                    Width="160"
+                    Binding="{Binding Model}" />
+
                 <controls:DataGridTemplateColumn
                     Header="Actions"
                     Width="240">
