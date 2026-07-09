@@ -106,6 +106,7 @@ namespace NetworkMonitor.Services.Scanning
                 }
 
                 device.Vendor ??= scannedDevice.Vendor;
+                MdnsEnrichment.Apply(device, new MdnsInfo(scannedDevice.MdnsName, scannedDevice.Model));
                 device.IsOnline = true;
                 device.LastSeen = DateTime.UtcNow;
 
