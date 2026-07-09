@@ -8,6 +8,7 @@ Network Monitor (Umnatha Network Monitor) is a Windows desktop application that 
 - **Tracks devices** by MAC address across IP changes and DHCP renewals.
 - **Classifies devices** by type (Router, PC, Mobile, Camera, etc.) with an emoji icon.
 - **Identifies vendors** from the IEEE OUI database using the first three octets of each MAC address.
+- **Enriches names via mDNS** — a per-scan mDNS/DNS-SD (Bonjour) discovery pass fills a friendly name and hardware model for devices that OUI vendor and reverse-DNS can't identify (chiefly randomized-MAC devices), stored in dedicated fields that never overwrite a name you've set.
 - **Measures per-application traffic** — captures upload/download bytes per process directly from the Windows kernel and charts it live.
 - **Measures internet speed** — runs an hourly download/upload/latency/jitter speed test against Cloudflare (no account needed) and charts the history.
 - **Generates a daily digest** — a once-a-day report summarising device activity and traffic, viewable in-app and exportable to PDF or CSV.
@@ -58,6 +59,12 @@ You can:
 ## Marking devices as known
 
 On the Devices/Unapproved tabs, approve any unknown device. A dialog lets you assign a friendly name, device type, and optional notes. Once approved, the device moves to the Approved list and its row is no longer highlighted. Device lists can also be imported from and exported to CSV.
+
+## Device naming & mDNS enrichment
+
+A device's display name is chosen in priority order: the **friendly name** you've set, then an **mDNS name**, then its reverse-DNS **hostname**, then its **IP address**. To fill that middle rung, every scan runs a short mDNS/DNS-SD (Bonjour) discovery pass — overlapped with the ping sweep, so it adds no noticeable time — and records a discovered name and hardware **Model** for devices that respond. The Model shows as a column on the Devices grid.
+
+This mainly helps **randomized-MAC devices** (many phones, and Apple/Google/IoT gear), where the OUI vendor lookup is meaningless and reverse-DNS usually fails, so the device would otherwise appear as a bare IP. Discovered names and models are stored in their own fields and refresh on each scan, but they **never overwrite a friendly name you've assigned**. mDNS is best-effort: devices that don't advertise over it (for example stock Android, or a locked iPhone) simply keep whatever name they already had.
 
 ## Notifications
 

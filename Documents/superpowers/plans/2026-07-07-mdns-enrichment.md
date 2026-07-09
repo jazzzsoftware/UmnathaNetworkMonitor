@@ -1,5 +1,7 @@
 # mDNS Enrichment Implementation Plan
 
+> **STATUS: COMPLETE (2026-07-09).** All 7 tasks implemented; 114/114 tests pass; Release x64 build clean. Live-verified end-to-end (see **Completion & Verification** at the bottom). Two bugs surfaced during live verification and fixed on top of the base plan (opaque-name filtering, DNS-escape decoding) plus a listen-window bump 2s → 4s. **One-time local DB delete required on upgrade** (two new `Device` columns via EnsureCreated). Not yet pushed at time of writing — awaiting commit approval.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** During each network scan, run one mDNS / DNS-SD discovery pass and fill in a friendly name and model for devices that lack them — chiefly randomized-MAC devices where OUI and reverse-DNS give nothing.
@@ -987,3 +989,38 @@ git commit -m "Show Model column in the device grid and register the mDNS plan."
 - **External assumption:** the `Makaretu.Dns` multicast API surface (package name/version and record property names) is the one thing to confirm at Task 4 build; the pure parser is fully insulated and unit-tested independently.
 - **slnx:** only the plan `.md` is added (Task 7) — source `.cs` files are SDK-globbed, confirmed against the actual `NetworkMonitor.slnx` (lists only docs/config + the two projects).
 ```
+
+---
+
+## Completion & Verification (2026-07-09)
+
+All 7 tasks are implemented. Final state: **114/114 tests pass**, `dotnet build NetworkMonitor.slnx -c Release -p:Platform=x64` succeeds.
+
+### Deviations from the base plan
+
+1. **Test project needs linked `<Compile>` entries.** `NetworkMonitor.Tests` cannot reference the WinUI project (windows-specific TFM), so it links pure source files individually. `MdnsInfo.cs`, `MdnsEnrichment.cs`, and `MdnsResponseParser.cs` were added as `<Compile Include ...><Link>` entries in `NetworkMonitor.Tests.csproj`. The plan omitted this; without it the new tests do not compile.
+2. **Package split.** `Makaretu.Dns` 2.x moves the multicast API into a separate package, so **both** `Makaretu.Dns` 2.0.1 and `Makaretu.Dns.Multicast` 0.27.0 are referenced (the multicast package depends on the 2.0.1 core). The record/property names in the plan's External-assumption note all resolved as written.
+
+### Bugs found during live verification (and fixed)
+
+Verification used a throwaway console harness (`MdnsCheck`) that links the real `MdnsResponseParser` and runs an actual multicast discovery, plus a synthetic advertiser (`MdnsAdvertise`) broadcasting `_airplay._tcp` with `model=AppleTV5,3`. These live runs surfaced two defects the unit tests alone did not:
+
+1. **Opaque service instance names became the display name.** A locked dev iPhone advertised only `_remotepairing._tcp`, whose instance label is a UUID. The parser took that UUID as `MdnsName`, and since `DisplayName = FriendlyName ?? MdnsName ?? Hostname ?? IpAddress`, the GUID *outranked* the good hostname. **Fix:** `MdnsResponseParser.IsOpaqueName` skips GUID-form labels and known infra/pairing service types (`_remotepairing`, `_apple-mobdev`, `_sleep-proxy`, `_rdlink`) when choosing a friendly name.
+2. **DNS presentation-format escapes were not decoded.** `Makaretu` returns names in wire/presentation format, so a name with a space came through as `Living\032Room`. Very common for the Apple/Google devices this feature targets. **Fix:** `MdnsResponseParser.Unescape` decodes `\DDD` decimal escapes and `\<char>` escapes on the friendly name.
+
+Three parser tests were added for these: DNS-escape decoding, opaque-GUID skip, and preferring a friendly service (`_airplay`) over an opaque one for the same IP.
+
+### Other change
+
+- **Listen window 2s → 4s** (`NetworkScanner.MdnsListenMs`). Even multi-second live probes were slow to catch some devices (notably iOS); 2s missed too much. The window overlaps the ping sweep, so the bump adds little/no wall-clock cost.
+
+### Live results
+
+- **eWeLink smart plug** — named correctly from a real scan (`eWeLink_1000beb2e9`), no model advertised (blank Model, as expected).
+- **Synthetic Apple TV** — `Name='Fake Apple TV'  Model='AppleTV5,3'`, confirming the full PTR→SRV→A + TXT-model pipeline and the unescape fix end-to-end.
+- **A second eWeLink with no A record** — correctly produced no phantom row.
+- **iPhone (dev device)** — will not self-advertise a friendly name/model on this network: iPhones are not AirPlay receivers, so they only expose `_companion-link` (needs Handoff + other Apple devices) or the opaque `_remotepairing`. This is iOS behaviour, not a code gap. The Model column populates from real Apple receivers (Apple TV / HomePod / Mac) or an actively-advertising iPhone.
+
+### Remaining
+
+- Manual in-app walkthrough after a one-time DB delete (run a scan, confirm a previously-bare device shows an mDNS name and the Model column populates, and a curated `FriendlyName` is not overridden).

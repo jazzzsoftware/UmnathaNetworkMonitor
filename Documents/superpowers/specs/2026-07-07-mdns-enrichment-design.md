@@ -55,6 +55,7 @@ Split into a pure, unit-tested parser and a thin I/O layer, mirroring the codeba
   - PTR / SRV records give `service instance name → host`.
   - TXT records give the model via `model=` / `md=`, most reliably on `_device-info._tcp.local`.
   - Records that cannot be correlated to an IP produce no entry (no phantom rows).
+  - **Name hardening (added during implementation, 2026-07-09):** the chosen friendly name has DNS presentation-format escapes decoded (`\032` → space, etc.) so names with spaces render correctly; and opaque instance labels — GUID-form names and known infra/pairing service types (`_remotepairing`, `_apple-mobdev`, `_sleep-proxy`, `_rdlink`) — are skipped so an opaque identifier never becomes `MdnsName` and outranks a good hostname.
 - **`MdnsProbe`** — thin I/O layer over `Makaretu.Dns`. Sends the DNS-SD meta-query (`_services._dns-sd._udp.local`), collects `AnswerReceived` messages for a ~2s window, hands the accumulated records to `MdnsResponseParser`, and returns the IP → `MdnsInfo` map. **Fully guarded:** any failure (no multicast route, firewall block, timeout) returns an empty map. Signature: `Task<IReadOnlyDictionary<string, MdnsInfo>> DiscoverAsync(TimeSpan window, CancellationToken ct)`.
 
 ## 5. Scan Pipeline Changes

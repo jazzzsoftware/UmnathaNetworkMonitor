@@ -13,7 +13,7 @@ namespace NetworkMonitor.Services.Scanning
 
         private const int ArpTimeoutSeconds = 10;
 
-        private const int MdnsListenMs = 2000;
+        private const int MdnsListenMs = 4000;
 
         public async Task<IReadOnlyList<ScannedDevice>> ScanAsync(
             Settings settings, CancellationToken ct = default)

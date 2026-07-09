@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace NetworkMonitor.Services.Scanning
 {
     public readonly record struct MdnsAddressRecord(string Host, string Ip);
@@ -11,6 +13,11 @@ namespace NetworkMonitor.Services.Scanning
     public static class MdnsResponseParser
     {
         private static readonly string[] ModelKeys = { "model", "md", "rpmd" };
+
+        private static readonly string[] OpaqueServiceTypes =
+        {
+            "_remotepairing", "_apple-mobdev", "_sleep-proxy", "_rdlink"
+        };
 
         public static IReadOnlyDictionary<string, MdnsInfo> Parse(
             IReadOnlyList<MdnsAddressRecord> addressRecords,
@@ -47,9 +54,11 @@ namespace NetworkMonitor.Services.Scanning
             foreach (MdnsPointerRecord pointerRecord in pointerRecords)
             {
                 string instance = Trim(pointerRecord.Instance);
-                string friendly = FriendlyLabel(instance, Trim(pointerRecord.Service));
+                string service = Trim(pointerRecord.Service);
+                string friendly = FriendlyLabel(instance, service);
 
                 if (!string.IsNullOrEmpty(friendly)
+                    && !IsOpaqueName(friendly, service)
                     && instanceToHost.TryGetValue(instance, out string? host)
                     && hostToIp.TryGetValue(host, out string? ip))
                 {
@@ -57,7 +66,7 @@ namespace NetworkMonitor.Services.Scanning
 
                     if (string.IsNullOrEmpty(info.Name))
                     {
-                        info.Name = friendly;
+                        info.Name = Unescape(friendly);
                     }
 
                 }
@@ -114,6 +123,66 @@ namespace NetworkMonitor.Services.Scanning
             string result = label;
 
             return result;
+        }
+
+        private static string Unescape(string value)
+        {
+            StringBuilder builder = new(value.Length);
+            int index = 0;
+
+            while (index < value.Length)
+            {
+                char current = value[index];
+
+                if (current == '\\' && index + 3 < value.Length
+                    && char.IsDigit(value[index + 1])
+                    && char.IsDigit(value[index + 2])
+                    && char.IsDigit(value[index + 3]))
+                {
+                    int code = ((value[index + 1] - '0') * 100) + ((value[index + 2] - '0') * 10) + (value[index + 3] - '0');
+                    builder.Append((char) code);
+                    index += 4;
+                }
+                else if (current == '\\' && index + 1 < value.Length)
+                {
+                    builder.Append(value[index + 1]);
+                    index += 2;
+                }
+                else
+                {
+                    builder.Append(current);
+                    index += 1;
+                }
+
+            }
+
+            string result = builder.ToString();
+
+            return result;
+        }
+
+        private static bool IsOpaqueName(string label, string service)
+        {
+            bool opaque = Guid.TryParse(label, out _);
+
+            if (!opaque)
+            {
+
+                foreach (string opaqueService in OpaqueServiceTypes)
+                {
+
+                    if (service.Contains(opaqueService, StringComparison.OrdinalIgnoreCase))
+                    {
+                        opaque = true;
+
+                        break;
+                    }
+
+                }
+
+            }
+
+            return opaque;
         }
 
         private static string ExtractModel(IReadOnlyList<string> entries)
