@@ -5,7 +5,7 @@ using NetworkMonitor.Data;
 
 namespace NetworkMonitor.Services.Scanning
 {
-    public partial class NetworkScanner(OuiDatabase oui)
+    public partial class NetworkScanner(OuiDatabase oui, MdnsProbe mdnsProbe)
     {
         private const int MaxParallelDnsLookups = 20;
 
@@ -13,11 +13,16 @@ namespace NetworkMonitor.Services.Scanning
 
         private const int ArpTimeoutSeconds = 10;
 
+        private const int MdnsListenMs = 2000;
+
         public async Task<IReadOnlyList<ScannedDevice>> ScanAsync(
             Settings settings, CancellationToken ct = default)
         {
             using SemaphoreSlim semaphore = new(settings.MaxParallelPings);
             using SemaphoreSlim dnsSemaphore = new(MaxParallelDnsLookups);
+
+            Task<IReadOnlyDictionary<string, MdnsInfo>> mdnsTask =
+                mdnsProbe.DiscoverAsync(TimeSpan.FromMilliseconds(MdnsListenMs), ct);
 
             IEnumerable<Task<string?>> pingTasks = Enumerable
                 .Range(settings.StartHost, settings.EndHost - settings.StartHost + 1)
@@ -29,6 +34,8 @@ namespace NetworkMonitor.Services.Scanning
 
             Dictionary<string, string> arpTable = await GetArpTableAsync(ct);
 
+            IReadOnlyDictionary<string, MdnsInfo> mdnsMap = await mdnsTask;
+
             List<Task<ScannedDevice>> deviceTasks = respondingIps
                 .Where(ip => arpTable.ContainsKey(ip))
                 .Select(async ip =>
@@ -36,7 +43,8 @@ namespace NetworkMonitor.Services.Scanning
                     string mac = arpTable[ip];
                     string? hostname = await ResolveHostnameAsync(ip, dnsSemaphore, ct);
                     string? vendor = oui.Lookup(mac);
-                    ScannedDevice scannedDevice = new(ip, mac, hostname, vendor);
+                    mdnsMap.TryGetValue(ip, out MdnsInfo? mdnsInfo);
+                    ScannedDevice scannedDevice = new(ip, mac, hostname, vendor, mdnsInfo?.Name, mdnsInfo?.Model);
 
                     return scannedDevice;
                 })
@@ -171,5 +179,5 @@ namespace NetworkMonitor.Services.Scanning
 
     }
 
-    public record ScannedDevice(string Ip, string Mac, string? Hostname, string? Vendor);
+    public record ScannedDevice(string Ip, string Mac, string? Hostname, string? Vendor, string? MdnsName, string? Model);
 }
