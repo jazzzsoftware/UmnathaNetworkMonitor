@@ -51,6 +51,15 @@
     <Compile Include="..\NetworkMonitor\Services\Scanning\MacNormalizer.cs">
       <Link>Linked\MacNormalizer.cs</Link>
     </Compile>
+    <Compile Include="..\NetworkMonitor\Services\Scanning\MdnsInfo.cs">
+      <Link>Linked\MdnsInfo.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Services\Scanning\MdnsEnrichment.cs">
+      <Link>Linked\MdnsEnrichment.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Services\Scanning\MdnsResponseParser.cs">
+      <Link>Linked\MdnsResponseParser.cs</Link>
+    </Compile>
     <Compile Include="..\NetworkMonitor\Services\Common\Watchdog.cs">
       <Link>Linked\Watchdog.cs</Link>
     </Compile>
