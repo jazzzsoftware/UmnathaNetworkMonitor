@@ -817,55 +817,19 @@
                         Opacity="0.7" />
 
                     <TextBlock
-                        Text="• Speed tests now run at the top of each hour and use larger 50 MB transfers with more latency samples, for more accurate results."
+                        Text="• Automatic device naming (mDNS/Bonjour). Devices that previously showed only an IP address — phones, and many Apple, Google and smart-home devices — now appear with a friendly name. This especially helps modern devices that use randomised MAC addresses, where vendor and hostname lookups come up blank."
                         TextWrapping="Wrap" />
 
                     <TextBlock
-                        Text="• Speed-test latency is now measured the same way as Cloudflare's own web test, so the figure is accurate rather than inflated."
+                        Text="• New Model column on the Devices list shows the hardware model for devices that publish it (e.g. Apple gear)."
                         TextWrapping="Wrap" />
 
                     <TextBlock
-                        Text="• Speed-test times are now shown in your local time."
+                        Text="• Names with spaces and special characters display correctly, and meaningless internal identifiers are ignored, so you get a clean, readable name."
                         TextWrapping="Wrap" />
 
                     <TextBlock
-                        Text="• Throughput is now labelled Download/Upload (renamed from Received/Sent) and shown in both Mbps and MBps, colour-coded — on the Speed Test page and in the daily digest."
-                        TextWrapping="Wrap" />
-
-                    <TextBlock
-                        Text="• The daily digest lists the most recent speed tests first."
-                        TextWrapping="Wrap" />
-
-                    <TextBlock
-                        Text="• All charts now have labelled value axes (with units), an axis line and gridlines for easier reading."
-                        TextWrapping="Wrap" />
-
-                    <TextBlock
-                        Text="• The Speed Test chart now displays correctly right after the very first test."
-                        TextWrapping="Wrap" />
-
-                    <TextBlock
-                        Text="• Scan and speed-test completions now also raise Windows toast notifications (when toasts are enabled); the speed-test toast shows both Mbps and MBps."
-                        TextWrapping="Wrap" />
-
-                    <TextBlock
-                        Text="• New 'Data Folder' section in Settings shows what is stored on your PC, with a link to open the folder."
-                        TextWrapping="Wrap" />
-
-                    <TextBlock
-                        Text="• New 'Release Notes' button in Settings (this screen)."
-                        TextWrapping="Wrap" />
-
-                    <TextBlock
-                        Text="• When set to run at Windows startup, the app now starts minimised to the system tray."
-                        TextWrapping="Wrap" />
-
-                    <TextBlock
-                        Text="• The app now remembers whether its window was maximised."
-                        TextWrapping="Wrap" />
-
-                    <TextBlock
-                        Text="• Device-history CSV files can no longer be imported as approved devices, preventing accidental imports."
+                        Text="• The discovery runs during every scan with no noticeable slowdown, stays entirely on your machine, and never overwrites a friendly name you've set."
                         TextWrapping="Wrap" />
 
                 </StackPanel>
