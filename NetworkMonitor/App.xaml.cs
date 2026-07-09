@@ -93,6 +93,7 @@ namespace NetworkMonitor
 
                         services.AddSingleton(scannerSettings);
                         services.AddSingleton<OuiDatabase>();
+                        services.AddSingleton<MdnsProbe>();
                         services.AddSingleton<WindowsStartupService>();
                         services.AddSingleton<NetworkScanner>();
                         services.AddDbContextFactory<AppDbContext>(opts =>
