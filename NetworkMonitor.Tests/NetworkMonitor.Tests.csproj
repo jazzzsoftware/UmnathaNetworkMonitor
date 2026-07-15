@@ -36,6 +36,18 @@
     <Compile Include="..\NetworkMonitor\Services\Traffic\TrafficWindow.cs">
       <Link>Linked\TrafficWindow.cs</Link>
     </Compile>
+    <Compile Include="..\NetworkMonitor\Services\Traffic\LanClassifier.cs">
+      <Link>Linked\LanClassifier.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Services\Traffic\LocalTrafficNameResolver.cs">
+      <Link>Linked\LocalTrafficNameResolver.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Services\Traffic\LocalTrafficAggregator.cs">
+      <Link>Linked\LocalTrafficAggregator.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Models\LocalTrafficDeviceRow.cs">
+      <Link>Linked\LocalTrafficDeviceRow.cs</Link>
+    </Compile>
     <Compile Include="..\NetworkMonitor\Data\OuiDatabase.cs">
       <Link>Linked\OuiDatabase.cs</Link>
     </Compile>

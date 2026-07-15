@@ -10,6 +10,7 @@ namespace NetworkMonitor.Data
         public DbSet<DeviceEvent> DeviceEvents => Set<DeviceEvent>();
         public DbSet<TrafficEntry> TrafficEntries => Set<TrafficEntry>();
         public DbSet<TrafficRollup> TrafficRollups => Set<TrafficRollup>();
+        public DbSet<LocalTrafficRollup> LocalTrafficRollups => Set<LocalTrafficRollup>();
         public DbSet<DigestReport> DigestReports => Set<DigestReport>();
         public DbSet<SpeedTestResult> SpeedTestResults => Set<SpeedTestResult>();
 
@@ -35,6 +36,10 @@ namespace NetworkMonitor.Data
 
             modelBuilder.Entity<TrafficRollup>()
                 .HasIndex(rollup => new { rollup.MinuteEpoch, rollup.ProcessName })
+                .IsUnique();
+
+            modelBuilder.Entity<LocalTrafficRollup>()
+                .HasIndex(rollup => new { rollup.MinuteEpoch, rollup.RemoteIp })
                 .IsUnique();
 
             modelBuilder.Entity<SpeedTestResult>()

@@ -101,6 +101,7 @@ namespace NetworkMonitor
                         services.AddSingleton<DeviceTracker>();
                         services.AddSingleton<ScanWorker>();
                         services.AddHostedService(sp => sp.GetRequiredService<ScanWorker>());
+                        services.AddSingleton<LanClassifier>();
                         services.AddSingleton<TrafficCollector>();
                         services.AddHostedService(sp => sp.GetRequiredService<TrafficCollector>());
                         services.AddSingleton<TrafficTracker>();

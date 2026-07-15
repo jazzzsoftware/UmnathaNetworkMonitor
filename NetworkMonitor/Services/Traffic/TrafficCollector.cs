@@ -3,6 +3,7 @@ using Microsoft.Diagnostics.Tracing.Session;
 using Microsoft.Extensions.Hosting;
 using NetworkMonitor.Services.Platform;
 using System.Collections.Concurrent;
+using System.Net;
 
 namespace NetworkMonitor.Services.Traffic
 {
@@ -10,13 +11,41 @@ namespace NetworkMonitor.Services.Traffic
     {
         private const string SessionName = "NetworkMonitorTraffic";
         private readonly ConcurrentDictionary<int, long[]> _counters = new();
+        private readonly ConcurrentDictionary<uint, long[]> _localCounters = new();
+        private readonly LanClassifier _lanClassifier;
         private TraceEventSession? _session;
+
+        public TrafficCollector(LanClassifier lanClassifier)
+        {
+            _lanClassifier = lanClassifier;
+        }
 
         public Dictionary<int, (long Upload, long Download)> DrainAndReset()
         {
             Dictionary<int, (long Upload, long Download)> snapshot = new();
 
             foreach (KeyValuePair<int, long[]> entry in _counters)
+            {
+                long[] counter = entry.Value;
+
+                long upload = Interlocked.Exchange(ref counter[0], 0);
+                long download = Interlocked.Exchange(ref counter[1], 0);
+
+                if (upload > 0 || download > 0)
+                {
+                    snapshot[entry.Key] = (upload, download);
+                }
+
+            }
+
+            return snapshot;
+        }
+
+        public Dictionary<uint, (long Upload, long Download)> DrainAndResetLocal()
+        {
+            Dictionary<uint, (long Upload, long Download)> snapshot = new();
+
+            foreach (KeyValuePair<uint, long[]> entry in _localCounters)
             {
                 long[] counter = entry.Value;
 
@@ -43,10 +72,10 @@ namespace NetworkMonitor.Services.Traffic
                 _session = new TraceEventSession(SessionName);
                 _session.EnableKernelProvider(KernelTraceEventParser.Keywords.NetworkTCPIP);
 
-                _session.Source.Kernel.TcpIpSend += args => AddBytes(args.ProcessID, args.size, upload: true);
-                _session.Source.Kernel.TcpIpRecv += args => AddBytes(args.ProcessID, args.size, upload: false);
-                _session.Source.Kernel.UdpIpSend += args => AddBytes(args.ProcessID, args.size, upload: true);
-                _session.Source.Kernel.UdpIpRecv += args => AddBytes(args.ProcessID, args.size, upload: false);
+                _session.Source.Kernel.TcpIpSend += args => AddBytes(args.ProcessID, args.daddr, args.size, upload: true);
+                _session.Source.Kernel.TcpIpRecv += args => AddBytes(args.ProcessID, args.saddr, args.size, upload: false);
+                _session.Source.Kernel.UdpIpSend += args => AddBytes(args.ProcessID, args.daddr, args.size, upload: true);
+                _session.Source.Kernel.UdpIpRecv += args => AddBytes(args.ProcessID, args.saddr, args.size, upload: false);
 
                 ct.Register(() => _session.Stop());
 
@@ -84,15 +113,24 @@ namespace NetworkMonitor.Services.Traffic
 
         }
 
-        private void AddBytes(int pid, int bytes, bool upload)
+        private void AddBytes(int pid, IPAddress remote, int bytes, bool upload)
         {
 
             if (pid >= 0 && bytes > 0)
             {
-                long[] counter = _counters.GetOrAdd(pid, static key => new long[2]);
                 int slot = upload ? 0 : 1;
 
+                long[] counter = _counters.GetOrAdd(pid, static key => new long[2]);
+
                 Interlocked.Add(ref counter[slot], bytes);
+
+                if (_lanClassifier.TryClassifyLocal(remote, out uint packed))
+                {
+                    long[] localCounter = _localCounters.GetOrAdd(packed, static key => new long[2]);
+
+                    Interlocked.Add(ref localCounter[slot], bytes);
+                }
+
             }
 
         }

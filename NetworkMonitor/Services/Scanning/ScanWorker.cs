@@ -130,6 +130,11 @@ namespace NetworkMonitor.Services.Scanning
                     new object[] { rollupCutoffEpoch },
                     ct);
 
+                await db.Database.ExecuteSqlRawAsync(
+                    "DELETE FROM LocalTrafficRollups WHERE MinuteEpoch < {0}",
+                    new object[] { rollupCutoffEpoch },
+                    ct);
+
                 await db.SpeedTestResults
                     .Where(result => result.Timestamp < trafficCutoff)
                     .ExecuteDeleteAsync(ct);

@@ -62,51 +62,66 @@ namespace NetworkMonitor.Services.Traffic
         private async Task FlushAsync(CancellationToken ct)
         {
             Dictionary<int, (long Upload, long Download)> snapshot = collector.DrainAndReset();
+            Dictionary<uint, (long Upload, long Download)> localSnapshot = collector.DrainAndResetLocal();
 
-            if (snapshot.Count > 0)
+            DateTime timestamp = DateTime.UtcNow;
+            List<TrafficEntry> entries = new();
+
+            foreach (KeyValuePair<int, (long Upload, long Download)> kvp in snapshot)
             {
-                DateTime timestamp = DateTime.UtcNow;
-                List<TrafficEntry> entries = new();
 
-                foreach (KeyValuePair<int, (long Upload, long Download)> kvp in snapshot)
+                try
                 {
+                    using Process process = Process.GetProcessById(kvp.Key);
+                    (string processName, string? processPath) = ResolveProcessInfo(kvp.Key, process);
 
-                    try
+                    entries.Add(new TrafficEntry
                     {
-                        using Process process = Process.GetProcessById(kvp.Key);
-                        (string processName, string? processPath) = ResolveProcessInfo(kvp.Key, process);
-
-                        entries.Add(new TrafficEntry
-                        {
-                            Timestamp = timestamp,
-                            ProcessName = processName,
-                            ProcessPath = processPath,
-                            BytesUploaded = kvp.Value.Upload,
-                            BytesDownloaded = kvp.Value.Download
-                        });
-                    }
-                    catch (ArgumentException)
-                    {
-                    }
-
+                        Timestamp = timestamp,
+                        ProcessName = processName,
+                        ProcessPath = processPath,
+                        BytesUploaded = kvp.Value.Upload,
+                        BytesDownloaded = kvp.Value.Download
+                    });
                 }
+                catch (ArgumentException)
+                {
+                }
+
+            }
+
+            List<LocalTrafficDelta> localDeltas = new();
+
+            foreach (KeyValuePair<uint, (long Upload, long Download)> kvp in localSnapshot)
+            {
+                string remoteIp = LanClassifier.Format(kvp.Key);
+
+                localDeltas.Add(new LocalTrafficDelta(remoteIp, kvp.Value.Upload, kvp.Value.Download));
+            }
+
+            if (entries.Count > 0 || localDeltas.Count > 0)
+            {
+                await using AppDbContext db = await dbFactory.CreateDbContextAsync(ct);
 
                 if (entries.Count > 0)
                 {
-                    await using AppDbContext db = await dbFactory.CreateDbContextAsync(ct);
                     db.TrafficEntries.AddRange(entries);
                     await db.SaveChangesAsync(ct);
 
                     await UpsertRollupsAsync(db, timestamp, entries, ct);
-
-                    Flushed?.Invoke(this, new TrafficFlushedEventArgs(entries));
                 }
 
-                if (_infoCache.Count > MaxCacheEntries)
+                if (localDeltas.Count > 0)
                 {
-                    PruneInfoCache(snapshot);
+                    await UpsertLocalRollupsAsync(db, timestamp, localDeltas, ct);
                 }
 
+                Flushed?.Invoke(this, new TrafficFlushedEventArgs(entries, localDeltas));
+            }
+
+            if (snapshot.Count > 0 && _infoCache.Count > MaxCacheEntries)
+            {
+                PruneInfoCache(snapshot);
             }
 
         }
@@ -180,6 +195,57 @@ namespace NetworkMonitor.Services.Traffic
                     uploadParameter.Value = entry.BytesUploaded;
                     downloadParameter.Value = entry.BytesDownloaded;
                     pathParameter.Value = entry.ProcessPath is null ? (object)DBNull.Value : entry.ProcessPath;
+
+                    await command.ExecuteNonQueryAsync(ct);
+                }
+
+                await transaction.CommitAsync(ct);
+            }
+
+        }
+
+        private static async Task UpsertLocalRollupsAsync(AppDbContext db, DateTime timestamp, List<LocalTrafficDelta> localDeltas, CancellationToken ct)
+        {
+            long minuteEpoch = ((long)(timestamp - DateTime.UnixEpoch).TotalSeconds / 60) * 60;
+
+            await db.Database.OpenConnectionAsync(ct);
+
+            DbConnection connection = db.Database.GetDbConnection();
+
+            await using (DbTransaction transaction = await connection.BeginTransactionAsync(ct))
+            await using (DbCommand command = connection.CreateCommand())
+            {
+                command.Transaction = transaction;
+                command.CommandText = """
+                    INSERT INTO LocalTrafficRollups (MinuteEpoch, RemoteIp, BytesUploaded, BytesDownloaded)
+                    VALUES ($minute, $ip, $upload, $download)
+                    ON CONFLICT(MinuteEpoch, RemoteIp) DO UPDATE SET
+                        BytesUploaded = BytesUploaded + excluded.BytesUploaded,
+                        BytesDownloaded = BytesDownloaded + excluded.BytesDownloaded
+                    """;
+
+                DbParameter minuteParameter = command.CreateParameter();
+                minuteParameter.ParameterName = "$minute";
+                minuteParameter.Value = minuteEpoch;
+                command.Parameters.Add(minuteParameter);
+
+                DbParameter ipParameter = command.CreateParameter();
+                ipParameter.ParameterName = "$ip";
+                command.Parameters.Add(ipParameter);
+
+                DbParameter uploadParameter = command.CreateParameter();
+                uploadParameter.ParameterName = "$upload";
+                command.Parameters.Add(uploadParameter);
+
+                DbParameter downloadParameter = command.CreateParameter();
+                downloadParameter.ParameterName = "$download";
+                command.Parameters.Add(downloadParameter);
+
+                foreach (LocalTrafficDelta delta in localDeltas)
+                {
+                    ipParameter.Value = delta.RemoteIp;
+                    uploadParameter.Value = delta.BytesUploaded;
+                    downloadParameter.Value = delta.BytesDownloaded;
 
                     await command.ExecuteNonQueryAsync(ct);
                 }
