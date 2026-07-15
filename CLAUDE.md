@@ -87,8 +87,9 @@ New root-level files (docs, config) must be added to `NetworkMonitor.slnx` so th
 - **Message format**: Use the user's subject line, then add detailed bullet-point notes describing what changed (files, methods, behaviour), then a `Co-Authored-By` trailer.
 - **Show before committing**: Display the full combined message and wait for approval before running `git commit`.
 - **Push immediately** after every commit — once the message is approved, commit and push in the same step. Do not ask again before pushing.
-- **Every commit ALWAYS pushes to BOTH remotes** — GitHub (`all`, public, **source of truth / master**) and Azure DevOps (`origin`, private mirror). There is no such thing as a commit that reaches only one remote. Push with `git push all master` — never a bare `git push`, which only reaches `origin`/DevOps.
-- **Report both remotes in the commit result** — after pushing, the commit summary must explicitly confirm both were updated (e.g. "✅ Pushed to GitHub (master) + DevOps (mirror)"). Never report a commit as done without stating both remotes are in sync.
+- **Every commit ALWAYS pushes to BOTH targets via one remote (`all`)** — the `all` remote fetches from GitHub (public, **source of truth / master**) and has two push URLs: GitHub and Azure DevOps (private mirror). A single `git push all master` reaches both. There is no such thing as a commit that reaches only one target. Always push with `git push all master` — never a bare `git push`.
+- **Report both targets in the commit result** — after pushing, the commit summary must explicitly confirm both were updated (e.g. "✅ Pushed to GitHub (master) + DevOps (mirror)"). Never report a commit as done without stating both are in sync.
+- `master` tracks `all/master`, so `git status` reports against the ref you actually push to. There is no separate `origin` remote — `all` is the only remote and covers both targets.
 - The `all` remote lives in local `.git/config` (not tracked), so it must be set up once per clone; see `CONTRIBUTING.md` § Maintainer notes for the setup commands.
 
 Example format:

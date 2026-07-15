@@ -35,12 +35,13 @@ Full conventions, including rationale, live in [`CLAUDE.md`](CLAUDE.md) — it w
 
 ## Maintainer notes
 
-This repo is mirrored to a private remote that stays in sync with GitHub `master`. Each clone needs this set up once — it lives in that clone's local `.git/config`, not in the repo itself, so it doesn't carry over automatically:
+This repo is mirrored to a private remote that stays in sync with GitHub `master`. A single `all` remote handles both: it fetches from GitHub and pushes to GitHub **and** the private mirror. Each clone needs this set up once — it lives in that clone's local `.git/config`, not in the repo itself, so it doesn't carry over automatically:
 
 ```
 git remote add all <github-url>
 git remote set-url --add --push all <github-url>
 git remote set-url --add --push all <your-private-mirror-url>
+git branch -u all/master master
 ```
 
-After this, `git push all master` pushes to both remotes in one command. A plain `git push` only targets whatever `origin` is set to.
+After this, `git push all master` pushes to both targets in one command, and because `master` tracks `all/master`, `git status` reports against the ref you actually push to. Use `git push all master` for every push — a plain `git push` is not part of this workflow.
