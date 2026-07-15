@@ -2,8 +2,6 @@ using NetworkMonitor.Models;
 
 namespace NetworkMonitor.Services.Traffic
 {
-    public record LocalTrafficMinute(long MinuteEpoch, string RemoteIp, long BytesUploaded, long BytesDownloaded);
-
     public static class LocalTrafficAggregator
     {
         public static IReadOnlyList<LocalTrafficDeviceRow> Build(IReadOnlyList<LocalTrafficMinute> minutes, IReadOnlyDictionary<string, string> namesByIp)

@@ -447,11 +447,4 @@ namespace NetworkMonitor.ViewModels
             return dataByBucket;
         }
     }
-
-    internal record LocalLoadResult(
-        List<ChartPoint> ChartPoints,
-        List<LocalTrafficDeviceRow> DisplayRows,
-        string StatusText,
-        long CutoffEpoch,
-        long BucketSeconds);
 }

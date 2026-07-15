@@ -191,8 +191,4 @@ namespace NetworkMonitor.Services.Scanning
             AppLog.Info($"Scan completed: {session.DevicesFound} found, {session.NewDevices} new, {session.DevicesGone} gone.");
         }
     }
-
-    public record ScanCompletedEventArgs(ScanSession Session, bool IsManual);
-
-    public record DeviceStatusChangedEventArgs(DeviceNotification Notification);
 }

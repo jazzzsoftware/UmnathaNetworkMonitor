@@ -45,6 +45,9 @@
     <Compile Include="..\NetworkMonitor\Services\Traffic\LocalTrafficAggregator.cs">
       <Link>Linked\LocalTrafficAggregator.cs</Link>
     </Compile>
+    <Compile Include="..\NetworkMonitor\Services\Traffic\LocalTrafficMinute.cs">
+      <Link>Linked\LocalTrafficMinute.cs</Link>
+    </Compile>
     <Compile Include="..\NetworkMonitor\Models\LocalTrafficDeviceRow.cs">
       <Link>Linked\LocalTrafficDeviceRow.cs</Link>
     </Compile>
@@ -90,6 +93,24 @@
     </Compile>
     <Compile Include="..\NetworkMonitor\Models\DigestSummary.cs">
       <Link>Linked\DigestSummary.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Models\SpeedTestRowSummary.cs">
+      <Link>Linked\SpeedTestRowSummary.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Models\InternetTrafficAppSummary.cs">
+      <Link>Linked\InternetTrafficAppSummary.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Models\LocalTrafficDeviceSummary.cs">
+      <Link>Linked\LocalTrafficDeviceSummary.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Models\NewDeviceSummary.cs">
+      <Link>Linked\NewDeviceSummary.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Models\UnapprovedDeviceSummary.cs">
+      <Link>Linked\UnapprovedDeviceSummary.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Models\HourlyActivitySummary.cs">
+      <Link>Linked\HourlyActivitySummary.cs</Link>
     </Compile>
     <Compile Include="..\NetworkMonitor\Models\AppTrafficTotal.cs">
       <Link>Linked\AppTrafficTotal.cs</Link>

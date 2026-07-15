@@ -178,6 +178,4 @@ namespace NetworkMonitor.Services.Scanning
         private static partial Regex ArpLineRegex();
 
     }
-
-    public record ScannedDevice(string Ip, string Mac, string? Hostname, string? Vendor, string? MdnsName, string? Model);
 }

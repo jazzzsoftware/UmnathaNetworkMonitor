@@ -140,6 +140,7 @@ Done - Data Folder text changes: db-wal - Add do not delete. settings - Your sav
 Done - Not detecting local network 192.168.0... (DetectSubnetBase picked the first IPv4 of any up adapter — virtual/APIPA adapters won over the real NIC. Now uses a UDP source-IP probe to the internet, with a default-gateway-filtered enumeration as fallback.)
 
 WIP - Monitor local traffic
+Create a Model project with subfolders and refactor.
 
 
 Auto update

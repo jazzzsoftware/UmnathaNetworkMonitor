@@ -28,6 +28,7 @@ New root-level files (docs, config) must be added to `NetworkMonitor.slnx` so th
 - Prefer `string.Empty` over `""` for empty string initialisation.
 - No comments unless the WHY is non-obvious.
 - No trailing summary comments after methods.
+- **One type per file** — each top-level type (class, record, struct, enum, interface) lives in its own file named exactly after it (`Foo` → `Foo.cs`). Nested types (declared inside another type) are exempt. The sole exception is a cohesive block of P/Invoke / COM interop declarations (interop structs and `[ComImport]` interfaces), which may stay in the file of the API that consumes them.
 - **Single exit point** — every method has exactly one `return` statement, at the end.
 - **Blank lines around all blocks** — every `if`, `else`, `foreach`, `for`, `while`, `switch`, `try`, `catch`, `finally`, `using`, and any other code block must have a blank line above and below it. No exceptions — this includes a blank line immediately after the opening `{` of any method/constructor/outer block when the first statement inside is a block, and a blank line immediately before the closing `}` of any method/constructor/outer block when the last statement inside ends with a `}`. The rule applies at every nesting level without exception.
 - **Returns stand alone** — assign any computed value to a local variable first, then `return` that variable; no inline computation (ternary, switch, `new`, method chains) in the `return` statement itself. Always place a blank line above the `return`.
@@ -44,7 +45,7 @@ New root-level files (docs, config) must be added to `NetworkMonitor.slnx` so th
 
           if (SetProperty(ref _timeRangeHours, value))
           {
-              _settings.TrafficTimeRangeHours = value;
+              _settings.InternetTimeRangeHours = value;
               _settings.Save();
               _ = LoadAsync(true);
           }
