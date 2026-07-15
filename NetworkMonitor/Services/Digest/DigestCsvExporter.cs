@@ -29,6 +29,7 @@ namespace NetworkMonitor.Services.Digest
                 builder.AppendLine();
                 builder.AppendLine($"Report,{periodEnd}");
                 AppendTrafficTable(builder, entry.Summary);
+                AppendLocalTrafficTable(builder, entry.Summary);
                 AppendSpeedTestTable(builder, entry.Summary.SpeedTests);
                 AppendDeviceTable(builder, "All devices", entry.Summary.AllDevices);
                 AppendDeviceTable(builder, "Unapproved devices", entry.Summary.UnapprovedDevices);
@@ -67,7 +68,7 @@ namespace NetworkMonitor.Services.Digest
             builder.AppendLine("Top apps by internet traffic");
             builder.AppendLine("Process,Download (Raw),Download (Friendly),Upload (Raw),Upload (Friendly)");
 
-            foreach (TrafficAppSummary app in summary.TopApps)
+            foreach (InternetTrafficAppSummary app in summary.InternetTopApps)
             {
                 string[] cells = new string[]
                 {
@@ -76,6 +77,28 @@ namespace NetworkMonitor.Services.Digest
                     CsvField.Escape(ByteSizeFormatter.Format(app.BytesDownloaded)),
                     CsvField.Escape(app.BytesUploaded.ToString()),
                     CsvField.Escape(ByteSizeFormatter.Format(app.BytesUploaded))
+                };
+                builder.AppendLine(string.Join(",", cells));
+            }
+
+            builder.AppendLine();
+        }
+
+        private static void AppendLocalTrafficTable(StringBuilder builder, DigestSummary summary)
+        {
+            builder.AppendLine("Top devices by local traffic");
+            builder.AppendLine("Device,Endpoint,Download (Raw),Download (Friendly),Upload (Raw),Upload (Friendly)");
+
+            foreach (LocalTrafficDeviceSummary localDevice in summary.TopLocalDevices)
+            {
+                string[] cells = new string[]
+                {
+                    CsvField.Escape(localDevice.DeviceName),
+                    CsvField.Escape(localDevice.RemoteIp),
+                    CsvField.Escape(localDevice.BytesDownloaded.ToString()),
+                    CsvField.Escape(ByteSizeFormatter.Format(localDevice.BytesDownloaded)),
+                    CsvField.Escape(localDevice.BytesUploaded.ToString()),
+                    CsvField.Escape(ByteSizeFormatter.Format(localDevice.BytesUploaded))
                 };
                 builder.AppendLine(string.Join(",", cells));
             }

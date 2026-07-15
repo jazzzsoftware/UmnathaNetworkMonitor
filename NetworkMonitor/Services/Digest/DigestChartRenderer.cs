@@ -26,12 +26,12 @@ namespace NetworkMonitor.Services.Digest
         private static readonly Color LatencyColour = Color.FromArgb(255, 0xF5, 0x7C, 0x00);
         private static readonly Color JitterColour = Color.FromArgb(255, 0x2E, 0x7D, 0x32);
 
-        public byte[] RenderTrafficChart(DigestSummary summary, bool lightBackground, float dpi = RenderDpi)
+        public byte[] RenderInternetTrafficChart(DigestSummary summary, bool lightBackground, float dpi = RenderDpi)
         {
             List<string> categories = new();
             List<double[]> values = new();
 
-            foreach (TrafficAppSummary app in summary.TopApps)
+            foreach (InternetTrafficAppSummary app in summary.InternetTopApps)
             {
                 categories.Add(Truncate(app.ProcessName, 14));
                 values.Add(new double[] { app.BytesDownloaded, app.BytesUploaded });
@@ -47,7 +47,28 @@ namespace NetworkMonitor.Services.Digest
             return png;
         }
 
-        public byte[] RenderTrafficSplitChart(DigestSummary summary, bool lightBackground, float dpi = RenderDpi)
+        public byte[] RenderLocalTrafficSplitChart(DigestSummary summary, bool lightBackground, float dpi = RenderDpi)
+        {
+            List<string> categories = new();
+            List<double[]> values = new();
+
+            foreach (LocalTrafficDeviceSummary device in summary.TopLocalDevices)
+            {
+                categories.Add(Truncate(device.DeviceName, 14));
+                values.Add(new double[] { device.BytesDownloaded, device.BytesUploaded });
+            }
+
+            string[] seriesNames = new string[] { "Download", "Upload" };
+            Color[] seriesColours = new Color[] { DownloadColour, UploadColour };
+            Color background = lightBackground ? LightBackground : DarkBackground;
+            Color textColour = lightBackground ? LightText : DarkText;
+            byte[] png = RenderToPng(background, ChartHeight, dpi, (session, canvasDevice) =>
+                DrawGroupedBars(session, categories, seriesNames, seriesColours, values, FormatBytes, textColour));
+
+            return png;
+        }
+
+        public byte[] RenderInternetTrafficSplitChart(DigestSummary summary, bool lightBackground, float dpi = RenderDpi)
         {
             List<(string Label, double Value, Color Colour)> slices = new()
             {

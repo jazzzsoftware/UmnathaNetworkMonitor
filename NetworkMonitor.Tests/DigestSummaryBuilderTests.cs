@@ -25,11 +25,57 @@ namespace NetworkMonitor.Tests
             }
 
             DigestSummary summary = DigestSummaryBuilder.Build(
-                new List<DeviceEvent>(), new List<Device>(), traffic, WindowStart, WindowEnd);
+                new List<DeviceEvent>(), new List<Device>(), traffic, new List<LocalTrafficDeviceSummary>(), WindowStart, WindowEnd);
 
-            Assert.Equal(10, summary.TopApps.Count);
-            Assert.Equal("app11", summary.TopApps[0].ProcessName);
-            Assert.Equal("app2", summary.TopApps[9].ProcessName);
+            Assert.Equal(10, summary.InternetTopApps.Count);
+            Assert.Equal("app11", summary.InternetTopApps[0].ProcessName);
+            Assert.Equal("app2", summary.InternetTopApps[9].ProcessName);
+        }
+
+        [Fact]
+        public void BuildExcludesSystemFromInternetTopAppsAndTotals()
+        {
+            List<AppTrafficTotal> traffic = new()
+            {
+                new AppTrafficTotal { ProcessName = "System", BytesUploaded = 1000, BytesDownloaded = 1000 },
+                new AppTrafficTotal { ProcessName = "chrome", BytesUploaded = 10, BytesDownloaded = 20 }
+            };
+
+            DigestSummary summary = DigestSummaryBuilder.Build(
+                new List<DeviceEvent>(), new List<Device>(), traffic, new List<LocalTrafficDeviceSummary>(), WindowStart, WindowEnd);
+
+            Assert.Single(summary.InternetTopApps);
+            Assert.Equal("chrome", summary.InternetTopApps[0].ProcessName);
+            Assert.Equal(10, summary.TotalBytesUploaded);
+            Assert.Equal(20, summary.TotalBytesDownloaded);
+        }
+
+        [Fact]
+        public void BuildTopLocalDevicesResolveNamesSortAndCapAtTen()
+        {
+            List<LocalTrafficDeviceSummary> localTraffic = new();
+
+            for (int deviceIndex = 0; deviceIndex < 12; deviceIndex++)
+            {
+                localTraffic.Add(new LocalTrafficDeviceSummary
+                {
+                    RemoteIp = $"192.168.1.{deviceIndex}",
+                    BytesUploaded = deviceIndex * 100,
+                    BytesDownloaded = deviceIndex * 100
+                });
+            }
+
+            List<Device> devices = new()
+            {
+                new Device { MacAddress = "AA", IpAddress = "192.168.1.11", FriendlyName = "Synology NAS" }
+            };
+
+            DigestSummary summary = DigestSummaryBuilder.Build(
+                new List<DeviceEvent>(), devices, new List<AppTrafficTotal>(), localTraffic, WindowStart, WindowEnd);
+
+            Assert.Equal(10, summary.TopLocalDevices.Count);
+            Assert.Equal("Synology NAS", summary.TopLocalDevices[0].DeviceName);
+            Assert.Equal("192.168.1.2", summary.TopLocalDevices[9].DeviceName);
         }
 
         [Fact]
@@ -42,7 +88,7 @@ namespace NetworkMonitor.Tests
             };
 
             DigestSummary summary = DigestSummaryBuilder.Build(
-                new List<DeviceEvent>(), new List<Device>(), traffic, WindowStart, WindowEnd);
+                new List<DeviceEvent>(), new List<Device>(), traffic, new List<LocalTrafficDeviceSummary>(), WindowStart, WindowEnd);
 
             Assert.Equal(30, summary.TotalBytesUploaded);
             Assert.Equal(12, summary.TotalBytesDownloaded);
@@ -58,7 +104,7 @@ namespace NetworkMonitor.Tests
             };
 
             DigestSummary summary = DigestSummaryBuilder.Build(
-                new List<DeviceEvent>(), devices, new List<AppTrafficTotal>(), WindowStart, WindowEnd);
+                new List<DeviceEvent>(), devices, new List<AppTrafficTotal>(), new List<LocalTrafficDeviceSummary>(), WindowStart, WindowEnd);
 
             Assert.Single(summary.NewDevices);
             Assert.Equal("AA", summary.NewDevices[0].MacAddress);
@@ -75,7 +121,7 @@ namespace NetworkMonitor.Tests
             };
 
             DigestSummary summary = DigestSummaryBuilder.Build(
-                new List<DeviceEvent>(), devices, new List<AppTrafficTotal>(), WindowStart, WindowEnd);
+                new List<DeviceEvent>(), devices, new List<AppTrafficTotal>(), new List<LocalTrafficDeviceSummary>(), WindowStart, WindowEnd);
 
             Assert.Single(summary.UnapprovedDevices);
             Assert.Equal("AA", summary.UnapprovedDevices[0].MacAddress);
@@ -92,7 +138,7 @@ namespace NetworkMonitor.Tests
             };
 
             DigestSummary summary = DigestSummaryBuilder.Build(
-                events, new List<Device>(), new List<AppTrafficTotal>(), WindowStart, WindowEnd);
+                events, new List<Device>(), new List<AppTrafficTotal>(), new List<LocalTrafficDeviceSummary>(), WindowStart, WindowEnd);
 
             Assert.Equal(2, summary.AppearedCount);
             Assert.Equal(1, summary.DisappearedCount);
@@ -109,7 +155,7 @@ namespace NetworkMonitor.Tests
             };
 
             DigestSummary summary = DigestSummaryBuilder.Build(
-                new List<DeviceEvent>(), devices, new List<AppTrafficTotal>(), WindowStart, WindowEnd);
+                new List<DeviceEvent>(), devices, new List<AppTrafficTotal>(), new List<LocalTrafficDeviceSummary>(), WindowStart, WindowEnd);
 
             Assert.Equal(2, summary.OnlineCount);
             Assert.Equal(1, summary.OfflineCount);
@@ -124,7 +170,7 @@ namespace NetworkMonitor.Tests
             };
 
             DigestSummary summary = DigestSummaryBuilder.Build(
-                new List<DeviceEvent>(), devices, new List<AppTrafficTotal>(), WindowStart, WindowEnd);
+                new List<DeviceEvent>(), devices, new List<AppTrafficTotal>(), new List<LocalTrafficDeviceSummary>(), WindowStart, WindowEnd);
 
             Assert.Contains("1 new unapproved device", summary.Headline);
         }
@@ -142,7 +188,7 @@ namespace NetworkMonitor.Tests
             };
 
             DigestSummary summary = DigestSummaryBuilder.Build(
-                events, new List<Device>(), new List<AppTrafficTotal>(), WindowStart, WindowEnd);
+                events, new List<Device>(), new List<AppTrafficTotal>(), new List<LocalTrafficDeviceSummary>(), WindowStart, WindowEnd);
 
             int appearedHour = appearedUtc.ToLocalTime().Hour;
             int disappearedHour = disappearedUtc.ToLocalTime().Hour;
@@ -170,7 +216,7 @@ namespace NetworkMonitor.Tests
             };
 
             DigestSummary summary = DigestSummaryBuilder.Build(
-                new List<DeviceEvent>(), devices, traffic, WindowStart, WindowEnd);
+                new List<DeviceEvent>(), devices, traffic, new List<LocalTrafficDeviceSummary>(), WindowStart, WindowEnd);
 
             Assert.Contains("2 new devices", summary.Headline);
             Assert.Contains("GB traffic", summary.Headline);
@@ -191,7 +237,7 @@ namespace NetworkMonitor.Tests
             };
 
             DigestSummary summary = DigestSummaryBuilder.Build(
-                new List<DeviceEvent>(), devices, traffic, WindowStart, WindowEnd);
+                new List<DeviceEvent>(), devices, traffic, new List<LocalTrafficDeviceSummary>(), WindowStart, WindowEnd);
 
             Assert.Contains("1 new device", summary.Headline);
             Assert.DoesNotContain("1 new devices", summary.Headline);
@@ -208,7 +254,7 @@ namespace NetworkMonitor.Tests
             };
 
             DigestSummary summary = DigestSummaryBuilder.Build(
-                new List<DeviceEvent>(), devices, new List<AppTrafficTotal>(), WindowStart, WindowEnd);
+                new List<DeviceEvent>(), devices, new List<AppTrafficTotal>(), new List<LocalTrafficDeviceSummary>(), WindowStart, WindowEnd);
 
             Assert.DoesNotContain(summary.NewDevices, newDevice => newDevice.MacAddress == "CC");
             Assert.Single(summary.NewDevices);

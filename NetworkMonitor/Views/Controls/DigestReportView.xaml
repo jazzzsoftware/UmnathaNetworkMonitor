@@ -216,7 +216,7 @@
                             <ItemsControl.ItemTemplate>
 
                                 <DataTemplate
-                                    x:DataType="models:TrafficAppSummary">
+                                    x:DataType="models:InternetTrafficAppSummary">
 
                                     <Grid
                                         ColumnDefinitions="2*,*,*">
@@ -257,6 +257,174 @@
                                                 HorizontalAlignment="Right"
                                                 Foreground="{ThemeResource DigestTextBrush}"
                                                 Text="{x:Bind BytesUploaded, Converter={StaticResource BytesConverter}}" />
+
+                                        </Border>
+
+                                    </Grid>
+
+                                </DataTemplate>
+
+                            </ItemsControl.ItemTemplate>
+
+                        </ItemsControl>
+
+                    </StackPanel>
+
+                </Border>
+
+            </StackPanel>
+
+        </Border>
+
+        <Border
+            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="8"
+            Padding="16">
+
+            <StackPanel
+                Spacing="12">
+
+                <TextBlock
+                    FontWeight="SemiBold"
+                    Text="Local — Download vs Upload" />
+
+                <Image
+                    x:Name="LocalSplitImage"
+                    Stretch="Uniform" />
+
+                <TextBlock
+                    FontWeight="SemiBold"
+                    Text="Top devices by local traffic" />
+
+                <Border
+                    Background="{ThemeResource DigestPanelBrush}"
+                    BorderBrush="{ThemeResource DigestBorderBrush}"
+                    BorderThickness="1,1,0,0">
+
+                    <StackPanel>
+
+                        <Grid
+                            ColumnDefinitions="2*,*,*,*">
+
+                            <Border
+                                Grid.Column="0"
+                                BorderBrush="{ThemeResource DigestBorderBrush}"
+                                BorderThickness="0,0,1,1"
+                                Padding="8,4">
+
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Foreground="{ThemeResource DigestHeaderBrush}"
+                                    Text="Device" />
+
+                            </Border>
+
+                            <Border
+                                Grid.Column="1"
+                                BorderBrush="{ThemeResource DigestBorderBrush}"
+                                BorderThickness="0,0,1,1"
+                                Padding="8,4">
+
+                                <TextBlock
+                                    HorizontalAlignment="Right"
+                                    FontWeight="SemiBold"
+                                    Foreground="{ThemeResource DigestHeaderBrush}"
+                                    Text="Download" />
+
+                            </Border>
+
+                            <Border
+                                Grid.Column="2"
+                                BorderBrush="{ThemeResource DigestBorderBrush}"
+                                BorderThickness="0,0,1,1"
+                                Padding="8,4">
+
+                                <TextBlock
+                                    HorizontalAlignment="Right"
+                                    FontWeight="SemiBold"
+                                    Foreground="{ThemeResource DigestHeaderBrush}"
+                                    Text="Upload" />
+
+                            </Border>
+
+                            <Border
+                                Grid.Column="3"
+                                BorderBrush="{ThemeResource DigestBorderBrush}"
+                                BorderThickness="0,0,1,1"
+                                Padding="8,4">
+
+                                <TextBlock
+                                    HorizontalAlignment="Right"
+                                    FontWeight="SemiBold"
+                                    Foreground="{ThemeResource DigestHeaderBrush}"
+                                    Text="Total" />
+
+                            </Border>
+
+                        </Grid>
+
+                        <ItemsControl
+                            x:Name="TopLocalDevicesTable">
+
+                            <ItemsControl.ItemTemplate>
+
+                                <DataTemplate
+                                    x:DataType="models:LocalTrafficDeviceSummary">
+
+                                    <Grid
+                                        ColumnDefinitions="2*,*,*,*">
+
+                                        <Border
+                                            Grid.Column="0"
+                                            BorderBrush="{ThemeResource DigestBorderBrush}"
+                                            BorderThickness="0,0,1,1"
+                                            Padding="8,4">
+
+                                            <TextBlock
+                                                TextTrimming="CharacterEllipsis"
+                                                Foreground="{ThemeResource DigestTextBrush}"
+                                                Text="{x:Bind DeviceName}" />
+
+                                        </Border>
+
+                                        <Border
+                                            Grid.Column="1"
+                                            BorderBrush="{ThemeResource DigestBorderBrush}"
+                                            BorderThickness="0,0,1,1"
+                                            Padding="8,4">
+
+                                            <TextBlock
+                                                HorizontalAlignment="Right"
+                                                Foreground="{ThemeResource DigestTextBrush}"
+                                                Text="{x:Bind BytesDownloaded, Converter={StaticResource BytesConverter}}" />
+
+                                        </Border>
+
+                                        <Border
+                                            Grid.Column="2"
+                                            BorderBrush="{ThemeResource DigestBorderBrush}"
+                                            BorderThickness="0,0,1,1"
+                                            Padding="8,4">
+
+                                            <TextBlock
+                                                HorizontalAlignment="Right"
+                                                Foreground="{ThemeResource DigestTextBrush}"
+                                                Text="{x:Bind BytesUploaded, Converter={StaticResource BytesConverter}}" />
+
+                                        </Border>
+
+                                        <Border
+                                            Grid.Column="3"
+                                            BorderBrush="{ThemeResource DigestBorderBrush}"
+                                            BorderThickness="0,0,1,1"
+                                            Padding="8,4">
+
+                                            <TextBlock
+                                                HorizontalAlignment="Right"
+                                                Foreground="{ThemeResource DigestTextBrush}"
+                                                Text="{x:Bind TotalBytes, Converter={StaticResource BytesConverter}}" />
 
                                         </Border>
 

@@ -1,4 +1,5 @@
 using NetworkMonitor.Models;
+using NetworkMonitor.Services.Traffic;
 
 namespace NetworkMonitor.Services.Digest
 {
@@ -8,15 +9,20 @@ namespace NetworkMonitor.Services.Digest
             IReadOnlyList<DeviceEvent> events,
             IReadOnlyList<Device> devices,
             IReadOnlyList<AppTrafficTotal> traffic,
+            IReadOnlyList<LocalTrafficDeviceSummary> localTraffic,
             DateTime startUtc,
             DateTime endUtc)
         {
             DigestSummary summary = new DigestSummary();
 
-            summary.TopApps = traffic
+            List<AppTrafficTotal> internetTraffic = traffic
+                .Where(appTotal => appTotal.ProcessName != "System")
+                .ToList();
+
+            summary.InternetTopApps = internetTraffic
                 .OrderByDescending(appTotal => appTotal.BytesUploaded + appTotal.BytesDownloaded)
                 .Take(10)
-                .Select(appTotal => new TrafficAppSummary
+                .Select(appTotal => new InternetTrafficAppSummary
                 {
                     ProcessName = appTotal.ProcessName,
                     BytesUploaded = appTotal.BytesUploaded,
@@ -24,8 +30,32 @@ namespace NetworkMonitor.Services.Digest
                 })
                 .ToList();
 
-            summary.TotalBytesUploaded = traffic.Sum(appTotal => appTotal.BytesUploaded);
-            summary.TotalBytesDownloaded = traffic.Sum(appTotal => appTotal.BytesDownloaded);
+            Dictionary<string, string> namesByIp = new Dictionary<string, string>();
+
+            foreach (Device device in devices)
+            {
+
+                if (!string.IsNullOrWhiteSpace(device.IpAddress))
+                {
+                    namesByIp[device.IpAddress] = device.DisplayName;
+                }
+
+            }
+
+            summary.TopLocalDevices = localTraffic
+                .OrderByDescending(deviceTotal => deviceTotal.BytesUploaded + deviceTotal.BytesDownloaded)
+                .Take(10)
+                .Select(deviceTotal => new LocalTrafficDeviceSummary
+                {
+                    DeviceName = LocalTrafficNameResolver.Resolve(deviceTotal.RemoteIp, namesByIp),
+                    RemoteIp = deviceTotal.RemoteIp,
+                    BytesDownloaded = deviceTotal.BytesDownloaded,
+                    BytesUploaded = deviceTotal.BytesUploaded
+                })
+                .ToList();
+
+            summary.TotalBytesUploaded = internetTraffic.Sum(appTotal => appTotal.BytesUploaded);
+            summary.TotalBytesDownloaded = internetTraffic.Sum(appTotal => appTotal.BytesDownloaded);
 
             summary.NewDevices = devices
                 .Where(device => device.FirstSeen >= startUtc && device.FirstSeen < endUtc)

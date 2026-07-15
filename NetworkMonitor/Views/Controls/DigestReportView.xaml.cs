@@ -92,16 +92,19 @@ namespace NetworkMonitor.Views.Controls
             {
                 TrafficChartImage.Source = null;
                 TrafficSplitImage.Source = null;
+                LocalSplitImage.Source = null;
                 ThroughputChartImage.Source = null;
                 LatencyChartImage.Source = null;
                 TopAppsTable.ItemsSource = null;
+                TopLocalDevicesTable.ItemsSource = null;
                 AllTable.ItemsSource = null;
                 UnapprovedTable.ItemsSource = null;
                 SpeedTable.ItemsSource = null;
             }
             else
             {
-                TopAppsTable.ItemsSource = summary.TopApps;
+                TopAppsTable.ItemsSource = summary.InternetTopApps;
+                TopLocalDevicesTable.ItemsSource = summary.TopLocalDevices;
                 AllTable.ItemsSource = summary.AllDevices;
                 UnapprovedTable.ItemsSource = summary.UnapprovedDevices;
                 SpeedTable.ItemsSource = summary.SpeedTests.OrderByDescending(test => test.Timestamp).ToList();
@@ -110,11 +113,14 @@ namespace NetworkMonitor.Views.Controls
                 double rasterizationScale = XamlRoot?.RasterizationScale ?? 1.0;
                 float screenDpi = (float)(96.0 * rasterizationScale);
 
-                byte[] trafficPng = await Task.Run(() => _chartRenderer.RenderTrafficChart(summary, lightBackground, screenDpi));
+                byte[] trafficPng = await Task.Run(() => _chartRenderer.RenderInternetTrafficChart(summary, lightBackground, screenDpi));
                 TrafficChartImage.Source = await ToBitmapAsync(trafficPng);
 
-                byte[] trafficSplitPng = await Task.Run(() => _chartRenderer.RenderTrafficSplitChart(summary, lightBackground, screenDpi));
+                byte[] trafficSplitPng = await Task.Run(() => _chartRenderer.RenderInternetTrafficSplitChart(summary, lightBackground, screenDpi));
                 TrafficSplitImage.Source = await ToBitmapAsync(trafficSplitPng);
+
+                byte[] localSplitPng = await Task.Run(() => _chartRenderer.RenderLocalTrafficSplitChart(summary, lightBackground, screenDpi));
+                LocalSplitImage.Source = await ToBitmapAsync(localSplitPng);
 
                 byte[] throughputPng = await Task.Run(() => _chartRenderer.RenderSpeedThroughputChart(summary, lightBackground, screenDpi));
                 ThroughputChartImage.Source = await ToBitmapAsync(throughputPng);

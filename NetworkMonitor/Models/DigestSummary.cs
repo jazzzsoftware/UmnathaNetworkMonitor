@@ -22,7 +22,13 @@ namespace NetworkMonitor.Models
             set;
         }
 
-        public List<TrafficAppSummary> TopApps
+        public List<InternetTrafficAppSummary> InternetTopApps
+        {
+            get;
+            set;
+        } = new();
+
+        public List<LocalTrafficDeviceSummary> TopLocalDevices
         {
             get;
             set;
@@ -143,7 +149,7 @@ namespace NetworkMonitor.Models
         public string JitterDisplay => JitterMs.ToString("0");
     }
 
-    public class TrafficAppSummary
+    public class InternetTrafficAppSummary
     {
         public string ProcessName
         {
@@ -162,6 +168,36 @@ namespace NetworkMonitor.Models
             get;
             set;
         }
+    }
+
+    public class LocalTrafficDeviceSummary
+    {
+        public string DeviceName
+        {
+            get;
+            set;
+        } = string.Empty;
+
+        public string RemoteIp
+        {
+            get;
+            set;
+        } = string.Empty;
+
+        public long BytesDownloaded
+        {
+            get;
+            set;
+        }
+
+        public long BytesUploaded
+        {
+            get;
+            set;
+        }
+
+        [JsonIgnore]
+        public long TotalBytes => BytesDownloaded + BytesUploaded;
     }
 
     public class NewDeviceSummary

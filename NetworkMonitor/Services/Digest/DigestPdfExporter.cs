@@ -13,8 +13,9 @@ namespace NetworkMonitor.Services.Digest
 
         public byte[] BuildPdf(DigestSummary summary, DateTime periodStartUtc, DateTime periodEndUtc, DateTime generatedAtUtc)
         {
-            byte[] trafficChart = chartRenderer.RenderTrafficChart(summary, true);
-            byte[] trafficSplitChart = chartRenderer.RenderTrafficSplitChart(summary, true);
+            byte[] trafficChart = chartRenderer.RenderInternetTrafficChart(summary, true);
+            byte[] trafficSplitChart = chartRenderer.RenderInternetTrafficSplitChart(summary, true);
+            byte[] localSplitChart = chartRenderer.RenderLocalTrafficSplitChart(summary, true);
             byte[] throughputChart = chartRenderer.RenderSpeedThroughputChart(summary, true);
             byte[] latencyChart = chartRenderer.RenderSpeedLatencyChart(summary, true);
 
@@ -66,11 +67,49 @@ namespace NetworkMonitor.Services.Digest
                                     header.Cell().AlignRight().Text("Upload").SemiBold();
                                 });
 
-                                foreach (TrafficAppSummary app in summary.TopApps)
+                                foreach (InternetTrafficAppSummary app in summary.InternetTopApps)
                                 {
                                     table.Cell().Text(app.ProcessName);
                                     table.Cell().AlignRight().Text(ByteSizeFormatter.Format(app.BytesDownloaded));
                                     table.Cell().AlignRight().Text(ByteSizeFormatter.Format(app.BytesUploaded));
+                                }
+
+                            });
+                        });
+
+                        column.Item().Background(Colors.Grey.Lighten3).Padding(12).Column(section =>
+                        {
+                            section.Spacing(8);
+
+                            section.Item().Text("Local — Download vs Upload").FontSize(11).SemiBold();
+                            section.Item().Image(localSplitChart);
+
+                            section.Item().Text("Top devices by local traffic").FontSize(11).SemiBold();
+
+                            section.Item().Table(table =>
+                            {
+                                table.ColumnsDefinition(columns =>
+                                {
+                                    columns.RelativeColumn(3);
+                                    columns.RelativeColumn();
+                                    columns.RelativeColumn();
+                                    columns.RelativeColumn();
+                                });
+
+                                table.Header(header =>
+                                {
+                                    header.Cell().Text("Device").SemiBold();
+                                    header.Cell().AlignRight().Text("Download").SemiBold();
+                                    header.Cell().AlignRight().Text("Upload").SemiBold();
+                                    header.Cell().AlignRight().Text("Total").SemiBold();
+                                });
+
+                                foreach (LocalTrafficDeviceSummary localDevice in summary.TopLocalDevices)
+                                {
+                                    table.Cell().Text(localDevice.DeviceName);
+                                    table.Cell().AlignRight().Text(ByteSizeFormatter.Format(localDevice.BytesDownloaded));
+                                    table.Cell().AlignRight().Text(ByteSizeFormatter.Format(localDevice.BytesUploaded));
+                                    table.Cell().AlignRight().Text(ByteSizeFormatter.Format(localDevice.TotalBytes));
                                 }
 
                             });
