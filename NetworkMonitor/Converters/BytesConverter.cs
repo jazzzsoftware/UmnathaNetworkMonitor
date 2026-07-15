@@ -1,5 +1,5 @@
 using Microsoft.UI.Xaml.Data;
-using NetworkMonitor.ViewModels;
+using NetworkMonitor.Services.Common;
 
 namespace NetworkMonitor.Converters
 {
@@ -8,7 +8,7 @@ namespace NetworkMonitor.Converters
         public object Convert(object value, Type targetType, object parameter, string language)
         {
             long bytes = value is long longValue ? longValue : 0;
-            string result = TrafficViewModel.FormatBytes(bytes);
+            string result = ByteSizeFormatter.Format(bytes);
 
             return result;
         }

@@ -143,7 +143,7 @@
 
                 <TextBlock
                     FontWeight="SemiBold"
-                    Text="Traffic — Download vs Upload" />
+                    Text="Internet — Download vs Upload" />
 
                 <Image
                     x:Name="TrafficSplitImage"
@@ -151,7 +151,7 @@
 
                 <TextBlock
                     FontWeight="SemiBold"
-                    Text="Top apps by traffic" />
+                    Text="Top apps by internet traffic" />
 
                 <Image
                     x:Name="TrafficChartImage"

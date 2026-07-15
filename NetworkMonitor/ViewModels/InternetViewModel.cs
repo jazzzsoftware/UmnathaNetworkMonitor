@@ -5,11 +5,12 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.EntityFrameworkCore;
 using NetworkMonitor.Data;
 using NetworkMonitor.Models;
+using NetworkMonitor.Services.Common;
 using NetworkMonitor.Services.Traffic;
 
 namespace NetworkMonitor.ViewModels
 {
-    public partial class TrafficViewModel : ObservableObject
+    public partial class InternetViewModel : ObservableObject
     {
         private const int MinimumSpinnerMs = 500;
 
@@ -20,7 +21,7 @@ namespace NetworkMonitor.ViewModels
         private List<ChartPoint> _windowChartPoints = [];
         private Dictionary<string, (long Upload, long Download, string? Path)> _windowAppTotals = new();
 
-        public TrafficViewModel(IDbContextFactory<AppDbContext> dbFactory, Settings settings)
+        public InternetViewModel(IDbContextFactory<AppDbContext> dbFactory, Settings settings)
         {
             _dbFactory = dbFactory;
             _settings = settings;
@@ -108,7 +109,7 @@ namespace NetworkMonitor.ViewModels
                 string? selectedApp = SelectedApp;
                 DateTime? selectedBucketStart = SelectedBucketStart;
 
-                TrafficLoadResult result = await Task.Run(() => BuildDataAsync(timeRangeHours, selectedApp, selectedBucketStart));
+                InternetLoadResult result = await Task.Run(() => BuildDataAsync(timeRangeHours, selectedApp, selectedBucketStart));
 
                 ChartPoints = new ObservableCollection<ChartPoint>(result.ChartPoints);
                 SeedWindowState(result);
@@ -167,7 +168,7 @@ namespace NetworkMonitor.ViewModels
 
         }
 
-        private void SeedWindowState(TrafficLoadResult result)
+        private void SeedWindowState(InternetLoadResult result)
         {
             _windowCutoffEpoch = result.CutoffEpoch;
             _windowBucketSeconds = result.BucketSeconds;
@@ -239,13 +240,13 @@ namespace NetworkMonitor.ViewModels
             List<TrafficAppRow> displayRows = new List<TrafficAppRow> { allAppsRow };
             displayRows.AddRange(perAppRows);
 
-            string statusText = $"{perAppRows.Count} app{(perAppRows.Count == 1 ? string.Empty : "s")} · {FormatBytes(allAppsRow.TotalBytes)} total";
+            string statusText = $"{perAppRows.Count} app{(perAppRows.Count == 1 ? string.Empty : "s")} · {ByteSizeFormatter.Format(allAppsRow.TotalBytes)} total";
 
             Apps = new ObservableCollection<TrafficAppRow>(displayRows);
             StatusText = statusText;
         }
 
-        private async Task<TrafficLoadResult> BuildDataAsync(double timeRangeHours, string? selectedApp, DateTime? selectedBucketStart)
+        private async Task<InternetLoadResult> BuildDataAsync(double timeRangeHours, string? selectedApp, DateTime? selectedBucketStart)
         {
             TimeSpan bucketSize = BucketSizeFor(timeRangeHours, _settings.TrafficIntervalSeconds);
             long bucketSeconds = Math.Max(1L, (long)bucketSize.TotalSeconds);
@@ -287,9 +288,9 @@ namespace NetworkMonitor.ViewModels
             string scopeText = selectedBucketStart.HasValue
                 ? $"at {selectedBucketStart.Value.ToLocalTime():dd MMM HH:mm:ss}"
                 : "total";
-            string statusText = $"{perAppRows.Count} app{(perAppRows.Count == 1 ? string.Empty : "s")} · {FormatBytes(allAppsRow.TotalBytes)} {scopeText}";
+            string statusText = $"{perAppRows.Count} app{(perAppRows.Count == 1 ? string.Empty : "s")} · {ByteSizeFormatter.Format(allAppsRow.TotalBytes)} {scopeText}";
 
-            TrafficLoadResult result = new TrafficLoadResult(chartPoints, displayRows, statusText, cutoffEpoch, bucketSeconds);
+            InternetLoadResult result = new InternetLoadResult(chartPoints, displayRows, statusText, cutoffEpoch, bucketSeconds);
 
             return result;
         }
@@ -508,32 +509,9 @@ namespace NetworkMonitor.ViewModels
             return result;
         }
 
-        public static string FormatBytes(long bytes)
-        {
-            string result;
-
-            if (bytes >= 1_073_741_824L)
-            {
-                result = $"{bytes / 1_073_741_824.0:F1} GB";
-            }
-            else if (bytes >= 1_048_576L)
-            {
-                result = $"{bytes / 1_048_576.0:F1} MB";
-            }
-            else if (bytes >= 1_024L)
-            {
-                result = $"{bytes / 1_024.0:F1} KB";
-            }
-            else
-            {
-                result = $"{bytes} B";
-            }
-
-            return result;
-        }
     }
 
-    internal record TrafficLoadResult(
+    internal record InternetLoadResult(
         List<ChartPoint> ChartPoints,
         List<TrafficAppRow> DisplayRows,
         string StatusText,

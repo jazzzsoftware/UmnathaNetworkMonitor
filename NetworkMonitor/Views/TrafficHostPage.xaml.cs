@@ -8,7 +8,7 @@ namespace NetworkMonitor.Views
         public TrafficHostPage()
         {
             InitializeComponent();
-            TrafficFrame.Navigate(typeof(TrafficPage));
+            InternetFrame.Navigate(typeof(InternetPage));
             TabBar.SelectedItem = TabBar.Items[0];
         }
 
@@ -24,12 +24,12 @@ namespace NetworkMonitor.Views
                     SpeedTestFrame.Navigate(typeof(SpeedTestPage));
                 }
 
-                if (selectedTag != "Traffic" && TrafficFrame.Content is TrafficPage trafficPage)
+                if (selectedTag != "Internet" && InternetFrame.Content is InternetPage internetPage)
                 {
-                    trafficPage.ResetToLive();
+                    internetPage.ResetToLive();
                 }
 
-                TrafficFrame.Visibility = selectedTag == "Traffic" ? Visibility.Visible : Visibility.Collapsed;
+                InternetFrame.Visibility = selectedTag == "Internet" ? Visibility.Visible : Visibility.Collapsed;
                 SpeedTestFrame.Visibility = selectedTag == "SpeedTest" ? Visibility.Visible : Visibility.Collapsed;
             }
 

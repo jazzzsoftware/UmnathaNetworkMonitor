@@ -2,7 +2,7 @@ using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using NetworkMonitor.Models;
-using NetworkMonitor.ViewModels;
+using NetworkMonitor.Services.Common;
 
 namespace NetworkMonitor.Services.Digest
 {
@@ -44,10 +44,10 @@ namespace NetworkMonitor.Services.Digest
                         {
                             section.Spacing(8);
 
-                            section.Item().Text("Traffic — Download vs Upload").FontSize(11).SemiBold();
+                            section.Item().Text("Internet — Download vs Upload").FontSize(11).SemiBold();
                             section.Item().Image(trafficSplitChart);
 
-                            section.Item().Text("Top apps by traffic").FontSize(11).SemiBold();
+                            section.Item().Text("Top apps by internet traffic").FontSize(11).SemiBold();
                             section.Item().Image(trafficChart);
 
                             section.Item().Table(table =>
@@ -69,8 +69,8 @@ namespace NetworkMonitor.Services.Digest
                                 foreach (TrafficAppSummary app in summary.TopApps)
                                 {
                                     table.Cell().Text(app.ProcessName);
-                                    table.Cell().AlignRight().Text(TrafficViewModel.FormatBytes(app.BytesDownloaded));
-                                    table.Cell().AlignRight().Text(TrafficViewModel.FormatBytes(app.BytesUploaded));
+                                    table.Cell().AlignRight().Text(ByteSizeFormatter.Format(app.BytesDownloaded));
+                                    table.Cell().AlignRight().Text(ByteSizeFormatter.Format(app.BytesUploaded));
                                 }
 
                             });

@@ -104,7 +104,7 @@ NetworkMonitor/
 │   ├── AllDevicesViewModel.cs      Devices grid (last 24h), scan command, mark-known logic
 │   ├── UnapprovedDevicesViewModel.cs  Unknown-device grid + approve actions
 │   ├── DeviceHistoryViewModel.cs   Per-device event history + search
-│   ├── TrafficViewModel.cs         Live per-process traffic + area chart state
+│   ├── InternetViewModel.cs        Live per-process internet traffic + area chart state
 │   ├── ReportsViewModel.cs         Digest list, latest/selected summaries, generate/delete/export
 │   └── SettingsViewModel.cs        Settings load/save, manual purge, startup toggle
 │
@@ -114,7 +114,7 @@ NetworkMonitor/
     ├── ApprovedDevicesPage.xaml(.cs) Known/approved devices with edit/delete
     ├── UnapprovedDevicesPage.xaml(.cs) Unapproved devices with approve action
     ├── DeviceHistoryPage.xaml(.cs)   Per-device appeared/disappeared event log
-    ├── TrafficPage.xaml(.cs)         Live per-process traffic grid + area chart
+    ├── InternetPage.xaml(.cs)        Live per-process internet traffic grid + area chart
     ├── ReportsPage.xaml(.cs)         Daily digest viewer + history + PDF/CSV export
     ├── SettingsPage.xaml(.cs)        Settings form with sticky Save footer
     └── Controls/
@@ -128,7 +128,7 @@ NetworkMonitor/
 
 | Nav item | Page | Notes |
 |---|---|---|
-| Traffic | `TrafficPage` | Default page on launch |
+| Traffic | `TrafficHostPage` | Inner `SelectorBar`: Internet / Speed Test. Default page on launch |
 | Devices | `DevicesHostPage` | Inner `SelectorBar`: Devices / Approved / Unapproved / History |
 | Reports | `ReportsPage` | Daily digest viewer |
 | Settings | `SettingsPage` | |
@@ -172,13 +172,13 @@ TrafficTracker (BackgroundService, every TrafficIntervalSeconds)
     └─ resolve PID → process name + full image path (QueryFullProcessImageName)
     └─ write raw rows to TrafficEntries
     └─ upsert per-minute aggregates into TrafficRollups (ON CONFLICT … DO UPDATE)
-    └─ raise Flushed → TrafficViewModel refreshes the grid + area chart
+    └─ raise Flushed → InternetViewModel refreshes the grid + area chart
 ```
 
 - **TrafficEntries** holds raw per-flush rows and is purged per `TrafficPurgeDays` (default 7).
 - **TrafficRollups** holds per-minute, per-process aggregates and is the long-lived source for digest traffic totals.
 
-### Traffic page — live vs paused
+### Internet page — live vs paused
 
 Each flush re-sorts the app list and replaces the grid's `ItemsSource`, which resets the CommunityToolkit `DataGrid` scroll to the top. So the user cannot normally scroll to read/reach the bottom of the list while traffic is live. The page solves this with a single **pause** state driven by one field, `_pauseReason` (`None | Badge | Scroll | Bucket`):
 
@@ -200,12 +200,12 @@ Each flush re-sorts the app list and replaces the grid's `ItemsSource`, which re
 
 Auto-resume on scroll-to-top is deliberately **not** implemented: a programmatic list rebuild snaps the scrollbar to `0`, which is indistinguishable from a user scrolling up, so treating `0` as "resume" caused the pause to oscillate. Resume is therefore explicit (badge/range/nav) only.
 
-**Single-instance requirement.** The pause lives on the `TrafficPage` view instance, so exactly one live instance may be subscribed to `TrafficTracker.Flushed` — otherwise an unpaused orphan keeps rebuilding the shared list and defeats the pause. Two safeguards enforce this:
+**Single-instance requirement.** The pause lives on the `InternetPage` view instance, so exactly one live instance may be subscribed to `TrafficTracker.Flushed` — otherwise an unpaused orphan keeps rebuilding the shared list and defeats the pause. Two safeguards enforce this:
 
 - `MainWindow.NavViewLoaded` selects the first nav item (which already navigates to `TrafficHostPage`) and only calls `ContentFrame.Navigate` if the frame is still empty — preventing a duplicate host/page at startup.
-- `TrafficPage` subscribes to `Flushed` on `Loaded` and unsubscribes on `Unloaded` (not `OnNavigatedTo`/`OnNavigatedFrom`, which do **not** fire for a page hosted in an inner `Frame` when its outer host is swapped). Any orphaned page detaches the moment it leaves the visual tree, which also covers the repeated Traffic⇄Devices navigation leak.
+- `InternetPage` subscribes to `Flushed` on `Loaded` and unsubscribes on `Unloaded` (not `OnNavigatedTo`/`OnNavigatedFrom`, which do **not** fire for a page hosted in an inner `Frame` when its outer host is swapped). Any orphaned page detaches the moment it leaves the visual tree, which also covers the repeated Traffic⇄Devices navigation leak.
 
-Because the inner tab switch (Traffic ⇄ Speed Test) only toggles `Frame.Visibility` and does not navigate, `TrafficHostPage` explicitly calls `TrafficPage.ResetToLive()` when leaving the Traffic tab so it returns Live.
+Because the inner tab switch (Internet ⇄ Speed Test) only toggles `Frame.Visibility` and does not navigate, `TrafficHostPage` explicitly calls `InternetPage.ResetToLive()` when leaving the Internet tab so it returns Live.
 
 ## Daily digest pipeline
 

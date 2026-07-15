@@ -17,8 +17,8 @@
             SelectionChanged="TabBarSelectionChanged">
 
             <SelectorBarItem
-                Tag="Traffic"
-                Text="Traffic" />
+                Tag="Internet"
+                Text="Internet" />
 
             <SelectorBarItem
                 Tag="SpeedTest"
@@ -28,7 +28,7 @@
 
         <Frame
             Grid.Row="1"
-            x:Name="TrafficFrame"
+            x:Name="InternetFrame"
             Margin="0,8,0,0" />
 
         <Frame

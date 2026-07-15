@@ -14,7 +14,7 @@ using NetworkMonitor.Services.Platform;
 
 namespace NetworkMonitor.Views
 {
-    public sealed partial class TrafficPage : Page
+    public sealed partial class InternetPage : Page
     {
         private enum PauseReason
         {
@@ -33,9 +33,9 @@ namespace NetworkMonitor.Views
         private readonly SolidColorBrush _liveBackgroundBrush = new(Windows.UI.Color.FromArgb(0xCC, 0x2E, 0x7D, 0x32));
         private readonly SolidColorBrush _historyBackgroundBrush = new(Windows.UI.Color.FromArgb(0xCC, 0xF5, 0x7C, 0x00));
 
-        public TrafficPage()
+        public InternetPage()
         {
-            ViewModel = App.AppHost.Services.GetRequiredService<TrafficViewModel>();
+            ViewModel = App.AppHost.Services.GetRequiredService<InternetViewModel>();
             _trafficTracker = App.AppHost.Services.GetRequiredService<TrafficTracker>();
             _settings = App.AppHost.Services.GetRequiredService<Settings>();
             InitializeComponent();
@@ -51,7 +51,7 @@ namespace NetworkMonitor.Views
 
         }
 
-        public TrafficViewModel ViewModel
+        public InternetViewModel ViewModel
         {
             get;
         }
@@ -111,7 +111,7 @@ namespace NetworkMonitor.Views
                         }
                         catch (Exception exception)
                         {
-                            AppLog.Error("TrafficPage.OnTrafficFlushed", exception);
+                            AppLog.Error("InternetPage.OnTrafficFlushed", exception);
                         }
 
                     }
