@@ -19,6 +19,11 @@ namespace NetworkMonitor.Views
             {
                 string selectedTag = (string)sender.SelectedItem.Tag;
 
+                if (selectedTag == "Local" && LocalFrame.Content is null)
+                {
+                    LocalFrame.Navigate(typeof(LocalPage));
+                }
+
                 if (selectedTag == "SpeedTest" && SpeedTestFrame.Content is null)
                 {
                     SpeedTestFrame.Navigate(typeof(SpeedTestPage));
@@ -29,7 +34,13 @@ namespace NetworkMonitor.Views
                     internetPage.ResetToLive();
                 }
 
+                if (selectedTag != "Local" && LocalFrame.Content is LocalPage localPage)
+                {
+                    localPage.ResetToLive();
+                }
+
                 InternetFrame.Visibility = selectedTag == "Internet" ? Visibility.Visible : Visibility.Collapsed;
+                LocalFrame.Visibility = selectedTag == "Local" ? Visibility.Visible : Visibility.Collapsed;
                 SpeedTestFrame.Visibility = selectedTag == "SpeedTest" ? Visibility.Visible : Visibility.Collapsed;
             }
 

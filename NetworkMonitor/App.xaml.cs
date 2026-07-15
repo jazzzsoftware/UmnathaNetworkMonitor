@@ -132,6 +132,7 @@ namespace NetworkMonitor
                         services.AddTransient<ReportsViewModel>();
                         services.AddTransient<DeviceHistoryViewModel>();
                         services.AddSingleton<InternetViewModel>();
+                        services.AddSingleton<LocalViewModel>();
                         services.AddSingleton<SpeedTestViewModel>();
                         services.AddTransient<MainWindow>();
                     })

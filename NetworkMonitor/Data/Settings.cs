@@ -69,7 +69,13 @@ namespace NetworkMonitor.Data
             set;
         } = 30;
 
-        public double TrafficTimeRangeHours
+        public double InternetTimeRangeHours
+        {
+            get;
+            set;
+        } = 5.0 / 60.0;
+
+        public double LocalTimeRangeHours
         {
             get;
             set;

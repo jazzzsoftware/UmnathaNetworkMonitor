@@ -21,6 +21,10 @@
                 Text="Internet" />
 
             <SelectorBarItem
+                Tag="Local"
+                Text="Local" />
+
+            <SelectorBarItem
                 Tag="SpeedTest"
                 Text="Speed Test" />
 
@@ -29,6 +33,12 @@
         <Frame
             Grid.Row="1"
             x:Name="InternetFrame"
+            Margin="0,8,0,0" />
+
+        <Frame
+            Grid.Row="1"
+            x:Name="LocalFrame"
+            Visibility="Collapsed"
             Margin="0,8,0,0" />
 
         <Frame

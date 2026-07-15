@@ -2,7 +2,7 @@ using System.IO;
 
 namespace NetworkMonitor.Models
 {
-    public record TrafficAppRow(string? ProcessName, long BytesUploaded, long BytesDownloaded, string? ProcessPath)
+    public record InternetTrafficAppRow(string? ProcessName, long BytesUploaded, long BytesDownloaded, string? ProcessPath)
     {
         public long TotalBytes => BytesUploaded + BytesDownloaded;
         public bool IsAllApps => ProcessName is null;

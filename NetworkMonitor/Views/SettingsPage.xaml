@@ -118,7 +118,7 @@
                                 IsOn="{x:Bind ViewModel.ChartSmoothScrolling, Mode=TwoWay}" />
 
                             <TextBlock
-                                Text="When on, the Traffic chart scrolls continuously. When off, it redraws in place on each update (classic style, lighter on CPU)."
+                                Text="When on, the Internet and Local traffic charts scroll continuously. When off, they redraw in place on each update (classic style, lighter on CPU)."
                                 FontSize="12"
                                 Opacity="0.65"
                                 TextWrapping="Wrap" />

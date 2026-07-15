@@ -8,13 +8,12 @@ using Microsoft.UI.Xaml.Navigation;
 using NetworkMonitor.Data;
 using NetworkMonitor.Models;
 using NetworkMonitor.ViewModels;
-using System.Diagnostics;
 using NetworkMonitor.Services.Traffic;
 using NetworkMonitor.Services.Platform;
 
 namespace NetworkMonitor.Views
 {
-    public sealed partial class InternetPage : Page
+    public sealed partial class LocalPage : Page
     {
         private enum PauseReason
         {
@@ -27,15 +26,15 @@ namespace NetworkMonitor.Views
         private const double FiveMinutes = 5.0 / 60.0;
         private bool _suppressSelection;
         private PauseReason _pauseReason;
-        private ScrollBar? _appScrollBar;
+        private ScrollBar? _deviceScrollBar;
         private readonly TrafficTracker _trafficTracker;
         private readonly Settings _settings;
         private readonly SolidColorBrush _liveBackgroundBrush = new(Windows.UI.Color.FromArgb(0xCC, 0x2E, 0x7D, 0x32));
         private readonly SolidColorBrush _historyBackgroundBrush = new(Windows.UI.Color.FromArgb(0xCC, 0xF5, 0x7C, 0x00));
 
-        public InternetPage()
+        public LocalPage()
         {
-            ViewModel = App.AppHost.Services.GetRequiredService<InternetViewModel>();
+            ViewModel = App.AppHost.Services.GetRequiredService<LocalViewModel>();
             _trafficTracker = App.AppHost.Services.GetRequiredService<TrafficTracker>();
             _settings = App.AppHost.Services.GetRequiredService<Settings>();
             InitializeComponent();
@@ -51,7 +50,7 @@ namespace NetworkMonitor.Views
 
         }
 
-        public InternetViewModel ViewModel
+        public LocalViewModel ViewModel
         {
             get;
         }
@@ -106,12 +105,12 @@ namespace NetworkMonitor.Views
                         try
                         {
                             AreaChart.MarkLiveUpdate();
-                            await ViewModel.ApplyLiveFlushAsync(args.Entries);
+                            await ViewModel.ApplyLiveFlushAsync(args.LocalDeltas);
                             SyncGridSelection();
                         }
                         catch (Exception exception)
                         {
-                            AppLog.Error("InternetPage.OnTrafficFlushed", exception);
+                            AppLog.Error("LocalPage.OnTrafficFlushed", exception);
                         }
 
                     }
@@ -124,7 +123,7 @@ namespace NetworkMonitor.Views
         private async void OnChartBucketSelected(object? sender, ChartPoint point)
         {
             _pauseReason = PauseReason.Bucket;
-            ViewModel.SelectedApp = null;
+            ViewModel.SelectedEndpoint = null;
             ViewModel.SelectedBucketStart = point.BucketStart;
             UpdateChartLabel();
             await ViewModel.LoadAsync(true);
@@ -155,39 +154,24 @@ namespace NetworkMonitor.Views
             SyncGridSelection();
         }
 
-        private void OpenAppFolderClick(object sender, RoutedEventArgs args)
+        private void DeviceGridLoaded(object sender, RoutedEventArgs args)
         {
+            HookScrollBar();
 
-            if ((sender as FrameworkElement)?.Tag is string path && !string.IsNullOrEmpty(path))
+            if (_deviceScrollBar is null)
             {
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = "explorer.exe",
-                    Arguments = $"/select,\"{path}\"",
-                    UseShellExecute = true
-                });
+                DeviceGrid.LayoutUpdated += DeviceGridLayoutUpdated;
             }
 
         }
 
-        private void AppGridLoaded(object sender, RoutedEventArgs args)
+        private void DeviceGridLayoutUpdated(object? sender, object args)
         {
             HookScrollBar();
 
-            if (_appScrollBar is null)
+            if (_deviceScrollBar is not null)
             {
-                AppGrid.LayoutUpdated += AppGridLayoutUpdated;
-            }
-
-        }
-
-        private void AppGridLayoutUpdated(object? sender, object args)
-        {
-            HookScrollBar();
-
-            if (_appScrollBar is not null)
-            {
-                AppGrid.LayoutUpdated -= AppGridLayoutUpdated;
+                DeviceGrid.LayoutUpdated -= DeviceGridLayoutUpdated;
             }
 
         }
@@ -195,21 +179,21 @@ namespace NetworkMonitor.Views
         private void HookScrollBar()
         {
 
-            if (_appScrollBar is null)
+            if (_deviceScrollBar is null)
             {
-                ScrollBar? verticalScrollBar = FindVerticalScrollBar(AppGrid);
+                ScrollBar? verticalScrollBar = FindVerticalScrollBar(DeviceGrid);
 
                 if (verticalScrollBar is not null)
                 {
-                    _appScrollBar = verticalScrollBar;
-                    _appScrollBar.ValueChanged += AppScrollBarValueChanged;
+                    _deviceScrollBar = verticalScrollBar;
+                    _deviceScrollBar.ValueChanged += DeviceScrollBarValueChanged;
                 }
 
             }
 
         }
 
-        private void AppScrollBarValueChanged(object sender, RangeBaseValueChangedEventArgs args)
+        private void DeviceScrollBarValueChanged(object sender, RangeBaseValueChangedEventArgs args)
         {
             bool scrolledAway = args.NewValue > 1.0;
 
@@ -253,15 +237,15 @@ namespace NetworkMonitor.Views
 
         private void SyncGridSelection()
         {
-            InternetTrafficAppRow? target = ViewModel.SelectedApp is null
-                ? ViewModel.Apps.FirstOrDefault(row => row.IsAllApps)
-                : ViewModel.Apps.FirstOrDefault(row => row.ProcessName == ViewModel.SelectedApp);
+            LocalTrafficDeviceRow? target = ViewModel.SelectedEndpoint is null
+                ? ViewModel.Devices.FirstOrDefault(row => row.IsAllDevices)
+                : ViewModel.Devices.FirstOrDefault(row => row.RemoteIp == ViewModel.SelectedEndpoint);
 
             _suppressSelection = true;
 
             try
             {
-                AppGrid.SelectedItem = target;
+                DeviceGrid.SelectedItem = target;
             }
             finally
             {
@@ -373,12 +357,12 @@ namespace NetworkMonitor.Views
 
             if (ViewModel.SelectedBucketStart is DateTime bucketStart)
             {
-                labelText = $"Apps at {bucketStart.ToLocalTime():dd MMM HH:mm:ss}";
+                labelText = $"Devices at {bucketStart.ToLocalTime():dd MMM HH:mm:ss}";
             }
             else
             {
-                string appPart = ViewModel.SelectedApp ?? "All Apps";
-                labelText = $"{appPart} — {rangePart}";
+                string endpointPart = ViewModel.SelectedEndpoint ?? "All Devices";
+                labelText = $"{endpointPart} — {rangePart}";
             }
 
             ChartLabel.Text = labelText;
@@ -414,20 +398,20 @@ namespace NetworkMonitor.Views
             TimeLabel3.Text = now.AddHours(-hours * 0.25).ToString(format);
         }
 
-        private async void AppGridSelectionChanged(object sender, SelectionChangedEventArgs args)
+        private async void DeviceGridSelectionChanged(object sender, SelectionChangedEventArgs args)
         {
 
             if (!_suppressSelection)
             {
 
-                if (AppGrid.SelectedItem is InternetTrafficAppRow row)
+                if (DeviceGrid.SelectedItem is LocalTrafficDeviceRow row)
                 {
-                    string? newSelectedApp = row.IsAllApps ? null : row.ProcessName;
-                    bool appChanged = newSelectedApp != ViewModel.SelectedApp;
+                    string? newSelectedEndpoint = row.IsAllDevices ? null : row.RemoteIp;
+                    bool endpointChanged = newSelectedEndpoint != ViewModel.SelectedEndpoint;
 
-                    if (appChanged)
+                    if (endpointChanged)
                     {
-                        ViewModel.SelectedApp = newSelectedApp;
+                        ViewModel.SelectedEndpoint = newSelectedEndpoint;
                         UpdateChartLabel();
 
                         if (_pauseReason == PauseReason.None)

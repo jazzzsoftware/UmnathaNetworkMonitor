@@ -25,7 +25,7 @@ namespace NetworkMonitor.ViewModels
         {
             _dbFactory = dbFactory;
             _settings = settings;
-            _timeRangeHours = settings.TrafficTimeRangeHours;
+            _timeRangeHours = settings.InternetTimeRangeHours;
         }
 
         private double _timeRangeHours = 5.0 / 60.0;
@@ -38,7 +38,7 @@ namespace NetworkMonitor.ViewModels
 
                 if (SetProperty(ref _timeRangeHours, value))
                 {
-                    _settings.TrafficTimeRangeHours = value;
+                    _settings.InternetTimeRangeHours = value;
                     _settings.Save();
                     _ = LoadAsync(true);
                 }
@@ -70,9 +70,9 @@ namespace NetworkMonitor.ViewModels
             set => SetProperty(ref _chartPoints, value);
         }
 
-        private ObservableCollection<TrafficAppRow> _apps = [];
+        private ObservableCollection<InternetTrafficAppRow> _apps = [];
 
-        public ObservableCollection<TrafficAppRow> Apps
+        public ObservableCollection<InternetTrafficAppRow> Apps
         {
             get => _apps;
             set => SetProperty(ref _apps, value);
@@ -116,7 +116,7 @@ namespace NetworkMonitor.ViewModels
 
                 if (refreshList)
                 {
-                    Apps = new ObservableCollection<TrafficAppRow>(result.DisplayRows);
+                    Apps = new ObservableCollection<InternetTrafficAppRow>(result.DisplayRows);
                     StatusText = result.StatusText;
                 }
 
@@ -175,7 +175,7 @@ namespace NetworkMonitor.ViewModels
             _windowChartPoints = new List<ChartPoint>(result.ChartPoints);
             _windowAppTotals = new Dictionary<string, (long Upload, long Download, string? Path)>();
 
-            foreach (TrafficAppRow row in result.DisplayRows)
+            foreach (InternetTrafficAppRow row in result.DisplayRows)
             {
 
                 if (!row.IsAllApps && row.ProcessName is not null)
@@ -195,6 +195,11 @@ namespace NetworkMonitor.ViewModels
 
             foreach (TrafficEntry entry in entries)
             {
+
+                if (entry.ProcessName == "System")
+                {
+                    continue;
+                }
 
                 if (selectedApp is null || entry.ProcessName == selectedApp)
                 {
@@ -225,24 +230,24 @@ namespace NetworkMonitor.ViewModels
         {
             long totalUpload = 0;
             long totalDownload = 0;
-            List<TrafficAppRow> perAppRows = new List<TrafficAppRow>(_windowAppTotals.Count);
+            List<InternetTrafficAppRow> perAppRows = new List<InternetTrafficAppRow>(_windowAppTotals.Count);
 
             foreach (KeyValuePair<string, (long Upload, long Download, string? Path)> pair in _windowAppTotals)
             {
-                perAppRows.Add(new TrafficAppRow(pair.Key, pair.Value.Upload, pair.Value.Download, pair.Value.Path));
+                perAppRows.Add(new InternetTrafficAppRow(pair.Key, pair.Value.Upload, pair.Value.Download, pair.Value.Path));
                 totalUpload += pair.Value.Upload;
                 totalDownload += pair.Value.Download;
             }
 
             perAppRows.Sort((left, right) => (right.BytesUploaded + right.BytesDownloaded).CompareTo(left.BytesUploaded + left.BytesDownloaded));
 
-            TrafficAppRow allAppsRow = new TrafficAppRow(null, totalUpload, totalDownload, null);
-            List<TrafficAppRow> displayRows = new List<TrafficAppRow> { allAppsRow };
+            InternetTrafficAppRow allAppsRow = new InternetTrafficAppRow(null, totalUpload, totalDownload, null);
+            List<InternetTrafficAppRow> displayRows = new List<InternetTrafficAppRow> { allAppsRow };
             displayRows.AddRange(perAppRows);
 
             string statusText = $"{perAppRows.Count} app{(perAppRows.Count == 1 ? string.Empty : "s")} · {ByteSizeFormatter.Format(allAppsRow.TotalBytes)} total";
 
-            Apps = new ObservableCollection<TrafficAppRow>(displayRows);
+            Apps = new ObservableCollection<InternetTrafficAppRow>(displayRows);
             StatusText = statusText;
         }
 
@@ -261,7 +266,7 @@ namespace NetworkMonitor.ViewModels
 
             await using AppDbContext db = await _dbFactory.CreateDbContextAsync();
 
-            List<TrafficAppRow> perAppRows = await LoadAppRowsAsync(db, useRollup, cutoff, cutoffEpoch, bucketRangeStart, bucketRangeEnd);
+            List<InternetTrafficAppRow> perAppRows = await LoadAppRowsAsync(db, useRollup, cutoff, cutoffEpoch, bucketRangeStart, bucketRangeEnd);
 
             Dictionary<int, (long Upload, long Download)> dataByBucket =
                 await LoadChartBucketsAsync(db, useRollup, cutoff, cutoffEpoch, bucketSeconds, selectedApp);
@@ -280,9 +285,9 @@ namespace NetworkMonitor.ViewModels
 
             long totalUpload = perAppRows.Sum(row => row.BytesUploaded);
             long totalDownload = perAppRows.Sum(row => row.BytesDownloaded);
-            TrafficAppRow allAppsRow = new TrafficAppRow(null, totalUpload, totalDownload, null);
+            InternetTrafficAppRow allAppsRow = new InternetTrafficAppRow(null, totalUpload, totalDownload, null);
 
-            List<TrafficAppRow> displayRows = new List<TrafficAppRow> { allAppsRow };
+            List<InternetTrafficAppRow> displayRows = new List<InternetTrafficAppRow> { allAppsRow };
             displayRows.AddRange(perAppRows);
 
             string scopeText = selectedBucketStart.HasValue
@@ -295,7 +300,7 @@ namespace NetworkMonitor.ViewModels
             return result;
         }
 
-        private async Task<List<TrafficAppRow>> LoadAppRowsAsync(
+        private async Task<List<InternetTrafficAppRow>> LoadAppRowsAsync(
             AppDbContext db,
             bool useRollup,
             DateTime cutoff,
@@ -303,9 +308,11 @@ namespace NetworkMonitor.ViewModels
             DateTime? bucketRangeStart,
             DateTime? bucketRangeEnd)
         {
-            List<TrafficAppRow> rows = new List<TrafficAppRow>();
+            List<InternetTrafficAppRow> rows = new List<InternetTrafficAppRow>();
             string sourceTable = useRollup ? "TrafficRollups" : "TrafficEntries";
             string whereClause = useRollup ? "MinuteEpoch >= $cutoffEpoch" : "Timestamp >= $cutoffTime";
+
+            whereClause += " AND ProcessName <> 'System'";
 
             if (bucketRangeStart.HasValue && bucketRangeEnd.HasValue)
             {
@@ -395,7 +402,7 @@ namespace NetworkMonitor.ViewModels
                         long upload = reader.GetInt64(1);
                         long download = reader.GetInt64(2);
                         string? processPath = reader.IsDBNull(3) ? null : reader.GetString(3);
-                        TrafficAppRow row = new TrafficAppRow(processName, upload, download, processPath);
+                        InternetTrafficAppRow row = new InternetTrafficAppRow(processName, upload, download, processPath);
                         rows.Add(row);
                     }
 
@@ -418,6 +425,8 @@ namespace NetworkMonitor.ViewModels
             string sourceTable = useRollup ? "TrafficRollups" : "TrafficEntries";
             string epochExpr = useRollup ? "MinuteEpoch" : "CAST(strftime('%s', Timestamp) AS INTEGER)";
             string whereClause = useRollup ? "MinuteEpoch >= $cutoffEpoch" : "Timestamp >= $cutoffTime";
+
+            whereClause += " AND ProcessName <> 'System'";
 
             await db.Database.OpenConnectionAsync();
 
@@ -513,7 +522,7 @@ namespace NetworkMonitor.ViewModels
 
     internal record InternetLoadResult(
         List<ChartPoint> ChartPoints,
-        List<TrafficAppRow> DisplayRows,
+        List<InternetTrafficAppRow> DisplayRows,
         string StatusText,
         long CutoffEpoch,
         long BucketSeconds);
