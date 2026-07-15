@@ -606,7 +606,7 @@
                             <TextBlock
                                 Grid.Row="2"
                                 Grid.Column="1"
-                                Text="SQLite write-ahead log and shared-memory files — temporary working files for the database. They appear while the app runs and are safe to leave in place."
+                                Text="SQLite write-ahead log and shared-memory files — temporary working files for the database. They appear while the app runs, do not delete."
                                 FontSize="12"
                                 Opacity="0.8"
                                 TextWrapping="Wrap" />
@@ -621,7 +621,7 @@
                             <TextBlock
                                 Grid.Row="3"
                                 Grid.Column="1"
-                                Text="Your saved settings from this page."
+                                Text="Your saved settings from all Settings pages."
                                 FontSize="12"
                                 Opacity="0.8"
                                 TextWrapping="Wrap" />
