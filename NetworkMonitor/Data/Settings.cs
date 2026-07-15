@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text.Json;
@@ -164,20 +165,70 @@ namespace NetworkMonitor.Data
 
         public static string DetectSubnetBase()
         {
-            string? subnet = NetworkInterface.GetAllNetworkInterfaces()
-                .Where(ni => ni.OperationalStatus == OperationalStatus.Up
-                             && ni.NetworkInterfaceType != NetworkInterfaceType.Loopback
-                             && ni.NetworkInterfaceType != NetworkInterfaceType.Tunnel)
-                .SelectMany(ni => ni.GetIPProperties().UnicastAddresses)
-                .Where(addr => addr.Address.AddressFamily == AddressFamily.InterNetwork)
-                .Select(addr => addr.Address.ToString().Split('.'))
-                .Where(parts => parts.Length == 4)
-                .Select(parts => $"{parts[0]}.{parts[1]}.{parts[2]}")
-                .FirstOrDefault();
+            string? address = GetPrimaryIPv4Address();
 
-            string subnetBase = subnet ?? "192.168.1";
+            if (address is null)
+            {
+                address = GetGatewayIPv4Address();
+            }
+
+            string subnetBase = "192.168.1";
+
+            if (address is not null)
+            {
+                string[] parts = address.Split('.');
+
+                if (parts.Length == 4)
+                {
+                    subnetBase = $"{parts[0]}.{parts[1]}.{parts[2]}";
+                }
+
+            }
 
             return subnetBase;
+        }
+
+        private static string? GetPrimaryIPv4Address()
+        {
+            string? address = null;
+
+            try
+            {
+                using Socket socket = new(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                socket.Connect("8.8.8.8", 65530);
+
+                if (socket.LocalEndPoint is IPEndPoint endPoint
+                    && !IPAddress.IsLoopback(endPoint.Address)
+                    && !endPoint.Address.ToString().StartsWith("169.254.", StringComparison.Ordinal))
+                {
+                    address = endPoint.Address.ToString();
+                }
+
+            }
+            catch
+            {
+            }
+
+            return address;
+        }
+
+        private static string? GetGatewayIPv4Address()
+        {
+            string? address = NetworkInterface.GetAllNetworkInterfaces()
+                .Where(networkInterface => networkInterface.OperationalStatus == OperationalStatus.Up
+                             && networkInterface.NetworkInterfaceType != NetworkInterfaceType.Loopback
+                             && networkInterface.NetworkInterfaceType != NetworkInterfaceType.Tunnel)
+                .Where(networkInterface => networkInterface.GetIPProperties().GatewayAddresses
+                    .Any(gateway => gateway.Address.AddressFamily == AddressFamily.InterNetwork
+                                    && !gateway.Address.Equals(IPAddress.Any)))
+                .SelectMany(networkInterface => networkInterface.GetIPProperties().UnicastAddresses)
+                .Where(unicast => unicast.Address.AddressFamily == AddressFamily.InterNetwork
+                               && !IPAddress.IsLoopback(unicast.Address)
+                               && !unicast.Address.ToString().StartsWith("169.254.", StringComparison.Ordinal))
+                .Select(unicast => unicast.Address.ToString())
+                .FirstOrDefault();
+
+            return address;
         }
     }
 }
