@@ -21,7 +21,7 @@ namespace NetworkMonitor.Tests
             string csv = DigestCsvExporter.BuildAllCsv(reports);
             string[] lines = csv.Split(new string[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
 
-            Assert.StartsWith("Period Start,Period End,Generated,Total Bytes Uploaded", lines[0]);
+            Assert.StartsWith("Period Start,Period End,Generated,Total Uploaded (Raw),Total Uploaded (Friendly)", lines[0]);
             Assert.Contains("100", lines[1]);
             Assert.Contains("200", lines[2]);
         }
@@ -48,15 +48,17 @@ namespace NetworkMonitor.Tests
             string[] lines = csv.Split(new string[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
             string[] columns = lines[1].Split(',');
 
-            Assert.Equal(11, columns.Length);
+            Assert.Equal(13, columns.Length);
             Assert.Equal("100", columns[3]);
-            Assert.Equal("200", columns[4]);
-            Assert.Equal("0", columns[5]);
-            Assert.Equal("0", columns[6]);
-            Assert.Equal("3", columns[7]);
-            Assert.Equal("4", columns[8]);
-            Assert.Equal("5", columns[9]);
-            Assert.Equal("6", columns[10]);
+            Assert.Equal("100 B", columns[4]);
+            Assert.Equal("200", columns[5]);
+            Assert.Equal("200 B", columns[6]);
+            Assert.Equal("0", columns[7]);
+            Assert.Equal("0", columns[8]);
+            Assert.Equal("3", columns[9]);
+            Assert.Equal("4", columns[10]);
+            Assert.Equal("5", columns[11]);
+            Assert.Equal("6", columns[12]);
         }
     }
 }

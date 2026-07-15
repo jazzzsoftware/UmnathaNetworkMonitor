@@ -1,12 +1,13 @@
 using System.Text;
 using NetworkMonitor.Models;
+using NetworkMonitor.Services.Common;
 using NetworkMonitor.Services.Csv;
 
 namespace NetworkMonitor.Services.Digest
 {
     public static class DigestCsvExporter
     {
-        private const string HeaderRow = "Period Start,Period End,Generated,Total Bytes Uploaded,Total Bytes Downloaded,All Devices,Unapproved Devices,Appeared,Disappeared,Online,Offline";
+        private const string HeaderRow = "Period Start,Period End,Generated,Total Uploaded (Raw),Total Uploaded (Friendly),Total Downloaded (Raw),Total Downloaded (Friendly),All Devices,Unapproved Devices,Appeared,Disappeared,Online,Offline";
 
         public static string BuildAllCsv(IReadOnlyList<(DateTime PeriodStartUtc, DateTime PeriodEndUtc, DateTime GeneratedAtUtc, DigestSummary Summary)> reports)
         {
@@ -46,7 +47,9 @@ namespace NetworkMonitor.Services.Digest
                 CsvField.Escape(periodEndUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")),
                 CsvField.Escape(generatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")),
                 CsvField.Escape(summary.TotalBytesUploaded.ToString()),
+                CsvField.Escape(ByteSizeFormatter.Format(summary.TotalBytesUploaded)),
                 CsvField.Escape(summary.TotalBytesDownloaded.ToString()),
+                CsvField.Escape(ByteSizeFormatter.Format(summary.TotalBytesDownloaded)),
                 CsvField.Escape(summary.AllDevices.Count.ToString()),
                 CsvField.Escape(summary.UnapprovedDevices.Count.ToString()),
                 CsvField.Escape(summary.AppearedCount.ToString()),
@@ -61,8 +64,8 @@ namespace NetworkMonitor.Services.Digest
 
         private static void AppendTrafficTable(StringBuilder builder, DigestSummary summary)
         {
-            builder.AppendLine("Top apps by traffic");
-            builder.AppendLine("Process,Download,Upload");
+            builder.AppendLine("Top apps by internet traffic");
+            builder.AppendLine("Process,Download (Raw),Download (Friendly),Upload (Raw),Upload (Friendly)");
 
             foreach (TrafficAppSummary app in summary.TopApps)
             {
@@ -70,7 +73,9 @@ namespace NetworkMonitor.Services.Digest
                 {
                     CsvField.Escape(app.ProcessName),
                     CsvField.Escape(app.BytesDownloaded.ToString()),
-                    CsvField.Escape(app.BytesUploaded.ToString())
+                    CsvField.Escape(ByteSizeFormatter.Format(app.BytesDownloaded)),
+                    CsvField.Escape(app.BytesUploaded.ToString()),
+                    CsvField.Escape(ByteSizeFormatter.Format(app.BytesUploaded))
                 };
                 builder.AppendLine(string.Join(",", cells));
             }

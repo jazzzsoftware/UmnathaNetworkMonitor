@@ -60,6 +60,10 @@
     <Compile Include="..\NetworkMonitor\Services\Scanning\MdnsResponseParser.cs">
       <Link>Linked\MdnsResponseParser.cs</Link>
     </Compile>
+    <Compile Include="..\NetworkMonitor\Services\Common\ByteSizeFormatter.cs">
+      <Link>Linked\ByteSizeFormatter.cs</Link>
+    </Compile>
+
     <Compile Include="..\NetworkMonitor\Services\Common\Watchdog.cs">
       <Link>Linked\Watchdog.cs</Link>
     </Compile>
