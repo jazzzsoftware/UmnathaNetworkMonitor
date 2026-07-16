@@ -52,10 +52,10 @@ namespace NetworkMonitor.Services.Digest
             List<string> categories = new();
             List<double[]> values = new();
 
-            foreach (LocalTrafficDeviceSummary device in summary.TopLocalDevices)
+            foreach (LocalTrafficAppSummary app in summary.TopLocalApps)
             {
-                categories.Add(Truncate(device.DeviceName, 14));
-                values.Add(new double[] { device.BytesDownloaded, device.BytesUploaded });
+                categories.Add(Truncate(app.ProcessName, 14));
+                values.Add(new double[] { app.BytesDownloaded, app.BytesUploaded });
             }
 
             string[] seriesNames = new string[] { "Download", "Upload" };

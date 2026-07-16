@@ -26,7 +26,7 @@ namespace NetworkMonitor.Models
             set;
         } = new();
 
-        public List<LocalTrafficDeviceSummary> TopLocalDevices
+        public List<LocalTrafficAppSummary> TopLocalApps
         {
             get;
             set;

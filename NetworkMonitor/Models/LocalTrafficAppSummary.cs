@@ -2,15 +2,15 @@ using System.Text.Json.Serialization;
 
 namespace NetworkMonitor.Models
 {
-    public class LocalTrafficDeviceSummary
+    public class LocalTrafficAppSummary
     {
-        public string DeviceName
+        public string ProcessName
         {
             get;
             set;
         } = string.Empty;
 
-        public string RemoteIp
+        public string Peer
         {
             get;
             set;

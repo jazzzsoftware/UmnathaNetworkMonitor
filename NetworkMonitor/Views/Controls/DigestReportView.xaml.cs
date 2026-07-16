@@ -96,7 +96,7 @@ namespace NetworkMonitor.Views.Controls
                 ThroughputChartImage.Source = null;
                 LatencyChartImage.Source = null;
                 TopAppsTable.ItemsSource = null;
-                TopLocalDevicesTable.ItemsSource = null;
+                TopLocalAppsTable.ItemsSource = null;
                 AllTable.ItemsSource = null;
                 UnapprovedTable.ItemsSource = null;
                 SpeedTable.ItemsSource = null;
@@ -104,7 +104,7 @@ namespace NetworkMonitor.Views.Controls
             else
             {
                 TopAppsTable.ItemsSource = summary.InternetTopApps;
-                TopLocalDevicesTable.ItemsSource = summary.TopLocalDevices;
+                TopLocalAppsTable.ItemsSource = summary.TopLocalApps;
                 AllTable.ItemsSource = summary.AllDevices;
                 UnapprovedTable.ItemsSource = summary.UnapprovedDevices;
                 SpeedTable.ItemsSource = summary.SpeedTests.OrderByDescending(test => test.Timestamp).ToList();

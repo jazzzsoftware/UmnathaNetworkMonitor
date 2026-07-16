@@ -9,7 +9,7 @@ namespace NetworkMonitor.Services.Digest
             IReadOnlyList<DeviceEvent> events,
             IReadOnlyList<Device> devices,
             IReadOnlyList<AppTrafficTotal> traffic,
-            IReadOnlyList<LocalTrafficDeviceSummary> localTraffic,
+            IReadOnlyList<LocalTrafficMinute> localTraffic,
             DateTime startUtc,
             DateTime endUtc)
         {
@@ -42,16 +42,25 @@ namespace NetworkMonitor.Services.Digest
 
             }
 
-            summary.TopLocalDevices = localTraffic
-                .OrderByDescending(deviceTotal => deviceTotal.BytesUploaded + deviceTotal.BytesDownloaded)
-                .Take(10)
-                .Select(deviceTotal => new LocalTrafficDeviceSummary
+            summary.TopLocalApps = localTraffic
+                .GroupBy(appRow => appRow.ProcessName)
+                .Select(appGroup =>
                 {
-                    DeviceName = LocalTrafficNameResolver.Resolve(deviceTotal.RemoteIp, namesByIp),
-                    RemoteIp = deviceTotal.RemoteIp,
-                    BytesDownloaded = deviceTotal.BytesDownloaded,
-                    BytesUploaded = deviceTotal.BytesUploaded
+                    LocalTrafficMinute topPeerRow = appGroup
+                        .OrderByDescending(peerRow => peerRow.BytesUploaded + peerRow.BytesDownloaded)
+                        .First();
+                    LocalTrafficAppSummary appSummary = new LocalTrafficAppSummary
+                    {
+                        ProcessName = appGroup.Key,
+                        Peer = LocalTrafficNameResolver.Resolve(topPeerRow.RemoteIp, namesByIp),
+                        BytesDownloaded = appGroup.Sum(peerRow => peerRow.BytesDownloaded),
+                        BytesUploaded = appGroup.Sum(peerRow => peerRow.BytesUploaded)
+                    };
+
+                    return appSummary;
                 })
+                .OrderByDescending(appSummary => appSummary.BytesUploaded + appSummary.BytesDownloaded)
+                .Take(10)
                 .ToList();
 
             summary.TotalBytesUploaded = internetTraffic.Sum(appTotal => appTotal.BytesUploaded);

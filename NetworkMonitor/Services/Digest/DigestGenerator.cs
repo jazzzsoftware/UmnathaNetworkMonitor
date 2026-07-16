@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using NetworkMonitor.Data;
 using NetworkMonitor.Models;
+using NetworkMonitor.Services.Traffic;
 
 namespace NetworkMonitor.Services.Digest
 {
@@ -21,7 +22,7 @@ namespace NetworkMonitor.Services.Digest
 
             List<Device> devices = await db.Devices.AsNoTracking().ToListAsync(ct);
             List<AppTrafficTotal> traffic = await LoadTrafficTotalsAsync(db, startUtc, endUtc, ct);
-            List<LocalTrafficDeviceSummary> localTraffic = await LoadLocalTrafficTotalsAsync(db, startUtc, endUtc, ct);
+            List<LocalTrafficMinute> localTraffic = await LoadLocalTrafficTotalsAsync(db, startUtc, endUtc, ct);
 
             DigestSummary summary = DigestSummaryBuilder.Build(events, devices, traffic, localTraffic, startUtc, endUtc);
 
@@ -108,10 +109,10 @@ namespace NetworkMonitor.Services.Digest
             return totals;
         }
 
-        private static async Task<List<LocalTrafficDeviceSummary>> LoadLocalTrafficTotalsAsync(
+        private static async Task<List<LocalTrafficMinute>> LoadLocalTrafficTotalsAsync(
             AppDbContext db, DateTime startUtc, DateTime endUtc, CancellationToken ct)
         {
-            List<LocalTrafficDeviceSummary> totals = new();
+            List<LocalTrafficMinute> totals = new();
             long startEpoch = (long)(startUtc - DateTime.UnixEpoch).TotalSeconds;
             long endEpoch = (long)(endUtc - DateTime.UnixEpoch).TotalSeconds;
 
@@ -122,10 +123,10 @@ namespace NetworkMonitor.Services.Digest
             await using (DbCommand command = connection.CreateCommand())
             {
                 command.CommandText = """
-                    SELECT RemoteIp, SUM(BytesUploaded) AS Upload, SUM(BytesDownloaded) AS Download
+                    SELECT ProcessName, RemoteIp, SUM(BytesUploaded) AS Upload, SUM(BytesDownloaded) AS Download
                     FROM LocalTrafficRollups
                     WHERE MinuteEpoch >= $start AND MinuteEpoch < $end
-                    GROUP BY RemoteIp
+                    GROUP BY ProcessName, RemoteIp
                     """;
 
                 DbParameter startParameter = command.CreateParameter();
@@ -143,12 +144,11 @@ namespace NetworkMonitor.Services.Digest
 
                     while (await reader.ReadAsync(ct))
                     {
-                        totals.Add(new LocalTrafficDeviceSummary
-                        {
-                            RemoteIp = reader.GetString(0),
-                            BytesUploaded = reader.GetInt64(1),
-                            BytesDownloaded = reader.GetInt64(2)
-                        });
+                        string processName = reader.GetString(0);
+                        string remoteIp = reader.GetString(1);
+                        long upload = reader.GetInt64(2);
+                        long download = reader.GetInt64(3);
+                        totals.Add(new LocalTrafficMinute(0, processName, remoteIp, upload, download));
                     }
 
                 }

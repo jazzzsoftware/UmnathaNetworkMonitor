@@ -84,13 +84,14 @@ namespace NetworkMonitor.Services.Digest
                             section.Item().Text("Local — Download vs Upload").FontSize(11).SemiBold();
                             section.Item().Image(localSplitChart);
 
-                            section.Item().Text("Top devices by local traffic").FontSize(11).SemiBold();
+                            section.Item().Text("Top apps by local traffic").FontSize(11).SemiBold();
 
                             section.Item().Table(table =>
                             {
                                 table.ColumnsDefinition(columns =>
                                 {
                                     columns.RelativeColumn(3);
+                                    columns.RelativeColumn(2);
                                     columns.RelativeColumn();
                                     columns.RelativeColumn();
                                     columns.RelativeColumn();
@@ -98,18 +99,20 @@ namespace NetworkMonitor.Services.Digest
 
                                 table.Header(header =>
                                 {
-                                    header.Cell().Text("Device").SemiBold();
+                                    header.Cell().Text("App").SemiBold();
+                                    header.Cell().Text("Peer").SemiBold();
                                     header.Cell().AlignRight().Text("Download").SemiBold();
                                     header.Cell().AlignRight().Text("Upload").SemiBold();
                                     header.Cell().AlignRight().Text("Total").SemiBold();
                                 });
 
-                                foreach (LocalTrafficDeviceSummary localDevice in summary.TopLocalDevices)
+                                foreach (LocalTrafficAppSummary localApp in summary.TopLocalApps)
                                 {
-                                    table.Cell().Text(localDevice.DeviceName);
-                                    table.Cell().AlignRight().Text(ByteSizeFormatter.Format(localDevice.BytesDownloaded));
-                                    table.Cell().AlignRight().Text(ByteSizeFormatter.Format(localDevice.BytesUploaded));
-                                    table.Cell().AlignRight().Text(ByteSizeFormatter.Format(localDevice.TotalBytes));
+                                    table.Cell().Text(localApp.ProcessName);
+                                    table.Cell().Text(localApp.Peer);
+                                    table.Cell().AlignRight().Text(ByteSizeFormatter.Format(localApp.BytesDownloaded));
+                                    table.Cell().AlignRight().Text(ByteSizeFormatter.Format(localApp.BytesUploaded));
+                                    table.Cell().AlignRight().Text(ByteSizeFormatter.Format(localApp.TotalBytes));
                                 }
 
                             });

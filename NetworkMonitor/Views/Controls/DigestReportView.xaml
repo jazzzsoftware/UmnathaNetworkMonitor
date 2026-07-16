@@ -296,7 +296,7 @@
 
                 <TextBlock
                     FontWeight="SemiBold"
-                    Text="Top devices by local traffic" />
+                    Text="Top apps by local traffic" />
 
                 <Border
                     Background="{ThemeResource DigestPanelBrush}"
@@ -306,7 +306,7 @@
                     <StackPanel>
 
                         <Grid
-                            ColumnDefinitions="2*,*,*,*">
+                            ColumnDefinitions="2*,1.5*,*,*,*">
 
                             <Border
                                 Grid.Column="0"
@@ -317,7 +317,7 @@
                                 <TextBlock
                                     FontWeight="SemiBold"
                                     Foreground="{ThemeResource DigestHeaderBrush}"
-                                    Text="Device" />
+                                    Text="App" />
 
                             </Border>
 
@@ -328,10 +328,9 @@
                                 Padding="8,4">
 
                                 <TextBlock
-                                    HorizontalAlignment="Right"
                                     FontWeight="SemiBold"
                                     Foreground="{ThemeResource DigestHeaderBrush}"
-                                    Text="Download" />
+                                    Text="Peer" />
 
                             </Border>
 
@@ -345,12 +344,26 @@
                                     HorizontalAlignment="Right"
                                     FontWeight="SemiBold"
                                     Foreground="{ThemeResource DigestHeaderBrush}"
-                                    Text="Upload" />
+                                    Text="Download" />
 
                             </Border>
 
                             <Border
                                 Grid.Column="3"
+                                BorderBrush="{ThemeResource DigestBorderBrush}"
+                                BorderThickness="0,0,1,1"
+                                Padding="8,4">
+
+                                <TextBlock
+                                    HorizontalAlignment="Right"
+                                    FontWeight="SemiBold"
+                                    Foreground="{ThemeResource DigestHeaderBrush}"
+                                    Text="Upload" />
+
+                            </Border>
+
+                            <Border
+                                Grid.Column="4"
                                 BorderBrush="{ThemeResource DigestBorderBrush}"
                                 BorderThickness="0,0,1,1"
                                 Padding="8,4">
@@ -366,15 +379,15 @@
                         </Grid>
 
                         <ItemsControl
-                            x:Name="TopLocalDevicesTable">
+                            x:Name="TopLocalAppsTable">
 
                             <ItemsControl.ItemTemplate>
 
                                 <DataTemplate
-                                    x:DataType="models:LocalTrafficDeviceSummary">
+                                    x:DataType="models:LocalTrafficAppSummary">
 
                                     <Grid
-                                        ColumnDefinitions="2*,*,*,*">
+                                        ColumnDefinitions="2*,1.5*,*,*,*">
 
                                         <Border
                                             Grid.Column="0"
@@ -385,7 +398,7 @@
                                             <TextBlock
                                                 TextTrimming="CharacterEllipsis"
                                                 Foreground="{ThemeResource DigestTextBrush}"
-                                                Text="{x:Bind DeviceName}" />
+                                                Text="{x:Bind ProcessName}" />
 
                                         </Border>
 
@@ -396,9 +409,9 @@
                                             Padding="8,4">
 
                                             <TextBlock
-                                                HorizontalAlignment="Right"
+                                                TextTrimming="CharacterEllipsis"
                                                 Foreground="{ThemeResource DigestTextBrush}"
-                                                Text="{x:Bind BytesDownloaded, Converter={StaticResource BytesConverter}}" />
+                                                Text="{x:Bind Peer}" />
 
                                         </Border>
 
@@ -411,12 +424,25 @@
                                             <TextBlock
                                                 HorizontalAlignment="Right"
                                                 Foreground="{ThemeResource DigestTextBrush}"
-                                                Text="{x:Bind BytesUploaded, Converter={StaticResource BytesConverter}}" />
+                                                Text="{x:Bind BytesDownloaded, Converter={StaticResource BytesConverter}}" />
 
                                         </Border>
 
                                         <Border
                                             Grid.Column="3"
+                                            BorderBrush="{ThemeResource DigestBorderBrush}"
+                                            BorderThickness="0,0,1,1"
+                                            Padding="8,4">
+
+                                            <TextBlock
+                                                HorizontalAlignment="Right"
+                                                Foreground="{ThemeResource DigestTextBrush}"
+                                                Text="{x:Bind BytesUploaded, Converter={StaticResource BytesConverter}}" />
+
+                                        </Border>
+
+                                        <Border
+                                            Grid.Column="4"
                                             BorderBrush="{ThemeResource DigestBorderBrush}"
                                             BorderThickness="0,0,1,1"
                                             Padding="8,4">

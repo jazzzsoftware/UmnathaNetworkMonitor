@@ -86,19 +86,21 @@ namespace NetworkMonitor.Services.Digest
 
         private static void AppendLocalTrafficTable(StringBuilder builder, DigestSummary summary)
         {
-            builder.AppendLine("Top devices by local traffic");
-            builder.AppendLine("Device,Endpoint,Download (Raw),Download (Friendly),Upload (Raw),Upload (Friendly)");
+            builder.AppendLine("Top apps by local traffic");
+            builder.AppendLine("App,Peer,Download (Raw),Download (Friendly),Upload (Raw),Upload (Friendly),Total (Raw),Total (Friendly)");
 
-            foreach (LocalTrafficDeviceSummary localDevice in summary.TopLocalDevices)
+            foreach (LocalTrafficAppSummary localApp in summary.TopLocalApps)
             {
                 string[] cells = new string[]
                 {
-                    CsvField.Escape(localDevice.DeviceName),
-                    CsvField.Escape(localDevice.RemoteIp),
-                    CsvField.Escape(localDevice.BytesDownloaded.ToString()),
-                    CsvField.Escape(ByteSizeFormatter.Format(localDevice.BytesDownloaded)),
-                    CsvField.Escape(localDevice.BytesUploaded.ToString()),
-                    CsvField.Escape(ByteSizeFormatter.Format(localDevice.BytesUploaded))
+                    CsvField.Escape(localApp.ProcessName),
+                    CsvField.Escape(localApp.Peer),
+                    CsvField.Escape(localApp.BytesDownloaded.ToString()),
+                    CsvField.Escape(ByteSizeFormatter.Format(localApp.BytesDownloaded)),
+                    CsvField.Escape(localApp.BytesUploaded.ToString()),
+                    CsvField.Escape(ByteSizeFormatter.Format(localApp.BytesUploaded)),
+                    CsvField.Escape(localApp.TotalBytes.ToString()),
+                    CsvField.Escape(ByteSizeFormatter.Format(localApp.TotalBytes))
                 };
                 builder.AppendLine(string.Join(",", cells));
             }
