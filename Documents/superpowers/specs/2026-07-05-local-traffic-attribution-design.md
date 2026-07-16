@@ -1,7 +1,7 @@
 # Local Traffic Attribution — Design Spec
 
 - **Date:** 2026-07-05
-- **Status:** Decisions resolved (2026-07-06) — ready for a follow-up build spec / plan
+- **Status:** SUPERSEDED 2026-07-16 by `2026-07-16-local-traffic-app-centric-design.md` (Local pivoted to app-centric; Internet made WAN-only). The LAN-classification foundation here is retained; the device-centric *presentation* is replaced. Kept for history.
 - **Author:** Brainstormed with Claude
 - **Related area:** `NetworkMonitor/Services/Traffic/` (TrafficCollector, TrafficTracker), Traffic UI
 

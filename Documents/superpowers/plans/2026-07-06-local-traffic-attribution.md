@@ -1,5 +1,7 @@
 # Local Traffic Attribution Implementation Plan
 
+> **SUPERSEDED 2026-07-16** by `2026-07-16-local-traffic-app-centric.md` — the Local tab was pivoted from device-centric to **app-centric** (apps over the LAN, device as drill-down) with Internet made WAN-only. This device-centric plan is kept for history only. See `Documents/superpowers/specs/2026-07-16-local-traffic-app-centric-design.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Revised 2026-07-15** to fold in these decisions (superseding the original 2026-07-06 draft):
