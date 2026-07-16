@@ -154,8 +154,14 @@ namespace NetworkMonitor
 
             try
             {
+#if DEBUG
+                bool loggingEnabled = true;
+#else
                 Settings logSettings = AppHost.Services.GetRequiredService<Settings>();
-                AppLog.Initialize(logSettings.EnableLogging);
+                bool loggingEnabled = logSettings.EnableLogging;
+#endif
+
+                AppLog.Initialize(loggingEnabled);
                 AppLog.Info($"Application started (version {AppInfo.GetVersion()}, minimized={startMinimized}).");
 
                 if (!startMinimized)
