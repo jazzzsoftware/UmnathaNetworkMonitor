@@ -161,6 +161,21 @@
                                     Background="{ThemeResource SystemFillColorCautionBackgroundBrush}"
                                     CornerRadius="8"
                                     Padding="6,1,6,1"
+                                    ToolTipService.ToolTip="This machine — the PC running Network Monitor."
+                                    Visibility="{x:Bind IsHost, Converter={StaticResource BoolToVisibilityConverter}, Mode=OneWay}">
+
+                                    <TextBlock
+                                        Text="Host"
+                                        FontSize="10"
+                                        Foreground="{ThemeResource SystemFillColorCautionBrush}" />
+
+                                </Border>
+
+                                <Border
+                                    VerticalAlignment="Center"
+                                    Background="{ThemeResource SystemFillColorCautionBackgroundBrush}"
+                                    CornerRadius="8"
+                                    Padding="6,1,6,1"
                                     ToolTipService.ToolTip="Private (randomized) MAC — phones rotate these, so tracking is best-effort."
                                     Visibility="{x:Bind IsRandomizedMac, Converter={StaticResource BoolToVisibilityConverter}, Mode=OneWay}">
 

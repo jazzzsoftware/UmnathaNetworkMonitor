@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using System.Text.RegularExpressions;
 using NetworkMonitor.Data;
 
@@ -52,7 +53,77 @@ namespace NetworkMonitor.Services.Scanning
 
             ScannedDevice[] devices = await Task.WhenAll(deviceTasks);
 
-            return devices;
+            List<ScannedDevice> allDevices = devices.ToList();
+            ScannedDevice? localHost = GetLocalHost(settings);
+
+            if (localHost is not null
+                && allDevices.All(existing => !string.Equals(
+                    MacNormalizer.Normalize(existing.Mac),
+                    MacNormalizer.Normalize(localHost.Mac),
+                    StringComparison.Ordinal)))
+            {
+                allDevices.Add(localHost);
+            }
+
+            return allDevices;
+        }
+
+        private ScannedDevice? GetLocalHost(Settings settings)
+        {
+            ScannedDevice? host = null;
+
+            try
+            {
+                string subnetPrefix = $"{settings.SubnetBase}.";
+
+                foreach (NetworkInterface networkInterface in NetworkInterface.GetAllNetworkInterfaces())
+                {
+
+                    if (networkInterface.OperationalStatus != OperationalStatus.Up
+                        || networkInterface.NetworkInterfaceType == NetworkInterfaceType.Loopback)
+                    {
+                        continue;
+                    }
+
+                    IPInterfaceProperties properties = networkInterface.GetIPProperties();
+
+                    foreach (UnicastIPAddressInformation unicast in properties.UnicastAddresses)
+                    {
+
+                        if (unicast.Address.AddressFamily == AddressFamily.InterNetwork
+                            && unicast.Address.ToString().StartsWith(subnetPrefix, StringComparison.Ordinal))
+                        {
+                            string ip = unicast.Address.ToString();
+                            string mac = FormatMac(networkInterface.GetPhysicalAddress());
+                            string hostname = Dns.GetHostName();
+                            string? vendor = oui.Lookup(mac);
+                            host = new ScannedDevice(ip, mac, hostname, vendor, null, null, true);
+
+                            break;
+                        }
+
+                    }
+
+                    if (host is not null)
+                    {
+                        break;
+                    }
+
+                }
+
+            }
+            catch
+            {
+            }
+
+            return host;
+        }
+
+        private static string FormatMac(PhysicalAddress physicalAddress)
+        {
+            string mac = string.Join(":", physicalAddress.GetAddressBytes().Select(octet => octet.ToString("X2")));
+
+            return mac;
         }
 
         private static async Task<string?> PingHostAsync(

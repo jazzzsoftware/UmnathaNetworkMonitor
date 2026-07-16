@@ -74,6 +74,12 @@ namespace NetworkMonitor.Services.Scanning
                     {
                         MacAddress = macKey, FirstSeen = DateTime.UtcNow, IsApproved = false
                     };
+
+                    if (scannedDevice.IsHost)
+                    {
+                        device.Type = DeviceType.PC;
+                    }
+
                     db.Devices.Add(device);
                     devicesByMac[macKey] = device;
                     session.NewDevices++;
@@ -107,6 +113,7 @@ namespace NetworkMonitor.Services.Scanning
 
                 device.Vendor ??= scannedDevice.Vendor;
                 MdnsEnrichment.Apply(device, new MdnsInfo(scannedDevice.MdnsName, scannedDevice.Model));
+                device.IsHost = scannedDevice.IsHost;
                 device.IsOnline = true;
                 device.LastSeen = DateTime.UtcNow;
 

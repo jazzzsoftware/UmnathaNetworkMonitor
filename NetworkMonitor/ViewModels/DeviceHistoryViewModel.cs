@@ -163,6 +163,7 @@ namespace NetworkMonitor.ViewModels
             {
                 "Timestamp" => deviceEvent => deviceEvent.Timestamp,
                 "EventType" => deviceEvent => (int) deviceEvent.EventType,
+                "Type" => deviceEvent => (int) (deviceEvent.Device?.Type ?? DeviceType.Unknown),
                 "DisplayName" => deviceEvent => deviceEvent.Device?.DisplayName,
                 "IpAddress" => deviceEvent => deviceEvent.Device?.IpAddress,
                 "MacAddress" => deviceEvent => deviceEvent.Device?.MacAddress,

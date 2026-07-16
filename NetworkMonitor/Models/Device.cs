@@ -125,6 +125,14 @@ namespace NetworkMonitor.Models
             set => SetProperty(ref _isApproved, value);
         }
 
+        private bool _isHost;
+
+        public bool IsHost
+        {
+            get => _isHost;
+            set => SetProperty(ref _isHost, value);
+        }
+
         private bool _isOnline;
 
         public bool IsOnline
@@ -253,6 +261,7 @@ namespace NetworkMonitor.Models
             Model = other.Model;
             Type = other.Type;
             IsApproved = other.IsApproved;
+            IsHost = other.IsHost;
             IsOnline = other.IsOnline;
             FirstSeen = other.FirstSeen;
             LastSeen = other.LastSeen;

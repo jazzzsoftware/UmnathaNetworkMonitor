@@ -57,7 +57,6 @@
             BorderThickness="1"
             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
             Sorting="DataGridSorting"
-            LoadingRow="DataGridLoadingRow"
             ItemsSource="{x:Bind ViewModel.Events, Mode=OneWay}">
 
             <controls:DataGrid.Columns>
@@ -117,6 +116,39 @@
                 </controls:DataGridTemplateColumn>
 
                 <controls:DataGridTemplateColumn
+                    Header="Type"
+                    Width="140">
+
+                    <controls:DataGridTemplateColumn.CellTemplate>
+
+                        <DataTemplate
+                            x:DataType="models:DeviceEvent">
+
+                            <StackPanel
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center"
+                                Spacing="6"
+                                Padding="8,0,0,0">
+
+                                <TextBlock
+                                    FontFamily="Segoe UI Emoji"
+                                    FontSize="14"
+                                    VerticalAlignment="Center"
+                                    Text="{x:Bind Device.TypeIcon, Mode=OneWay}" />
+
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    Text="{x:Bind Device.Type, Mode=OneWay}" />
+
+                            </StackPanel>
+
+                        </DataTemplate>
+
+                    </controls:DataGridTemplateColumn.CellTemplate>
+
+                </controls:DataGridTemplateColumn>
+
+                <controls:DataGridTemplateColumn
                     Header="Name"
                     Width="300">
 
@@ -125,10 +157,47 @@
                         <DataTemplate
                             x:DataType="models:DeviceEvent">
 
-                            <TextBlock
+                            <StackPanel
+                                Orientation="Horizontal"
                                 VerticalAlignment="Center"
-                                Padding="8,0,0,0"
-                                Text="{x:Bind Device.DisplayName, Mode=OneWay}" />
+                                Spacing="6"
+                                Padding="8,0,0,0">
+
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    Text="{x:Bind Device.DisplayName, Mode=OneWay}" />
+
+                                <Border
+                                    VerticalAlignment="Center"
+                                    Background="{ThemeResource SystemFillColorCautionBackgroundBrush}"
+                                    CornerRadius="8"
+                                    Padding="6,1,6,1"
+                                    ToolTipService.ToolTip="This machine — the PC running Network Monitor."
+                                    Visibility="{x:Bind Device.IsHost, Converter={StaticResource BoolToVisibilityConverter}, Mode=OneWay}">
+
+                                    <TextBlock
+                                        Text="Host"
+                                        FontSize="10"
+                                        Foreground="{ThemeResource SystemFillColorCautionBrush}" />
+
+                                </Border>
+
+                                <Border
+                                    VerticalAlignment="Center"
+                                    Background="{ThemeResource SystemFillColorCautionBackgroundBrush}"
+                                    CornerRadius="8"
+                                    Padding="6,1,6,1"
+                                    ToolTipService.ToolTip="Private (randomized) MAC — phones rotate these, so tracking is best-effort."
+                                    Visibility="{x:Bind Device.IsRandomizedMac, Converter={StaticResource BoolToVisibilityConverter}, Mode=OneWay}">
+
+                                    <TextBlock
+                                        Text="Private MAC"
+                                        FontSize="10"
+                                        Foreground="{ThemeResource SystemFillColorCautionBrush}" />
+
+                                </Border>
+
+                            </StackPanel>
 
                         </DataTemplate>
 
@@ -229,6 +298,26 @@
                                 VerticalAlignment="Center"
                                 Padding="8,0,0,0"
                                 Text="{x:Bind Device.Vendor, Mode=OneWay}" />
+
+                        </DataTemplate>
+
+                    </controls:DataGridTemplateColumn.CellTemplate>
+
+                </controls:DataGridTemplateColumn>
+
+                <controls:DataGridTemplateColumn
+                    Header="Model"
+                    Width="160">
+
+                    <controls:DataGridTemplateColumn.CellTemplate>
+
+                        <DataTemplate
+                            x:DataType="models:DeviceEvent">
+
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                Padding="8,0,0,0"
+                                Text="{x:Bind Device.Model, Mode=OneWay}" />
 
                         </DataTemplate>
 

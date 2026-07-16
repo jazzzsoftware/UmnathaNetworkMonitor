@@ -3,7 +3,6 @@ using CommunityToolkit.WinUI.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
 using NetworkMonitor.Models;
 using NetworkMonitor.Services.Csv;
@@ -24,10 +23,11 @@ namespace NetworkMonitor.Views
             InitializeComponent();
             _sortPaths[HistoryGrid.Columns[0]] = "Timestamp";
             _sortPaths[HistoryGrid.Columns[1]] = "EventType";
-            _sortPaths[HistoryGrid.Columns[2]] = "DisplayName";
-            _sortPaths[HistoryGrid.Columns[3]] = "IpAddress";
-            _sortPaths[HistoryGrid.Columns[4]] = "MacAddress";
-            _sortPaths[HistoryGrid.Columns[5]] = "Vendor";
+            _sortPaths[HistoryGrid.Columns[2]] = "Type";
+            _sortPaths[HistoryGrid.Columns[3]] = "DisplayName";
+            _sortPaths[HistoryGrid.Columns[4]] = "IpAddress";
+            _sortPaths[HistoryGrid.Columns[5]] = "MacAddress";
+            _sortPaths[HistoryGrid.Columns[6]] = "Vendor";
             Unloaded += OnPageUnloaded;
         }
 
@@ -53,18 +53,6 @@ namespace NetworkMonitor.Views
             ViewModel.Sort("Timestamp", false);
             await ViewModel.LoadAsync();
             DeviceGridSort.ApplyIndicator(HistoryGrid, _sortPaths, ViewModel.SortProperty, ViewModel.SortAscending);
-        }
-
-        private void DataGridLoadingRow(object sender, DataGridRowEventArgs args)
-        {
-
-            if (args.Row.DataContext is DeviceEvent evt)
-            {
-                args.Row.Background = (evt.Device?.IsApproved ?? true)
-                    ? null
-                    : new SolidColorBrush(Windows.UI.Color.FromArgb(30, 255, 160, 0));
-            }
-
         }
 
         private void CopyButtonClick(object sender, RoutedEventArgs args)
