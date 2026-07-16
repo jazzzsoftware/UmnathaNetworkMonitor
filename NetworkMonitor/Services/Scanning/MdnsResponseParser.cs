@@ -14,6 +14,8 @@ namespace NetworkMonitor.Services.Scanning
     {
         private static readonly string[] ModelKeys = { "model", "md", "rpmd" };
 
+        private static readonly string[] FallbackModelKeys = { "type" };
+
         private static readonly string[] OpaqueServiceTypes =
         {
             "_remotepairing", "_apple-mobdev", "_sleep-proxy", "_rdlink"
@@ -187,7 +189,7 @@ namespace NetworkMonitor.Services.Scanning
 
         private static string ExtractModel(IReadOnlyList<string> entries)
         {
-            string result = string.Empty;
+            Dictionary<string, string> values = new(StringComparer.OrdinalIgnoreCase);
 
             foreach (string entry in entries)
             {
@@ -198,13 +200,37 @@ namespace NetworkMonitor.Services.Scanning
                     string key = entry.Substring(0, separator).Trim().ToLowerInvariant();
                     string value = entry.Substring(separator + 1).Trim();
 
-                    if (value.Length > 0 && Array.IndexOf(ModelKeys, key) >= 0)
+                    if (value.Length > 0 && !values.ContainsKey(key))
                     {
-                        result = value;
-
-                        break;
+                        values[key] = value;
                     }
 
+                }
+
+            }
+
+            string result = SelectByKeys(values, ModelKeys);
+
+            if (string.IsNullOrEmpty(result))
+            {
+                result = SelectByKeys(values, FallbackModelKeys);
+            }
+
+            return result;
+        }
+
+        private static string SelectByKeys(Dictionary<string, string> values, string[] keys)
+        {
+            string result = string.Empty;
+
+            foreach (string key in keys)
+            {
+
+                if (values.TryGetValue(key, out string? value))
+                {
+                    result = value;
+
+                    break;
                 }
 
             }

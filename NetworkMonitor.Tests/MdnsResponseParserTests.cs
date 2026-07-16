@@ -52,6 +52,50 @@ namespace NetworkMonitor.Tests
         }
 
         [Fact]
+        public void FallsBackToTypeKeyWhenNoStandardModelKey()
+        {
+            List<MdnsAddressRecord> addresses = new()
+            {
+                new MdnsAddressRecord("eWeLink_1000beb2e9.local", "192.168.1.126")
+            };
+            List<MdnsPointerRecord> pointers = new();
+            List<MdnsServiceRecord> services = new()
+            {
+                new MdnsServiceRecord("eWeLink_1000beb2e9._ewelink._tcp.local", "eWeLink_1000beb2e9.local")
+            };
+            List<MdnsTextRecord> texts = new()
+            {
+                new MdnsTextRecord("eWeLink_1000beb2e9._ewelink._tcp.local", new List<string> { "txtvers=1", "id=1000beb2e9", "type=th_plug", "apivers=1" })
+            };
+
+            IReadOnlyDictionary<string, MdnsInfo> result = MdnsResponseParser.Parse(addresses, pointers, services, texts);
+
+            Assert.Equal("th_plug", result["192.168.1.126"].Model);
+        }
+
+        [Fact]
+        public void PrefersStandardModelKeyOverTypeKey()
+        {
+            List<MdnsAddressRecord> addresses = new()
+            {
+                new MdnsAddressRecord("device.local", "192.168.1.44")
+            };
+            List<MdnsPointerRecord> pointers = new();
+            List<MdnsServiceRecord> services = new()
+            {
+                new MdnsServiceRecord("Widget._http._tcp.local", "device.local")
+            };
+            List<MdnsTextRecord> texts = new()
+            {
+                new MdnsTextRecord("Widget._http._tcp.local", new List<string> { "type=generic", "md=Widget-Pro-2" })
+            };
+
+            IReadOnlyDictionary<string, MdnsInfo> result = MdnsResponseParser.Parse(addresses, pointers, services, texts);
+
+            Assert.Equal("Widget-Pro-2", result["192.168.1.44"].Model);
+        }
+
+        [Fact]
         public void SkipsOpaqueGuidInstanceNameFromPairingService()
         {
             List<MdnsAddressRecord> addresses = new()
