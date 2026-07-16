@@ -19,7 +19,8 @@ namespace NetworkMonitor.ViewModels
         private long _windowCutoffEpoch;
         private long _windowBucketSeconds;
         private List<ChartPoint> _windowChartPoints = [];
-        private Dictionary<string, (long Upload, long Download, IReadOnlyList<LocalTrafficDeviceRow> Peers)> _windowAppTotals = new();
+        private Dictionary<string, Dictionary<string, (long Upload, long Download)>> _windowAppPeerTotals = new();
+        private Dictionary<string, string> _namesByIp = new();
 
         public LocalViewModel(IDbContextFactory<AppDbContext> dbFactory, Settings settings)
         {
@@ -173,14 +174,21 @@ namespace NetworkMonitor.ViewModels
             _windowCutoffEpoch = result.CutoffEpoch;
             _windowBucketSeconds = result.BucketSeconds;
             _windowChartPoints = new List<ChartPoint>(result.ChartPoints);
-            _windowAppTotals = new Dictionary<string, (long Upload, long Download, IReadOnlyList<LocalTrafficDeviceRow> Peers)>();
+            _windowAppPeerTotals = new Dictionary<string, Dictionary<string, (long Upload, long Download)>>();
 
             foreach (LocalTrafficAppRow row in result.DisplayRows)
             {
 
                 if (!row.IsAllApps && row.ProcessName is not null)
                 {
-                    _windowAppTotals[row.ProcessName] = (row.BytesUploaded, row.BytesDownloaded, row.Peers);
+                    Dictionary<string, (long Upload, long Download)> inner = new Dictionary<string, (long Upload, long Download)>();
+
+                    foreach (LocalTrafficDeviceRow peer in row.Peers)
+                    {
+                        inner[peer.RemoteIp] = (peer.BytesUploaded, peer.BytesDownloaded);
+                    }
+
+                    _windowAppPeerTotals[row.ProcessName] = inner;
                 }
 
             }
@@ -194,7 +202,7 @@ namespace NetworkMonitor.ViewModels
             foreach (LocalTrafficDelta delta in deltas)
             {
 
-                if (!_windowAppTotals.ContainsKey(delta.ProcessName))
+                if (!_windowAppPeerTotals.ContainsKey(delta.ProcessName))
                 {
                     hasNewApp = true;
                 }
@@ -204,7 +212,7 @@ namespace NetworkMonitor.ViewModels
             if (hasNewApp)
             {
                 // A new app appeared mid-window; the in-memory patch cannot synthesize its
-                // per-device children, so fall back to an exact full reload via LoadAsync.
+                // initial peer set, so fall back to an exact full reload via LoadAsync.
                 await LoadAsync();
             }
             else
@@ -222,8 +230,9 @@ namespace NetworkMonitor.ViewModels
                         chartDeltaDownload += delta.BytesDownloaded;
                     }
 
-                    (long Upload, long Download, IReadOnlyList<LocalTrafficDeviceRow> Peers) current = _windowAppTotals[delta.ProcessName];
-                    _windowAppTotals[delta.ProcessName] = (current.Upload + delta.BytesUploaded, current.Download + delta.BytesDownloaded, current.Peers);
+                    Dictionary<string, (long Upload, long Download)> inner = _windowAppPeerTotals[delta.ProcessName];
+                    inner.TryGetValue(delta.RemoteIp, out (long Upload, long Download) currentPeer);
+                    inner[delta.RemoteIp] = (currentPeer.Upload + delta.BytesUploaded, currentPeer.Download + delta.BytesDownloaded);
                 }
 
                 int lastIndex = _windowChartPoints.Count - 1;
@@ -245,13 +254,29 @@ namespace NetworkMonitor.ViewModels
         {
             long totalUpload = 0;
             long totalDownload = 0;
-            List<LocalTrafficAppRow> perAppRows = new List<LocalTrafficAppRow>(_windowAppTotals.Count);
+            List<LocalTrafficAppRow> perAppRows = new List<LocalTrafficAppRow>(_windowAppPeerTotals.Count);
 
-            foreach (KeyValuePair<string, (long Upload, long Download, IReadOnlyList<LocalTrafficDeviceRow> Peers)> pair in _windowAppTotals)
+            foreach (KeyValuePair<string, Dictionary<string, (long Upload, long Download)>> appEntry in _windowAppPeerTotals)
             {
-                perAppRows.Add(new LocalTrafficAppRow(pair.Key, pair.Key, pair.Value.Upload, pair.Value.Download, pair.Value.Peers));
-                totalUpload += pair.Value.Upload;
-                totalDownload += pair.Value.Download;
+                List<LocalTrafficDeviceRow> peerRows = new List<LocalTrafficDeviceRow>(appEntry.Value.Count);
+                long appUpload = 0;
+                long appDownload = 0;
+
+                foreach (KeyValuePair<string, (long Upload, long Download)> peerEntry in appEntry.Value)
+                {
+                    string displayName = LocalTrafficNameResolver.Resolve(peerEntry.Key, _namesByIp);
+                    LocalTrafficDeviceRow peerRow = new LocalTrafficDeviceRow(peerEntry.Key, displayName, peerEntry.Value.Upload, peerEntry.Value.Download);
+
+                    peerRows.Add(peerRow);
+                    appUpload += peerEntry.Value.Upload;
+                    appDownload += peerEntry.Value.Download;
+                }
+
+                peerRows.Sort((left, right) => right.TotalBytes.CompareTo(left.TotalBytes));
+
+                perAppRows.Add(new LocalTrafficAppRow(appEntry.Key, appEntry.Key, appUpload, appDownload, peerRows));
+                totalUpload += appUpload;
+                totalDownload += appDownload;
             }
 
             perAppRows.Sort((left, right) => right.TotalBytes.CompareTo(left.TotalBytes));
@@ -282,6 +307,7 @@ namespace NetworkMonitor.ViewModels
             await using AppDbContext db = await _dbFactory.CreateDbContextAsync();
 
             Dictionary<string, string> namesByIp = await BuildNameMapAsync(db);
+            _namesByIp = namesByIp;
 
             List<LocalTrafficAppRow> perAppRows = await LoadAppRowsAsync(db, useRollup, cutoff, cutoffEpoch, bucketRangeStart, bucketRangeEnd, namesByIp);
 
