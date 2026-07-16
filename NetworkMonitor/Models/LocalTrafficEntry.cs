@@ -1,6 +1,6 @@
 namespace NetworkMonitor.Models
 {
-    public class LocalTrafficRollup
+    public class LocalTrafficEntry
     {
         public int Id
         {
@@ -8,7 +8,7 @@ namespace NetworkMonitor.Models
             set;
         }
 
-        public long MinuteEpoch
+        public DateTime Timestamp
         {
             get;
             set;
