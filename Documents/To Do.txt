@@ -138,13 +138,18 @@ Done - Confirmed  not a Bug  - after Macrium copy the traffic chart did not resi
 Done - mDNS probe to enrich name/model for randomized macs. (Per-scan DNS-SD discovery fills MdnsName/Model fill-blanks; live-verified against eWeLink + a synthetic Apple TV. One-time DB delete needed on upgrade.)
 Done - Data Folder text changes: db-wal - Add do not delete. settings - Your saved settings from all Settings pages.
 Done - Not detecting local network 192.168.0... (DetectSubnetBase picked the first IPv4 of any up adapter — virtual/APIPA adapters won over the real NIC. Now uses a UDP source-IP probe to the internet, with a default-gateway-filtered enumeration as fallback.)
+Done - Monitor local traffic
+Done - My PC not in devices list
+Done - Model column not being filled in.
 
-WIP - Monitor local traffic
-Create a Model project with subfolders and refactor.
+Implement per app not per device for Local
+Local traffic bugs
+Not monitoring NAS transfer.
+
+Create a Model project with subfolders and refactor.    
 
 
 Auto update
-split the commits
 
 
 
