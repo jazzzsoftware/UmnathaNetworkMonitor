@@ -2,9 +2,11 @@ using NetworkMonitor.Services.Common;
 
 namespace NetworkMonitor.Models
 {
-    public record LocalTrafficAppRow(string ProcessName, string DisplayName, long BytesUploaded, long BytesDownloaded, IReadOnlyList<LocalTrafficDeviceRow> Peers)
+    public record LocalTrafficAppRow(string? ProcessName, string DisplayName, long BytesUploaded, long BytesDownloaded, IReadOnlyList<LocalTrafficDeviceRow> Peers)
     {
         public long TotalBytes => BytesUploaded + BytesDownloaded;
+
+        public bool IsAllApps => ProcessName is null;
 
         public string DownloadText => ByteSizeFormatter.Format(BytesDownloaded);
 

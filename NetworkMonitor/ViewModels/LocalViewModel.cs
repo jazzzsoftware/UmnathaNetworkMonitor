@@ -19,8 +19,7 @@ namespace NetworkMonitor.ViewModels
         private long _windowCutoffEpoch;
         private long _windowBucketSeconds;
         private List<ChartPoint> _windowChartPoints = [];
-        private Dictionary<string, (long Upload, long Download)> _windowDeviceTotals = new();
-        private Dictionary<string, string> _namesByIp = new();
+        private Dictionary<string, (long Upload, long Download, IReadOnlyList<LocalTrafficDeviceRow> Peers)> _windowAppTotals = new();
 
         public LocalViewModel(IDbContextFactory<AppDbContext> dbFactory, Settings settings)
         {
@@ -47,12 +46,12 @@ namespace NetworkMonitor.ViewModels
             }
         }
 
-        private string? _selectedEndpoint;
+        private string? _selectedApp;
 
-        public string? SelectedEndpoint
+        public string? SelectedApp
         {
-            get => _selectedEndpoint;
-            set => SetProperty(ref _selectedEndpoint, value);
+            get => _selectedApp;
+            set => SetProperty(ref _selectedApp, value);
         }
 
         private DateTime? _selectedBucketStart;
@@ -71,12 +70,12 @@ namespace NetworkMonitor.ViewModels
             set => SetProperty(ref _chartPoints, value);
         }
 
-        private ObservableCollection<LocalTrafficDeviceRow> _devices = [];
+        private ObservableCollection<LocalTrafficAppRow> _apps = [];
 
-        public ObservableCollection<LocalTrafficDeviceRow> Devices
+        public ObservableCollection<LocalTrafficAppRow> Apps
         {
-            get => _devices;
-            set => SetProperty(ref _devices, value);
+            get => _apps;
+            set => SetProperty(ref _apps, value);
         }
 
         private string _statusText = string.Empty;
@@ -107,17 +106,17 @@ namespace NetworkMonitor.ViewModels
             try
             {
                 double timeRangeHours = TimeRangeHours;
-                string? selectedEndpoint = SelectedEndpoint;
+                string? selectedApp = SelectedApp;
                 DateTime? selectedBucketStart = SelectedBucketStart;
 
-                LocalLoadResult result = await Task.Run(() => BuildDataAsync(timeRangeHours, selectedEndpoint, selectedBucketStart));
+                LocalLoadResult result = await Task.Run(() => BuildDataAsync(timeRangeHours, selectedApp, selectedBucketStart));
 
                 ChartPoints = new ObservableCollection<ChartPoint>(result.ChartPoints);
                 SeedWindowState(result);
 
                 if (refreshList)
                 {
-                    Devices = new ObservableCollection<LocalTrafficDeviceRow>(result.DisplayRows);
+                    Apps = new ObservableCollection<LocalTrafficAppRow>(result.DisplayRows);
                     StatusText = result.StatusText;
                 }
 
@@ -162,7 +161,7 @@ namespace NetworkMonitor.ViewModels
                 }
                 else
                 {
-                    ApplyFlushToWindow(deltas);
+                    await ApplyFlushToWindow(deltas);
                 }
 
             }
@@ -174,88 +173,108 @@ namespace NetworkMonitor.ViewModels
             _windowCutoffEpoch = result.CutoffEpoch;
             _windowBucketSeconds = result.BucketSeconds;
             _windowChartPoints = new List<ChartPoint>(result.ChartPoints);
-            _windowDeviceTotals = new Dictionary<string, (long Upload, long Download)>();
+            _windowAppTotals = new Dictionary<string, (long Upload, long Download, IReadOnlyList<LocalTrafficDeviceRow> Peers)>();
 
-            foreach (LocalTrafficDeviceRow row in result.DisplayRows)
+            foreach (LocalTrafficAppRow row in result.DisplayRows)
             {
 
-                if (!row.IsAllDevices)
+                if (!row.IsAllApps && row.ProcessName is not null)
                 {
-                    _windowDeviceTotals[row.RemoteIp] = (row.BytesUploaded, row.BytesDownloaded);
+                    _windowAppTotals[row.ProcessName] = (row.BytesUploaded, row.BytesDownloaded, row.Peers);
                 }
 
             }
 
         }
 
-        private void ApplyFlushToWindow(IReadOnlyList<LocalTrafficDelta> deltas)
+        private async Task ApplyFlushToWindow(IReadOnlyList<LocalTrafficDelta> deltas)
         {
-            string? selectedEndpoint = SelectedEndpoint;
-            long chartDeltaUpload = 0;
-            long chartDeltaDownload = 0;
+            bool hasNewApp = false;
 
             foreach (LocalTrafficDelta delta in deltas)
             {
 
-                if (selectedEndpoint is null || delta.RemoteIp == selectedEndpoint)
+                if (!_windowAppTotals.ContainsKey(delta.ProcessName))
                 {
-                    chartDeltaUpload += delta.BytesUploaded;
-                    chartDeltaDownload += delta.BytesDownloaded;
+                    hasNewApp = true;
                 }
 
-                (long Upload, long Download) current = _windowDeviceTotals.TryGetValue(delta.RemoteIp, out (long Upload, long Download) existing)
-                    ? existing
-                    : (0L, 0L);
-                _windowDeviceTotals[delta.RemoteIp] = (current.Upload + delta.BytesUploaded, current.Download + delta.BytesDownloaded);
             }
 
-            int lastIndex = _windowChartPoints.Count - 1;
-            ChartPoint last = _windowChartPoints[lastIndex];
-            _windowChartPoints[lastIndex] = last with
+            if (hasNewApp)
             {
-                BytesUploaded = last.BytesUploaded + chartDeltaUpload,
-                BytesDownloaded = last.BytesDownloaded + chartDeltaDownload
-            };
+                // A new app appeared mid-window; the in-memory patch cannot synthesize its
+                // per-device children, so fall back to an exact full reload via LoadAsync.
+                await LoadAsync();
+            }
+            else
+            {
+                string? selectedApp = SelectedApp;
+                long chartDeltaUpload = 0;
+                long chartDeltaDownload = 0;
 
-            ChartPoints = new ObservableCollection<ChartPoint>(_windowChartPoints);
+                foreach (LocalTrafficDelta delta in deltas)
+                {
 
-            RebuildDeviceRows();
+                    if (selectedApp is null || delta.ProcessName == selectedApp)
+                    {
+                        chartDeltaUpload += delta.BytesUploaded;
+                        chartDeltaDownload += delta.BytesDownloaded;
+                    }
+
+                    (long Upload, long Download, IReadOnlyList<LocalTrafficDeviceRow> Peers) current = _windowAppTotals[delta.ProcessName];
+                    _windowAppTotals[delta.ProcessName] = (current.Upload + delta.BytesUploaded, current.Download + delta.BytesDownloaded, current.Peers);
+                }
+
+                int lastIndex = _windowChartPoints.Count - 1;
+                ChartPoint last = _windowChartPoints[lastIndex];
+                _windowChartPoints[lastIndex] = last with
+                {
+                    BytesUploaded = last.BytesUploaded + chartDeltaUpload,
+                    BytesDownloaded = last.BytesDownloaded + chartDeltaDownload
+                };
+
+                ChartPoints = new ObservableCollection<ChartPoint>(_windowChartPoints);
+
+                RebuildAppRows();
+            }
+
         }
 
-        private void RebuildDeviceRows()
+        private void RebuildAppRows()
         {
             long totalUpload = 0;
             long totalDownload = 0;
-            List<LocalTrafficDeviceRow> perDeviceRows = new List<LocalTrafficDeviceRow>(_windowDeviceTotals.Count);
+            List<LocalTrafficAppRow> perAppRows = new List<LocalTrafficAppRow>(_windowAppTotals.Count);
 
-            foreach (KeyValuePair<string, (long Upload, long Download)> pair in _windowDeviceTotals)
+            foreach (KeyValuePair<string, (long Upload, long Download, IReadOnlyList<LocalTrafficDeviceRow> Peers)> pair in _windowAppTotals)
             {
-                string displayName = LocalTrafficNameResolver.Resolve(pair.Key, _namesByIp);
-
-                perDeviceRows.Add(new LocalTrafficDeviceRow(pair.Key, displayName, pair.Value.Upload, pair.Value.Download));
+                perAppRows.Add(new LocalTrafficAppRow(pair.Key, pair.Key, pair.Value.Upload, pair.Value.Download, pair.Value.Peers));
                 totalUpload += pair.Value.Upload;
                 totalDownload += pair.Value.Download;
             }
 
-            perDeviceRows.Sort((left, right) => right.TotalBytes.CompareTo(left.TotalBytes));
+            perAppRows.Sort((left, right) => right.TotalBytes.CompareTo(left.TotalBytes));
 
-            LocalTrafficDeviceRow allDevicesRow = new LocalTrafficDeviceRow(string.Empty, "All Devices", totalUpload, totalDownload);
-            List<LocalTrafficDeviceRow> displayRows = new List<LocalTrafficDeviceRow> { allDevicesRow };
-            displayRows.AddRange(perDeviceRows);
+            LocalTrafficAppRow allAppsRow = new LocalTrafficAppRow(null, "All Apps", totalUpload, totalDownload, Array.Empty<LocalTrafficDeviceRow>());
+            List<LocalTrafficAppRow> displayRows = new List<LocalTrafficAppRow> { allAppsRow };
+            displayRows.AddRange(perAppRows);
 
-            string statusText = $"{perDeviceRows.Count} device{(perDeviceRows.Count == 1 ? string.Empty : "s")} · {ByteSizeFormatter.Format(allDevicesRow.TotalBytes)} total";
+            string statusText = $"{perAppRows.Count} app{(perAppRows.Count == 1 ? string.Empty : "s")} · {ByteSizeFormatter.Format(allAppsRow.TotalBytes)} total";
 
-            Devices = new ObservableCollection<LocalTrafficDeviceRow>(displayRows);
+            Apps = new ObservableCollection<LocalTrafficAppRow>(displayRows);
             StatusText = statusText;
         }
 
-        private async Task<LocalLoadResult> BuildDataAsync(double timeRangeHours, string? selectedEndpoint, DateTime? selectedBucketStart)
+        private async Task<LocalLoadResult> BuildDataAsync(double timeRangeHours, string? selectedApp, DateTime? selectedBucketStart)
         {
             TimeSpan bucketSize = InternetViewModel.BucketSizeFor(timeRangeHours, _settings.TrafficIntervalSeconds);
             long bucketSeconds = Math.Max(1L, (long)bucketSize.TotalSeconds);
             int totalBuckets = (int)Math.Ceiling(timeRangeHours * 3600.0 / bucketSize.TotalSeconds);
             long nowEpoch = (long)(DateTime.UtcNow - DateTime.UnixEpoch).TotalSeconds;
             long cutoffEpoch = TrafficWindow.AlignedCutoffEpoch(nowEpoch, bucketSeconds, totalBuckets);
+            DateTime cutoff = DateTime.UnixEpoch.AddSeconds(cutoffEpoch);
+            bool useRollup = bucketSeconds >= 60;
 
             DateTime? bucketRangeStart = selectedBucketStart;
             DateTime? bucketRangeEnd = selectedBucketStart.HasValue ? selectedBucketStart.Value + bucketSize : null;
@@ -263,18 +282,17 @@ namespace NetworkMonitor.ViewModels
             await using AppDbContext db = await _dbFactory.CreateDbContextAsync();
 
             Dictionary<string, string> namesByIp = await BuildNameMapAsync(db);
-            _namesByIp = namesByIp;
 
-            List<LocalTrafficDeviceRow> perDeviceRows = await LoadDeviceRowsAsync(db, cutoffEpoch, bucketRangeStart, bucketRangeEnd, namesByIp);
+            List<LocalTrafficAppRow> perAppRows = await LoadAppRowsAsync(db, useRollup, cutoff, cutoffEpoch, bucketRangeStart, bucketRangeEnd, namesByIp);
 
             Dictionary<int, (long Upload, long Download)> dataByBucket =
-                await LoadChartBucketsAsync(db, cutoffEpoch, bucketSeconds, selectedEndpoint);
+                await LoadChartBucketsAsync(db, useRollup, cutoff, cutoffEpoch, bucketSeconds, selectedApp);
 
             List<ChartPoint> chartPoints = Enumerable
                 .Range(0, totalBuckets)
                 .Select(bucketIndex =>
                 {
-                    DateTime bucketStart = DateTime.UnixEpoch.AddSeconds(cutoffEpoch) + TimeSpan.FromTicks((long)bucketIndex * bucketSize.Ticks);
+                    DateTime bucketStart = cutoff + TimeSpan.FromTicks((long)bucketIndex * bucketSize.Ticks);
                     dataByBucket.TryGetValue(bucketIndex, out (long Upload, long Download) trafficData);
                     ChartPoint point = new ChartPoint(bucketStart, trafficData.Upload, trafficData.Download);
 
@@ -282,17 +300,17 @@ namespace NetworkMonitor.ViewModels
                 })
                 .ToList();
 
-            long totalUpload = perDeviceRows.Sum(row => row.BytesUploaded);
-            long totalDownload = perDeviceRows.Sum(row => row.BytesDownloaded);
-            LocalTrafficDeviceRow allDevicesRow = new LocalTrafficDeviceRow(string.Empty, "All Devices", totalUpload, totalDownload);
+            long totalUpload = perAppRows.Sum(row => row.BytesUploaded);
+            long totalDownload = perAppRows.Sum(row => row.BytesDownloaded);
+            LocalTrafficAppRow allAppsRow = new LocalTrafficAppRow(null, "All Apps", totalUpload, totalDownload, Array.Empty<LocalTrafficDeviceRow>());
 
-            List<LocalTrafficDeviceRow> displayRows = new List<LocalTrafficDeviceRow> { allDevicesRow };
-            displayRows.AddRange(perDeviceRows);
+            List<LocalTrafficAppRow> displayRows = new List<LocalTrafficAppRow> { allAppsRow };
+            displayRows.AddRange(perAppRows);
 
             string scopeText = selectedBucketStart.HasValue
                 ? $"at {selectedBucketStart.Value.ToLocalTime():dd MMM HH:mm:ss}"
                 : "total";
-            string statusText = $"{perDeviceRows.Count} device{(perDeviceRows.Count == 1 ? string.Empty : "s")} · {ByteSizeFormatter.Format(allDevicesRow.TotalBytes)} {scopeText}";
+            string statusText = $"{perAppRows.Count} app{(perAppRows.Count == 1 ? string.Empty : "s")} · {ByteSizeFormatter.Format(allAppsRow.TotalBytes)} {scopeText}";
 
             LocalLoadResult result = new LocalLoadResult(chartPoints, displayRows, statusText, cutoffEpoch, bucketSeconds);
 
@@ -317,19 +335,31 @@ namespace NetworkMonitor.ViewModels
             return namesByIp;
         }
 
-        private async Task<List<LocalTrafficDeviceRow>> LoadDeviceRowsAsync(
+        private async Task<List<LocalTrafficAppRow>> LoadAppRowsAsync(
             AppDbContext db,
+            bool useRollup,
+            DateTime cutoff,
             long cutoffEpoch,
             DateTime? bucketRangeStart,
             DateTime? bucketRangeEnd,
             IReadOnlyDictionary<string, string> namesByIp)
         {
-            List<LocalTrafficDeviceRow> rows = new List<LocalTrafficDeviceRow>();
-            string whereClause = "MinuteEpoch >= $cutoffEpoch";
+            List<LocalTrafficMinute> minutes = new List<LocalTrafficMinute>();
+            string sourceTable = useRollup ? "LocalTrafficRollups" : "LocalTrafficEntries";
+            string whereClause = useRollup ? "MinuteEpoch >= $cutoffEpoch" : "Timestamp >= $cutoffTime";
 
             if (bucketRangeStart.HasValue && bucketRangeEnd.HasValue)
             {
-                whereClause += " AND MinuteEpoch >= $bucketStartEpoch AND MinuteEpoch < $bucketEndEpoch";
+
+                if (useRollup)
+                {
+                    whereClause += " AND MinuteEpoch >= $bucketStartEpoch AND MinuteEpoch < $bucketEndEpoch";
+                }
+                else
+                {
+                    whereClause += " AND Timestamp >= $bucketStartTime AND Timestamp < $bucketEndTime";
+                }
+
             }
 
             await db.Database.OpenConnectionAsync();
@@ -339,34 +369,60 @@ namespace NetworkMonitor.ViewModels
             await using (DbCommand command = connection.CreateCommand())
             {
                 command.CommandText = $"""
-                    SELECT RemoteIp,
+                    SELECT ProcessName, RemoteIp,
                            SUM(BytesUploaded)   AS Upload,
                            SUM(BytesDownloaded) AS Download
-                    FROM LocalTrafficRollups
+                    FROM {sourceTable}
                     WHERE {whereClause}
-                    GROUP BY RemoteIp
-                    ORDER BY SUM(BytesUploaded) + SUM(BytesDownloaded) DESC
+                    GROUP BY ProcessName, RemoteIp
                     """;
 
-                DbParameter cutoffParameter = command.CreateParameter();
-                cutoffParameter.ParameterName = "$cutoffEpoch";
-                cutoffParameter.Value = cutoffEpoch;
-                command.Parameters.Add(cutoffParameter);
+                if (useRollup)
+                {
+                    DbParameter cutoffParameter = command.CreateParameter();
+                    cutoffParameter.ParameterName = "$cutoffEpoch";
+                    cutoffParameter.Value = cutoffEpoch;
+                    command.Parameters.Add(cutoffParameter);
+                }
+                else
+                {
+                    DbParameter cutoffParameter = command.CreateParameter();
+                    cutoffParameter.ParameterName = "$cutoffTime";
+                    cutoffParameter.Value = cutoff;
+                    command.Parameters.Add(cutoffParameter);
+                }
 
                 if (bucketRangeStart.HasValue && bucketRangeEnd.HasValue)
                 {
-                    long bucketStartEpoch = (long)(bucketRangeStart.Value - DateTime.UnixEpoch).TotalSeconds;
-                    long bucketEndEpoch = (long)(bucketRangeEnd.Value - DateTime.UnixEpoch).TotalSeconds;
 
-                    DbParameter bucketStartParameter = command.CreateParameter();
-                    bucketStartParameter.ParameterName = "$bucketStartEpoch";
-                    bucketStartParameter.Value = bucketStartEpoch;
-                    command.Parameters.Add(bucketStartParameter);
+                    if (useRollup)
+                    {
+                        long bucketStartEpoch = (long)(bucketRangeStart.Value - DateTime.UnixEpoch).TotalSeconds;
+                        long bucketEndEpoch = (long)(bucketRangeEnd.Value - DateTime.UnixEpoch).TotalSeconds;
 
-                    DbParameter bucketEndParameter = command.CreateParameter();
-                    bucketEndParameter.ParameterName = "$bucketEndEpoch";
-                    bucketEndParameter.Value = bucketEndEpoch;
-                    command.Parameters.Add(bucketEndParameter);
+                        DbParameter bucketStartParameter = command.CreateParameter();
+                        bucketStartParameter.ParameterName = "$bucketStartEpoch";
+                        bucketStartParameter.Value = bucketStartEpoch;
+                        command.Parameters.Add(bucketStartParameter);
+
+                        DbParameter bucketEndParameter = command.CreateParameter();
+                        bucketEndParameter.ParameterName = "$bucketEndEpoch";
+                        bucketEndParameter.Value = bucketEndEpoch;
+                        command.Parameters.Add(bucketEndParameter);
+                    }
+                    else
+                    {
+                        DbParameter bucketStartParameter = command.CreateParameter();
+                        bucketStartParameter.ParameterName = "$bucketStartTime";
+                        bucketStartParameter.Value = bucketRangeStart.Value;
+                        command.Parameters.Add(bucketStartParameter);
+
+                        DbParameter bucketEndParameter = command.CreateParameter();
+                        bucketEndParameter.ParameterName = "$bucketEndTime";
+                        bucketEndParameter.Value = bucketRangeEnd.Value;
+                        command.Parameters.Add(bucketEndParameter);
+                    }
+
                 }
 
                 await using (DbDataReader reader = await command.ExecuteReaderAsync())
@@ -374,28 +430,36 @@ namespace NetworkMonitor.ViewModels
 
                     while (await reader.ReadAsync())
                     {
-                        string remoteIp = reader.GetString(0);
-                        long upload = reader.GetInt64(1);
-                        long download = reader.GetInt64(2);
-                        string displayName = LocalTrafficNameResolver.Resolve(remoteIp, namesByIp);
-                        LocalTrafficDeviceRow row = new LocalTrafficDeviceRow(remoteIp, displayName, upload, download);
-                        rows.Add(row);
+                        string processName = reader.GetString(0);
+                        string remoteIp = reader.GetString(1);
+                        long upload = reader.GetInt64(2);
+                        long download = reader.GetInt64(3);
+                        LocalTrafficMinute minute = new LocalTrafficMinute(0, processName, remoteIp, upload, download);
+                        minutes.Add(minute);
                     }
 
                 }
 
             }
 
+            IReadOnlyList<LocalTrafficAppRow> appRows = LocalTrafficAggregator.Build(minutes, namesByIp);
+            List<LocalTrafficAppRow> rows = appRows.ToList();
+
             return rows;
         }
 
         private async Task<Dictionary<int, (long Upload, long Download)>> LoadChartBucketsAsync(
             AppDbContext db,
+            bool useRollup,
+            DateTime cutoff,
             long cutoffEpoch,
             long bucketSeconds,
-            string? selectedEndpoint)
+            string? selectedApp)
         {
             Dictionary<int, (long Upload, long Download)> dataByBucket = new Dictionary<int, (long Upload, long Download)>();
+            string sourceTable = useRollup ? "LocalTrafficRollups" : "LocalTrafficEntries";
+            string epochExpr = useRollup ? "MinuteEpoch" : "CAST(strftime('%s', Timestamp) AS INTEGER)";
+            string whereClause = useRollup ? "MinuteEpoch >= $cutoffEpoch" : "Timestamp >= $cutoffTime";
 
             await db.Database.OpenConnectionAsync();
 
@@ -403,14 +467,14 @@ namespace NetworkMonitor.ViewModels
 
             await using (DbCommand command = connection.CreateCommand())
             {
-                command.CommandText = """
+                command.CommandText = $"""
                     SELECT
-                        CAST((MinuteEpoch - $cutoffEpoch) / $bucketSeconds AS INTEGER) AS BucketIndex,
+                        CAST(({epochExpr} - $cutoffEpoch) / $bucketSeconds AS INTEGER) AS BucketIndex,
                         SUM(BytesUploaded)   AS Upload,
                         SUM(BytesDownloaded) AS Download
-                    FROM LocalTrafficRollups
-                    WHERE MinuteEpoch >= $cutoffEpoch
-                        AND ($endpoint IS NULL OR RemoteIp = $endpoint)
+                    FROM {sourceTable}
+                    WHERE {whereClause}
+                        AND ($app IS NULL OR ProcessName = $app)
                     GROUP BY BucketIndex
                     """;
 
@@ -424,10 +488,18 @@ namespace NetworkMonitor.ViewModels
                 bucketParameter.Value = bucketSeconds;
                 command.Parameters.Add(bucketParameter);
 
-                DbParameter endpointParameter = command.CreateParameter();
-                endpointParameter.ParameterName = "$endpoint";
-                endpointParameter.Value = selectedEndpoint is null ? (object)DBNull.Value : selectedEndpoint;
-                command.Parameters.Add(endpointParameter);
+                DbParameter appParameter = command.CreateParameter();
+                appParameter.ParameterName = "$app";
+                appParameter.Value = selectedApp is null ? (object)DBNull.Value : selectedApp;
+                command.Parameters.Add(appParameter);
+
+                if (!useRollup)
+                {
+                    DbParameter cutoffTimeParameter = command.CreateParameter();
+                    cutoffTimeParameter.ParameterName = "$cutoffTime";
+                    cutoffTimeParameter.Value = cutoff;
+                    command.Parameters.Add(cutoffTimeParameter);
+                }
 
                 await using (DbDataReader reader = await command.ExecuteReaderAsync())
                 {

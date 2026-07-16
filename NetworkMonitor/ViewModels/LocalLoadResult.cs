@@ -4,7 +4,7 @@ namespace NetworkMonitor.ViewModels
 {
     internal record LocalLoadResult(
         List<ChartPoint> ChartPoints,
-        List<LocalTrafficDeviceRow> DisplayRows,
+        List<LocalTrafficAppRow> DisplayRows,
         string StatusText,
         long CutoffEpoch,
         long BucketSeconds);
