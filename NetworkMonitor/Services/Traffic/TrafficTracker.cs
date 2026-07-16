@@ -18,6 +18,7 @@ namespace NetworkMonitor.Services.Traffic
     {
         private const uint ProcessQueryLimitedInformation = 0x1000;
         private const int MaxCacheEntries = 512;
+        private const int SystemPid = 4;
         private static readonly TimeSpan FlushTimeout = TimeSpan.FromSeconds(30);
         private readonly Dictionary<int, ProcessInfo> _infoCache = new();
 
@@ -62,7 +63,7 @@ namespace NetworkMonitor.Services.Traffic
         private async Task FlushAsync(CancellationToken ct)
         {
             Dictionary<int, (long Upload, long Download)> snapshot = collector.DrainAndReset();
-            Dictionary<uint, (long Upload, long Download)> localSnapshot = collector.DrainAndResetLocal();
+            Dictionary<LocalFlowKey, (long Upload, long Download)> localSnapshot = collector.DrainAndResetLocal();
 
             DateTime timestamp = DateTime.UtcNow;
             List<TrafficEntry> entries = new();
@@ -90,16 +91,28 @@ namespace NetworkMonitor.Services.Traffic
 
             }
 
+            List<LocalTrafficEntry> localEntries = new();
             List<LocalTrafficDelta> localDeltas = new();
 
-            foreach (KeyValuePair<uint, (long Upload, long Download)> kvp in localSnapshot)
+            foreach (KeyValuePair<LocalFlowKey, (long Upload, long Download)> pair in localSnapshot)
             {
-                string remoteIp = LanClassifier.Format(kvp.Key);
+                (string processName, string? processPath) = ResolveLocalProcess(pair.Key.Pid);
+                string remoteIp = LanClassifier.Format(pair.Key.RemoteIp);
 
-                localDeltas.Add(new LocalTrafficDelta(remoteIp, kvp.Value.Upload, kvp.Value.Download));
+                localEntries.Add(new LocalTrafficEntry
+                {
+                    Timestamp = timestamp,
+                    ProcessName = processName,
+                    ProcessPath = processPath,
+                    RemoteIp = remoteIp,
+                    BytesUploaded = pair.Value.Upload,
+                    BytesDownloaded = pair.Value.Download
+                });
+
+                localDeltas.Add(new LocalTrafficDelta(processName, processPath, remoteIp, pair.Value.Upload, pair.Value.Download));
             }
 
-            if (entries.Count > 0 || localDeltas.Count > 0)
+            if (entries.Count > 0 || localEntries.Count > 0)
             {
                 await using AppDbContext db = await dbFactory.CreateDbContextAsync(ct);
 
@@ -111,8 +124,11 @@ namespace NetworkMonitor.Services.Traffic
                     await UpsertRollupsAsync(db, timestamp, entries, ct);
                 }
 
-                if (localDeltas.Count > 0)
+                if (localEntries.Count > 0)
                 {
+                    db.LocalTrafficEntries.AddRange(localEntries);
+                    await db.SaveChangesAsync(ct);
+
                     await UpsertLocalRollupsAsync(db, timestamp, localDeltas, ct);
                 }
 
@@ -217,17 +233,26 @@ namespace NetworkMonitor.Services.Traffic
             {
                 command.Transaction = transaction;
                 command.CommandText = """
-                    INSERT INTO LocalTrafficRollups (MinuteEpoch, RemoteIp, BytesUploaded, BytesDownloaded)
-                    VALUES ($minute, $ip, $upload, $download)
-                    ON CONFLICT(MinuteEpoch, RemoteIp) DO UPDATE SET
+                    INSERT INTO LocalTrafficRollups (MinuteEpoch, ProcessName, ProcessPath, RemoteIp, BytesUploaded, BytesDownloaded)
+                    VALUES ($minute, $name, $path, $ip, $upload, $download)
+                    ON CONFLICT(MinuteEpoch, ProcessName, RemoteIp) DO UPDATE SET
                         BytesUploaded = BytesUploaded + excluded.BytesUploaded,
-                        BytesDownloaded = BytesDownloaded + excluded.BytesDownloaded
+                        BytesDownloaded = BytesDownloaded + excluded.BytesDownloaded,
+                        ProcessPath = COALESCE(ProcessPath, excluded.ProcessPath)
                     """;
 
                 DbParameter minuteParameter = command.CreateParameter();
                 minuteParameter.ParameterName = "$minute";
                 minuteParameter.Value = minuteEpoch;
                 command.Parameters.Add(minuteParameter);
+
+                DbParameter nameParameter = command.CreateParameter();
+                nameParameter.ParameterName = "$name";
+                command.Parameters.Add(nameParameter);
+
+                DbParameter pathParameter = command.CreateParameter();
+                pathParameter.ParameterName = "$path";
+                command.Parameters.Add(pathParameter);
 
                 DbParameter ipParameter = command.CreateParameter();
                 ipParameter.ParameterName = "$ip";
@@ -243,6 +268,8 @@ namespace NetworkMonitor.Services.Traffic
 
                 foreach (LocalTrafficDelta delta in localDeltas)
                 {
+                    nameParameter.Value = delta.ProcessName;
+                    pathParameter.Value = delta.ProcessPath is null ? (object)DBNull.Value : delta.ProcessPath;
                     ipParameter.Value = delta.RemoteIp;
                     uploadParameter.Value = delta.BytesUploaded;
                     downloadParameter.Value = delta.BytesDownloaded;
@@ -283,6 +310,32 @@ namespace NetworkMonitor.Services.Traffic
             _infoCache[pid] = new ProcessInfo(startTime, haveStartTime, name, path);
 
             (string Name, string? Path) resolved = (name, path);
+
+            return resolved;
+        }
+
+        private (string Name, string? Path) ResolveLocalProcess(int pid)
+        {
+            (string Name, string? Path) resolved;
+
+            if (pid == SystemPid)
+            {
+                resolved = ("System", null);
+            }
+            else
+            {
+
+                try
+                {
+                    using Process process = Process.GetProcessById(pid);
+                    resolved = ResolveProcessInfo(pid, process);
+                }
+                catch (ArgumentException)
+                {
+                    resolved = ("System", null);
+                }
+
+            }
 
             return resolved;
         }
