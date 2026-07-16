@@ -526,7 +526,15 @@
 
                             <ToggleSwitch
                                 Header="Enable diagnostic logging"
-                                IsOn="{x:Bind ViewModel.EnableLogging, Mode=TwoWay}" />
+                                IsEnabled="{x:Bind ViewModel.LoggingToggleEnabled}"
+                                IsOn="{x:Bind ViewModel.EnableLoggingDisplay, Mode=TwoWay}" />
+
+                            <TextBlock
+                                Text="Always on in Debug builds — this switch is disabled and logging cannot be turned off while debugging."
+                                FontSize="12"
+                                Opacity="0.65"
+                                TextWrapping="Wrap"
+                                Visibility="{x:Bind ViewModel.LoggingForced, Converter={StaticResource BoolToVisibilityConverter}}" />
 
                             <TextBlock
                                 Text="Writes app events (start/stop, version, scans) and unexpected errors to a daily log file under the app data Logs folder. No device or network details are recorded. If you have any problems, please share these logs with me, jazzzsoftware@outlook.com, to help diagnose problems."

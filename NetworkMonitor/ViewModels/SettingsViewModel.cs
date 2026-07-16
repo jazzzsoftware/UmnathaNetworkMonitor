@@ -210,6 +210,58 @@ namespace NetworkMonitor.ViewModels
             set => SetProperty(ref _enableLogging, value);
         }
 
+        public bool EnableLoggingDisplay
+        {
+            get
+            {
+                bool result;
+
+#if DEBUG
+                result = true;
+#else
+                result = _enableLogging;
+#endif
+
+                return result;
+            }
+            set
+            {
+                EnableLogging = value;
+            }
+        }
+
+        public bool LoggingToggleEnabled
+        {
+            get
+            {
+                bool result;
+
+#if DEBUG
+                result = false;
+#else
+                result = true;
+#endif
+
+                return result;
+            }
+        }
+
+        public bool LoggingForced
+        {
+            get
+            {
+                bool result;
+
+#if DEBUG
+                result = true;
+#else
+                result = false;
+#endif
+
+                return result;
+            }
+        }
+
         private bool _speedTestEnabled;
 
         public bool SpeedTestEnabled
@@ -237,7 +289,13 @@ namespace NetworkMonitor.ViewModels
             _settings.DigestNotify = DigestNotify;
             _settings.EnableLogging = EnableLogging;
             _settings.SpeedTestEnabled = SpeedTestEnabled;
+
+#if DEBUG
+            AppLog.IsEnabled = true;
+#else
             AppLog.IsEnabled = EnableLogging;
+#endif
+
             _settings.Save();
         }
 
