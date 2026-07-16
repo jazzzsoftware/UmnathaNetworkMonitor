@@ -10,8 +10,9 @@ namespace NetworkMonitor.Services.Traffic
     public class TrafficCollector : BackgroundService
     {
         private const string SessionName = "NetworkMonitorTraffic";
+        private const int SystemPid = 4;
         private readonly ConcurrentDictionary<int, long[]> _counters = new();
-        private readonly ConcurrentDictionary<uint, long[]> _localCounters = new();
+        private readonly ConcurrentDictionary<LocalFlowKey, long[]> _localCounters = new();
         private readonly LanClassifier _lanClassifier;
         private TraceEventSession? _session;
 
@@ -41,11 +42,11 @@ namespace NetworkMonitor.Services.Traffic
             return snapshot;
         }
 
-        public Dictionary<uint, (long Upload, long Download)> DrainAndResetLocal()
+        public Dictionary<LocalFlowKey, (long Upload, long Download)> DrainAndResetLocal()
         {
-            Dictionary<uint, (long Upload, long Download)> snapshot = new();
+            Dictionary<LocalFlowKey, (long Upload, long Download)> snapshot = new();
 
-            foreach (KeyValuePair<uint, long[]> entry in _localCounters)
+            foreach (KeyValuePair<LocalFlowKey, long[]> entry in _localCounters)
             {
                 long[] counter = entry.Value;
 
@@ -116,19 +117,23 @@ namespace NetworkMonitor.Services.Traffic
         private void AddBytes(int pid, IPAddress remote, int bytes, bool upload)
         {
 
-            if (pid >= 0 && bytes > 0)
+            if (bytes > 0)
             {
                 int slot = upload ? 0 : 1;
 
-                long[] counter = _counters.GetOrAdd(pid, static key => new long[2]);
-
-                Interlocked.Add(ref counter[slot], bytes);
-
                 if (_lanClassifier.TryClassifyLocal(remote, out uint packed))
                 {
-                    long[] localCounter = _localCounters.GetOrAdd(packed, static key => new long[2]);
+                    int keyPid = pid < 0 ? SystemPid : pid;
+                    LocalFlowKey key = new LocalFlowKey(keyPid, packed);
+                    long[] localCounter = _localCounters.GetOrAdd(key, static missingKey => new long[2]);
 
                     Interlocked.Add(ref localCounter[slot], bytes);
+                }
+                else if (pid >= 0)
+                {
+                    long[] counter = _counters.GetOrAdd(pid, static missingPid => new long[2]);
+
+                    Interlocked.Add(ref counter[slot], bytes);
                 }
 
             }
