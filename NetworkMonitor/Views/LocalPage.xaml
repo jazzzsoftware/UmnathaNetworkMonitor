@@ -260,16 +260,17 @@
 
         <controls:DataGrid
             Grid.Row="2"
-            x:Name="DeviceGrid"
+            x:Name="AppGrid"
             AutoGenerateColumns="False"
             IsReadOnly="True"
             GridLinesVisibility="Horizontal"
             SelectionMode="Single"
             BorderThickness="1"
             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-            Loaded="DeviceGridLoaded"
-            SelectionChanged="DeviceGridSelectionChanged"
-            ItemsSource="{x:Bind ViewModel.Devices, Mode=OneWay}">
+            RowDetailsVisibilityMode="VisibleWhenSelected"
+            Loaded="AppGridLoaded"
+            SelectionChanged="AppGridSelectionChanged"
+            ItemsSource="{x:Bind ViewModel.Apps, Mode=OneWay}">
 
             <controls:DataGrid.Resources>
 
@@ -294,31 +295,41 @@
             <controls:DataGrid.Columns>
 
                 <controls:DataGridTemplateColumn
-                    Header="Device"
+                    Header="App"
                     Width="*">
 
                     <controls:DataGridTemplateColumn.CellTemplate>
 
                         <DataTemplate
-                            x:DataType="models:LocalTrafficDeviceRow">
+                            x:DataType="models:LocalTrafficAppRow">
 
-                            <StackPanel
-                                Spacing="1"
+                            <TextBlock
                                 Padding="8,3,0,3"
-                                VerticalAlignment="Center">
+                                VerticalAlignment="Center"
+                                FontWeight="{x:Bind IsAllApps, Converter={StaticResource BoolToFontWeightConverter}}"
+                                Text="{x:Bind DisplayName}" />
 
-                                <TextBlock
-                                    FontWeight="{x:Bind IsAllDevices, Converter={StaticResource BoolToFontWeightConverter}}"
-                                    Text="{x:Bind DisplayName}" />
+                        </DataTemplate>
 
-                                <TextBlock
-                                    FontSize="12"
-                                    Opacity="0.55"
-                                    TextTrimming="CharacterEllipsis"
-                                    Visibility="{x:Bind IsAllDevices, Converter={StaticResource InverseBoolVisConverter}}"
-                                    Text="{x:Bind RemoteIp}" />
+                    </controls:DataGridTemplateColumn.CellTemplate>
 
-                            </StackPanel>
+                </controls:DataGridTemplateColumn>
+
+                <controls:DataGridTemplateColumn
+                    Header="Peers"
+                    Width="180">
+
+                    <controls:DataGridTemplateColumn.CellTemplate>
+
+                        <DataTemplate
+                            x:DataType="models:LocalTrafficAppRow">
+
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                Opacity="0.75"
+                                TextTrimming="CharacterEllipsis"
+                                ToolTipService.ToolTip="{x:Bind PeerTooltip}"
+                                Text="{x:Bind PeerSummary}" />
 
                         </DataTemplate>
 
@@ -333,7 +344,7 @@
                     <controls:DataGridTemplateColumn.CellTemplate>
 
                         <DataTemplate
-                            x:DataType="models:LocalTrafficDeviceRow">
+                            x:DataType="models:LocalTrafficAppRow">
 
                             <TextBlock
                                 Foreground="#1976D2"
@@ -355,7 +366,7 @@
                     <controls:DataGridTemplateColumn.CellTemplate>
 
                         <DataTemplate
-                            x:DataType="models:LocalTrafficDeviceRow">
+                            x:DataType="models:LocalTrafficAppRow">
 
                             <TextBlock
                                 Foreground="#AB47BC"
@@ -377,13 +388,13 @@
                     <controls:DataGridTemplateColumn.CellTemplate>
 
                         <DataTemplate
-                            x:DataType="models:LocalTrafficDeviceRow">
+                            x:DataType="models:LocalTrafficAppRow">
 
                             <TextBlock
                                 VerticalAlignment="Center"
                                 HorizontalAlignment="Right"
                                 Padding="0,0,8,0"
-                                FontWeight="{x:Bind IsAllDevices, Converter={StaticResource BoolToFontWeightConverter}}"
+                                FontWeight="{x:Bind IsAllApps, Converter={StaticResource BoolToFontWeightConverter}}"
                                 Text="{x:Bind TotalText}" />
 
                         </DataTemplate>
@@ -393,6 +404,87 @@
                 </controls:DataGridTemplateColumn>
 
             </controls:DataGrid.Columns>
+
+            <controls:DataGrid.RowDetailsTemplate>
+
+                <DataTemplate
+                    x:DataType="models:LocalTrafficAppRow">
+
+                    <Border
+                        Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="0,1,0,0"
+                        Padding="24,6,8,6"
+                        Visibility="{x:Bind HasMultiplePeers, Converter={StaticResource BoolToVisibilityConverter}}">
+
+                        <ItemsControl
+                            ItemsSource="{x:Bind Peers}">
+
+                            <ItemsControl.ItemTemplate>
+
+                                <DataTemplate
+                                    x:DataType="models:LocalTrafficDeviceRow">
+
+                                    <Grid
+                                        ColumnDefinitions="*,110,110,110"
+                                        Padding="0,3">
+
+                                        <StackPanel
+                                            Grid.Column="0"
+                                            Spacing="1"
+                                            VerticalAlignment="Center"
+                                            ToolTipService.ToolTip="{x:Bind RemoteIp}">
+
+                                            <TextBlock
+                                                FontSize="13"
+                                                Text="{x:Bind DisplayName}" />
+
+                                            <TextBlock
+                                                FontSize="11"
+                                                Opacity="0.55"
+                                                Text="{x:Bind RemoteIp}" />
+
+                                        </StackPanel>
+
+                                        <TextBlock
+                                            Grid.Column="1"
+                                            Foreground="#1976D2"
+                                            FontSize="13"
+                                            VerticalAlignment="Center"
+                                            HorizontalAlignment="Right"
+                                            Padding="0,0,8,0"
+                                            Text="{x:Bind DownloadText}" />
+
+                                        <TextBlock
+                                            Grid.Column="2"
+                                            Foreground="#AB47BC"
+                                            FontSize="13"
+                                            VerticalAlignment="Center"
+                                            HorizontalAlignment="Right"
+                                            Padding="0,0,8,0"
+                                            Text="{x:Bind UploadText}" />
+
+                                        <TextBlock
+                                            Grid.Column="3"
+                                            FontSize="13"
+                                            VerticalAlignment="Center"
+                                            HorizontalAlignment="Right"
+                                            Padding="0,0,8,0"
+                                            Text="{x:Bind TotalText}" />
+
+                                    </Grid>
+
+                                </DataTemplate>
+
+                            </ItemsControl.ItemTemplate>
+
+                        </ItemsControl>
+
+                    </Border>
+
+                </DataTemplate>
+
+            </controls:DataGrid.RowDetailsTemplate>
 
         </controls:DataGrid>
 
