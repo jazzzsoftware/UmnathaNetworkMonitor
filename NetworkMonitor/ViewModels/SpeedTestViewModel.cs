@@ -104,7 +104,7 @@ namespace NetworkMonitor.ViewModels
 
             DateTime chartCutoff = DateTime.UtcNow.AddHours(-ChartRangeHours);
             List<SpeedTestResult> chartRows = rows
-                .Where(result => result.Success && result.Timestamp >= chartCutoff)
+                .Where(result => result.Timestamp >= chartCutoff)
                 .ToList();
 
             List<ChartValue> download = chartRows.Select(result => new ChartValue(result.LocalTimestamp, result.DownloadMbps)).ToList();

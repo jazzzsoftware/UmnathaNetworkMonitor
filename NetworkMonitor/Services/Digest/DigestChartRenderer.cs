@@ -86,10 +86,12 @@ namespace NetworkMonitor.Services.Digest
         public byte[] RenderSpeedThroughputChart(DigestSummary summary, bool lightBackground, float dpi = RenderDpi)
         {
             List<double[]> values = new();
+            List<double> timestamps = new();
 
             foreach (SpeedTestRowSummary test in summary.SpeedTests)
             {
                 values.Add(new double[] { test.DownloadMbps, test.UploadMbps });
+                timestamps.Add((test.Timestamp - DateTime.UnixEpoch).TotalSeconds);
             }
 
             string[] seriesNames = new string[] { "Download", "Upload" };
@@ -97,7 +99,7 @@ namespace NetworkMonitor.Services.Digest
             Color background = lightBackground ? LightBackground : DarkBackground;
             Color textColour = lightBackground ? LightText : DarkText;
             byte[] png = RenderToPng(background, SpeedChartHeight, dpi, (session, device) =>
-                DrawLineChart(session, device, SpeedChartHeight, seriesNames, seriesColours, values, textColour, "Mbps", "MBps", 8.0));
+                DrawLineChart(session, device, SpeedChartHeight, seriesNames, seriesColours, values, timestamps, textColour, "Mbps", "MBps", 8.0));
 
             return png;
         }
@@ -105,10 +107,12 @@ namespace NetworkMonitor.Services.Digest
         public byte[] RenderSpeedLatencyChart(DigestSummary summary, bool lightBackground, float dpi = RenderDpi)
         {
             List<double[]> values = new();
+            List<double> timestamps = new();
 
             foreach (SpeedTestRowSummary test in summary.SpeedTests)
             {
                 values.Add(new double[] { test.LatencyMs, test.JitterMs });
+                timestamps.Add((test.Timestamp - DateTime.UnixEpoch).TotalSeconds);
             }
 
             string[] seriesNames = new string[] { "Latency", "Jitter" };
@@ -116,7 +120,7 @@ namespace NetworkMonitor.Services.Digest
             Color background = lightBackground ? LightBackground : DarkBackground;
             Color textColour = lightBackground ? LightText : DarkText;
             byte[] png = RenderToPng(background, SpeedChartHeight, dpi, (session, device) =>
-                DrawLineChart(session, device, SpeedChartHeight, seriesNames, seriesColours, values, textColour, "ms", string.Empty, 0.0));
+                DrawLineChart(session, device, SpeedChartHeight, seriesNames, seriesColours, values, timestamps, textColour, "ms", string.Empty, 0.0));
 
             return png;
         }
@@ -354,6 +358,7 @@ namespace NetworkMonitor.Services.Digest
             IReadOnlyList<string> seriesNames,
             IReadOnlyList<Color> seriesColours,
             IReadOnlyList<double[]> values,
+            IReadOnlyList<double> timestamps,
             Color textColour,
             string unit,
             string secondaryUnit,
@@ -409,6 +414,22 @@ namespace NetworkMonitor.Services.Digest
                 DrawAxisValue(session, axisFormat, textColour, maxValue, unit, secondaryUnit, secondaryDivisor, yMax);
                 DrawAxisValue(session, axisFormat, textColour, maxValue / 2.0, unit, secondaryUnit, secondaryDivisor, yMid);
 
+                double minEpoch = double.MaxValue;
+                double maxEpoch = double.MinValue;
+
+                foreach (double epoch in timestamps)
+                {
+                    minEpoch = Math.Min(minEpoch, epoch);
+                    maxEpoch = Math.Max(maxEpoch, epoch);
+                }
+
+                double epochSpan = maxEpoch - minEpoch;
+
+                if (epochSpan <= 0)
+                {
+                    epochSpan = 1.0;
+                }
+
                 for (int seriesIndex = 0; seriesIndex < seriesCount; seriesIndex++)
                 {
                     Vector2[] points = new Vector2[values.Count];
@@ -416,7 +437,7 @@ namespace NetworkMonitor.Services.Digest
                     for (int pointIndex = 0; pointIndex < values.Count; pointIndex++)
                     {
                         double value = seriesIndex < values[pointIndex].Length ? values[pointIndex][seriesIndex] : 0;
-                        float x = plotLeft + (float)pointIndex / (values.Count - 1) * plotWidth;
+                        float x = plotLeft + (float)((timestamps[pointIndex] - minEpoch) / epochSpan) * plotWidth;
                         float y = plotBottom - (float)(value / maxValue) * usableHeight;
                         points[pointIndex] = new Vector2(x, y);
                     }
@@ -463,7 +484,7 @@ namespace NetworkMonitor.Services.Digest
 
                         using (CanvasGeometry lineGeometry = CanvasGeometry.CreatePath(lineBuilder))
                         {
-                            session.DrawGeometry(lineGeometry, colour, 2f);
+                            session.DrawGeometry(lineGeometry, colour, 1.5f);
                         }
 
                     }

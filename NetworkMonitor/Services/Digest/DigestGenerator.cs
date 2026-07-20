@@ -28,7 +28,7 @@ namespace NetworkMonitor.Services.Digest
 
             DateTime speedTestStartUtc = endUtc.AddDays(-1);
             summary.SpeedTests = await db.SpeedTestResults
-                .Where(result => result.Success && result.Timestamp >= speedTestStartUtc && result.Timestamp < endUtc)
+                .Where(result => result.Timestamp >= speedTestStartUtc && result.Timestamp < endUtc)
                 .OrderBy(result => result.Timestamp)
                 .Select(result => new SpeedTestRowSummary
                 {
