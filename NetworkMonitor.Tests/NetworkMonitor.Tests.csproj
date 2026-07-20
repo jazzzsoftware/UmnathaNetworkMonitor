@@ -148,6 +148,24 @@
     <Compile Include="..\NetworkMonitor\Services\Csv\SpeedTestCsvExporter.cs">
       <Link>Linked\SpeedTestCsvExporter.cs</Link>
     </Compile>
+    <Compile Include="..\NetworkMonitor\Services\Traffic\LocalFlowMinute.cs">
+      <Link>Linked\LocalFlowMinute.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Services\Traffic\LocalLens.cs">
+      <Link>Linked\LocalLens.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Services\Traffic\LocalTrafficGrouper.cs">
+      <Link>Linked\LocalTrafficGrouper.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Models\GroupKind.cs">
+      <Link>Linked\GroupKind.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Models\LocalTrafficLeafRow.cs">
+      <Link>Linked\LocalTrafficLeafRow.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Models\LocalTrafficGroupRow.cs">
+      <Link>Linked\LocalTrafficGroupRow.cs</Link>
+    </Compile>
   </ItemGroup>
 
 </Project>
