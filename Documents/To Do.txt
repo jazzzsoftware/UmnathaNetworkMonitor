@@ -145,8 +145,10 @@ Done - Include 0 speed test in report and make charts look the same.
 Done - Remove per second log from logs.
 
 Implement per app and per device for Local
-Local traffic bugs
-Not monitoring NAS transfer.
+
+
+When click a row on local expansion closed
+Test monitoring NAS transfer.
 
 Create a Model project with subfolders and refactor.    
 

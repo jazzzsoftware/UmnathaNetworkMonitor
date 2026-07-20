@@ -147,9 +147,9 @@ namespace NetworkMonitor.Services.Traffic
             {
                 LocalTrafficGroupRow inner = ToRow(GroupKind.Background);
                 string label = $"{inner.Children.Count} device{(inner.Children.Count == 1 ? string.Empty : "s")} — discovery only";
-                LocalTrafficGroupRow result = inner with { DisplayName = label };
+                inner.DisplayName = label;
 
-                return result;
+                return inner;
             }
         }
 

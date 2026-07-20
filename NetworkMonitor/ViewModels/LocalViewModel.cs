@@ -157,7 +157,7 @@ namespace NetworkMonitor.ViewModels
 
                 if (refreshList)
                 {
-                    Groups = new ObservableCollection<LocalTrafficGroupRow>(result.Groups);
+                    ApplyGroups(result.Groups, true);
                     StatusText = result.StatusText;
                 }
 
@@ -292,8 +292,75 @@ namespace NetworkMonitor.ViewModels
             string unit = Lens == LocalLens.ByApp ? "app" : "device";
             string statusText = $"{normalCount} {unit}{(normalCount == 1 ? string.Empty : "s")} · {ByteSizeFormatter.Format(totalBytes)} total";
 
-            Groups = new ObservableCollection<LocalTrafficGroupRow>(groups);
+            ApplyGroups(groups, false);
             StatusText = statusText;
+        }
+
+        private void ApplyGroups(IReadOnlyList<LocalTrafficGroupRow> incoming, bool reorder)
+        {
+            HashSet<string> incomingIdentities = new HashSet<string>();
+
+            foreach (LocalTrafficGroupRow row in incoming)
+            {
+                incomingIdentities.Add(GroupIdentity(row));
+            }
+
+            for (int index = _groups.Count - 1; index >= 0; index--)
+            {
+
+                if (!incomingIdentities.Contains(GroupIdentity(_groups[index])))
+                {
+                    _groups.RemoveAt(index);
+                }
+
+            }
+
+            Dictionary<string, LocalTrafficGroupRow> existingByIdentity = new Dictionary<string, LocalTrafficGroupRow>();
+
+            foreach (LocalTrafficGroupRow row in _groups)
+            {
+                existingByIdentity[GroupIdentity(row)] = row;
+            }
+
+            for (int index = 0; index < incoming.Count; index++)
+            {
+                LocalTrafficGroupRow incomingRow = incoming[index];
+                string identity = GroupIdentity(incomingRow);
+
+                if (existingByIdentity.TryGetValue(identity, out LocalTrafficGroupRow? current))
+                {
+                    current.UpdateFrom(incomingRow);
+
+                    if (reorder)
+                    {
+                        int currentIndex = _groups.IndexOf(current);
+
+                        if (currentIndex != index)
+                        {
+                            _groups.Move(currentIndex, index);
+                        }
+
+                    }
+
+                }
+                else if (reorder)
+                {
+                    _groups.Insert(index, incomingRow);
+                }
+                else
+                {
+                    _groups.Add(incomingRow);
+                }
+
+            }
+
+        }
+
+        private static string GroupIdentity(LocalTrafficGroupRow row)
+        {
+            string identity = $"{(int)row.Kind}|{row.Key ?? string.Empty}";
+
+            return identity;
         }
 
         private async Task<LocalLoadResult> BuildDataAsync(double timeRangeHours, string? selectedGroupKey, DateTime? selectedBucketStart)
