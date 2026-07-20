@@ -141,9 +141,9 @@ Done - Not detecting local network 192.168.0... (DetectSubnetBase picked the fir
 Done - Monitor local traffic
 Done - My PC not in devices list
 Done - Model column not being filled in.
+Done - Include 0 speed test in report and make charts look the same.
+Done - Remove per second log from logs.
 
-Add Delete to speed test grid. Include 0 speed test in report
-Remove per second log from logs.
 Implement per app not per device for Local
 Local traffic bugs
 Not monitoring NAS transfer.
