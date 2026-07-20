@@ -73,10 +73,10 @@ namespace NetworkMonitor.Services.Traffic
                 _session = new TraceEventSession(SessionName);
                 _session.EnableKernelProvider(KernelTraceEventParser.Keywords.NetworkTCPIP);
 
-                _session.Source.Kernel.TcpIpSend += args => AddBytes(args.ProcessID, args.daddr, args.size, upload: true);
-                _session.Source.Kernel.TcpIpRecv += args => AddBytes(args.ProcessID, args.saddr, args.size, upload: false);
-                _session.Source.Kernel.UdpIpSend += args => AddBytes(args.ProcessID, args.daddr, args.size, upload: true);
-                _session.Source.Kernel.UdpIpRecv += args => AddBytes(args.ProcessID, args.saddr, args.size, upload: false);
+                _session.Source.Kernel.TcpIpSend += args => AddBytes(args.ProcessID, args.daddr, args.size, upload: true, protocol: 6, remotePort: (ushort)args.dport);
+                _session.Source.Kernel.TcpIpRecv += args => AddBytes(args.ProcessID, args.saddr, args.size, upload: false, protocol: 6, remotePort: (ushort)args.sport);
+                _session.Source.Kernel.UdpIpSend += args => AddBytes(args.ProcessID, args.daddr, args.size, upload: true, protocol: 17, remotePort: (ushort)args.dport);
+                _session.Source.Kernel.UdpIpRecv += args => AddBytes(args.ProcessID, args.saddr, args.size, upload: false, protocol: 17, remotePort: (ushort)args.sport);
 
                 ct.Register(() => _session.Stop());
 
@@ -114,7 +114,7 @@ namespace NetworkMonitor.Services.Traffic
 
         }
 
-        private void AddBytes(int pid, IPAddress remote, int bytes, bool upload)
+        private void AddBytes(int pid, IPAddress remote, int bytes, bool upload, byte protocol, ushort remotePort)
         {
 
             if (bytes > 0)
@@ -127,7 +127,7 @@ namespace NetworkMonitor.Services.Traffic
                     if (_lanClassifier.TryClassifyLocal(remote, out uint packed))
                     {
                         int keyPid = pid < 0 ? SystemPid : pid;
-                        LocalFlowKey key = new LocalFlowKey(keyPid, packed);
+                        LocalFlowKey key = new LocalFlowKey(keyPid, packed, protocol, remotePort);
                         long[] localCounter = _localCounters.GetOrAdd(key, static missingKey => new long[2]);
 
                         Interlocked.Add(ref localCounter[slot], bytes);
