@@ -41,7 +41,8 @@ namespace NetworkMonitor.Services.Traffic
 
             normals.Sort((left, right) => right.TotalBytes.CompareTo(left.TotalBytes));
 
-            LocalTrafficGroupRow allRow = new LocalTrafficGroupRow(null, "All Apps", null, totalUpload, totalDownload, Array.Empty<LocalTrafficLeafRow>(), GroupKind.All, null);
+            string allLabel = lens == LocalLens.ByApp ? "All Apps" : "All Devices";
+            LocalTrafficGroupRow allRow = new LocalTrafficGroupRow(null, allLabel, null, totalUpload, totalDownload, Array.Empty<LocalTrafficLeafRow>(), GroupKind.All, null);
             groups.Add(allRow);
             groups.AddRange(normals);
 

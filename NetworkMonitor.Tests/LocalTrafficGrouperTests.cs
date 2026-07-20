@@ -46,5 +46,18 @@ namespace NetworkMonitor.Tests
             Assert.Equal("192.168.1.50", groups[1].SubLabel);
             Assert.Equal("System", groups[1].Children[0].DisplayName);
         }
+
+        [Fact]
+        public void ByDevice_AllRowIsLabelledAllDevices()
+        {
+            List<LocalFlowMinute> minutes = new List<LocalFlowMinute>
+            {
+                new LocalFlowMinute("System", "192.168.1.50", 6, 445, 10, 4000)
+            };
+
+            IReadOnlyList<LocalTrafficGroupRow> groups = LocalTrafficGrouper.Build(minutes, Names, LocalLens.ByDevice);
+
+            Assert.Equal("All Devices", groups[0].DisplayName);
+        }
     }
 }

@@ -403,11 +403,13 @@ namespace NetworkMonitor.Views
 
             if (ViewModel.SelectedBucketStart is DateTime bucketStart)
             {
-                labelText = $"Apps at {bucketStart.ToLocalTime():dd MMM HH:mm:ss}";
+                string scopeNoun = ViewModel.Lens == LocalLens.ByApp ? "Apps" : "Devices";
+                labelText = $"{scopeNoun} at {bucketStart.ToLocalTime():dd MMM HH:mm:ss}";
             }
             else
             {
-                string appPart = (AppGrid.SelectedItem as LocalTrafficGroupRow)?.DisplayName ?? "All Apps";
+                string fallback = ViewModel.Lens == LocalLens.ByApp ? "All Apps" : "All Devices";
+                string appPart = (AppGrid.SelectedItem as LocalTrafficGroupRow)?.DisplayName ?? fallback;
                 labelText = $"{appPart} — {rangePart}";
             }
 
@@ -453,7 +455,7 @@ namespace NetworkMonitor.Views
 
                 if (AppGrid.SelectedItem is LocalTrafficGroupRow row)
                 {
-                    string? newSelectedKey = row.IsAll ? null : row.Key;
+                    string? newSelectedKey = (row.IsAll || row.IsBackground) ? null : row.Key;
                     bool appChanged = newSelectedKey != ViewModel.SelectedGroupKey;
 
                     if (appChanged)

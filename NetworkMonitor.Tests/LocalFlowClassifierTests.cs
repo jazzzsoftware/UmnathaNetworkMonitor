@@ -23,6 +23,8 @@ namespace NetworkMonitor.Tests
         [InlineData(6, 139, "SMB")]
         [InlineData(6, 80, "HTTP")]
         [InlineData(6, 443, "HTTPS")]
+        [InlineData(6, 2049, "NFS")]
+        [InlineData(6, 3389, "RDP")]
         public void TagsKnownDataServices(int protocol, int remotePort, string expectedTag)
         {
             FlowClassification classification = LocalFlowClassifier.Classify(protocol, remotePort);
@@ -35,6 +37,24 @@ namespace NetworkMonitor.Tests
         public void TreatsUnknownPortAsUntaggedData()
         {
             FlowClassification classification = LocalFlowClassifier.Classify(6, 51413);
+
+            Assert.Equal(FlowCategory.Data, classification.Category);
+            Assert.Null(classification.ServiceTag);
+        }
+
+        [Fact]
+        public void TreatsDiscoveryPortOnTcpAsData()
+        {
+            FlowClassification classification = LocalFlowClassifier.Classify(6, 5353);
+
+            Assert.Equal(FlowCategory.Data, classification.Category);
+            Assert.Null(classification.ServiceTag);
+        }
+
+        [Fact]
+        public void TreatsUnknownUdpPortAsUntaggedData()
+        {
+            FlowClassification classification = LocalFlowClassifier.Classify(17, 51413);
 
             Assert.Equal(FlowCategory.Data, classification.Category);
             Assert.Null(classification.ServiceTag);
