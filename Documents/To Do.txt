@@ -144,7 +144,7 @@ Done - Model column not being filled in.
 Done - Include 0 speed test in report and make charts look the same.
 Done - Remove per second log from logs.
 
-Implement per app not per device for Local
+Implement per app and per device for Local
 Local traffic bugs
 Not monitoring NAS transfer.
 

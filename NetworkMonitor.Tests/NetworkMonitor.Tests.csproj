@@ -48,6 +48,15 @@
     <Compile Include="..\NetworkMonitor\Services\Traffic\LocalTrafficMinute.cs">
       <Link>Linked\LocalTrafficMinute.cs</Link>
     </Compile>
+    <Compile Include="..\NetworkMonitor\Services\Traffic\FlowCategory.cs">
+      <Link>Linked\FlowCategory.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Services\Traffic\FlowClassification.cs">
+      <Link>Linked\FlowClassification.cs</Link>
+    </Compile>
+    <Compile Include="..\NetworkMonitor\Services\Traffic\LocalFlowClassifier.cs">
+      <Link>Linked\LocalFlowClassifier.cs</Link>
+    </Compile>
     <Compile Include="..\NetworkMonitor\Models\LocalTrafficDeviceRow.cs">
       <Link>Linked\LocalTrafficDeviceRow.cs</Link>
     </Compile>
