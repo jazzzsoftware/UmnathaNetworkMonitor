@@ -10,6 +10,8 @@ namespace NetworkMonitor.Services.Traffic
 
         private volatile (uint Start, uint End)[] _ranges;
 
+        private volatile HashSet<uint> _selfAddresses = new HashSet<uint>();
+
         public LanClassifier()
         {
             _ranges = FixedRanges;
@@ -73,9 +75,33 @@ namespace NetworkMonitor.Services.Traffic
             return isLocal;
         }
 
+        public bool IsSelfOrLoopback(IPAddress address)
+        {
+            bool result = false;
+
+            if (TryPackIpv4(address, out uint packed))
+            {
+
+                if ((packed & 0xFF000000u) == 0x7F000000u)
+                {
+                    result = true;
+                }
+                else
+                {
+                    HashSet<uint> selfAddresses = _selfAddresses;
+
+                    result = selfAddresses.Contains(packed);
+                }
+
+            }
+
+            return result;
+        }
+
         public void Refresh()
         {
             List<(uint Start, uint End)> ranges = new List<(uint Start, uint End)>(FixedRanges);
+            HashSet<uint> selfAddresses = new HashSet<uint>();
 
             foreach (NetworkInterface adapter in NetworkInterface.GetAllNetworkInterfaces())
             {
@@ -100,6 +126,8 @@ namespace NetworkMonitor.Services.Traffic
                         continue;
                     }
 
+                    selfAddresses.Add(ip);
+
                     if (!TryPackIpv4(unicast.IPv4Mask, out uint mask))
                     {
                         continue;
@@ -119,6 +147,7 @@ namespace NetworkMonitor.Services.Traffic
             }
 
             _ranges = ranges.ToArray();
+            _selfAddresses = selfAddresses;
         }
 
         private static (uint Start, uint End)[] BuildFixedRanges()

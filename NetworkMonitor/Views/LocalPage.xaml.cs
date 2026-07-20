@@ -1,3 +1,4 @@
+using CommunityToolkit.WinUI.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -25,6 +26,7 @@ namespace NetworkMonitor.Views
 
         private const double FiveMinutes = 5.0 / 60.0;
         private bool _suppressSelection;
+        private bool _userSelectionChanged;
         private PauseReason _pauseReason;
         private ScrollBar? _appScrollBar;
         private readonly TrafficTracker _trafficTracker;
@@ -38,6 +40,8 @@ namespace NetworkMonitor.Views
             _trafficTracker = App.AppHost.Services.GetRequiredService<TrafficTracker>();
             _settings = App.AppHost.Services.GetRequiredService<Settings>();
             InitializeComponent();
+
+            AppGrid.AddHandler(TappedEvent, new TappedEventHandler(AppGridTapped), true);
 
             AreaChart.BucketSelected += OnChartBucketSelected;
             Loaded += OnPageLoaded;
@@ -403,6 +407,7 @@ namespace NetworkMonitor.Views
 
             if (!_suppressSelection)
             {
+                _userSelectionChanged = true;
 
                 if (AppGrid.SelectedItem is LocalTrafficAppRow row)
                 {
@@ -430,6 +435,49 @@ namespace NetworkMonitor.Views
 
             }
 
+        }
+
+        private void AppGridTapped(object sender, TappedRoutedEventArgs args)
+        {
+            LocalTrafficAppRow? tappedRow = FindTappedAppRow(args.OriginalSource as DependencyObject);
+
+            if (!_userSelectionChanged && tappedRow is not null && !tappedRow.IsAllApps && ReferenceEquals(tappedRow, AppGrid.SelectedItem))
+            {
+                LocalTrafficAppRow? allAppsRow = ViewModel.Apps.FirstOrDefault(row => row.IsAllApps);
+
+                if (allAppsRow is not null)
+                {
+                    AppGrid.SelectedItem = allAppsRow;
+                }
+
+            }
+
+            _userSelectionChanged = false;
+        }
+
+        private static LocalTrafficAppRow? FindTappedAppRow(DependencyObject? source)
+        {
+            LocalTrafficAppRow? result = null;
+            DependencyObject? current = source;
+
+            while (current is not null)
+            {
+
+                if (current is DataGridCell cell)
+                {
+
+                    if (cell.DataContext is LocalTrafficAppRow row)
+                    {
+                        result = row;
+                    }
+
+                    break;
+                }
+
+                current = VisualTreeHelper.GetParent(current);
+            }
+
+            return result;
         }
     }
 }

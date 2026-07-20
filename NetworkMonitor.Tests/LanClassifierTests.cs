@@ -39,6 +39,31 @@ namespace NetworkMonitor.Tests
             Assert.False(isLocal);
         }
 
+        [Theory]
+        [InlineData("127.0.0.1")]
+        [InlineData("127.0.0.53")]
+        [InlineData("127.255.255.255")]
+        public void TreatsLoopbackAsSelfOrLoopback(string address)
+        {
+            LanClassifier classifier = new LanClassifier();
+
+            bool isSelfOrLoopback = classifier.IsSelfOrLoopback(IPAddress.Parse(address));
+
+            Assert.True(isSelfOrLoopback);
+        }
+
+        [Theory]
+        [InlineData("8.8.8.8")]
+        [InlineData("203.0.113.7")]
+        public void TreatsRemoteAddressesAsNotSelfOrLoopback(string address)
+        {
+            LanClassifier classifier = new LanClassifier();
+
+            bool isSelfOrLoopback = classifier.IsSelfOrLoopback(IPAddress.Parse(address));
+
+            Assert.False(isSelfOrLoopback);
+        }
+
         [Fact]
         public void RejectsIpv6Addresses()
         {

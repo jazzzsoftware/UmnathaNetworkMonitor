@@ -119,21 +119,26 @@ namespace NetworkMonitor.Services.Traffic
 
             if (bytes > 0)
             {
-                int slot = upload ? 0 : 1;
 
-                if (_lanClassifier.TryClassifyLocal(remote, out uint packed))
+                if (!_lanClassifier.IsSelfOrLoopback(remote))
                 {
-                    int keyPid = pid < 0 ? SystemPid : pid;
-                    LocalFlowKey key = new LocalFlowKey(keyPid, packed);
-                    long[] localCounter = _localCounters.GetOrAdd(key, static missingKey => new long[2]);
+                    int slot = upload ? 0 : 1;
 
-                    Interlocked.Add(ref localCounter[slot], bytes);
-                }
-                else if (pid >= 0)
-                {
-                    long[] counter = _counters.GetOrAdd(pid, static missingPid => new long[2]);
+                    if (_lanClassifier.TryClassifyLocal(remote, out uint packed))
+                    {
+                        int keyPid = pid < 0 ? SystemPid : pid;
+                        LocalFlowKey key = new LocalFlowKey(keyPid, packed);
+                        long[] localCounter = _localCounters.GetOrAdd(key, static missingKey => new long[2]);
 
-                    Interlocked.Add(ref counter[slot], bytes);
+                        Interlocked.Add(ref localCounter[slot], bytes);
+                    }
+                    else if (pid >= 0)
+                    {
+                        long[] counter = _counters.GetOrAdd(pid, static missingPid => new long[2]);
+
+                        Interlocked.Add(ref counter[slot], bytes);
+                    }
+
                 }
 
             }
