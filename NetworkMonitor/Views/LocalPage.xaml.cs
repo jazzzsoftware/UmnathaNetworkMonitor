@@ -69,6 +69,8 @@ namespace NetworkMonitor.Views
             base.OnNavigatedTo(args);
             AreaChart.SmoothScrolling = _settings.ChartSmoothScrolling;
             UpdateRangeButtonStyles(ButtonForRange(ViewModel.TimeRangeHours));
+            UpdateLensButtonStyles(ViewModel.Lens == LocalLens.ByApp ? LensAppButton : LensDeviceButton);
+            UpdateColumnHeaders();
 
             _pauseReason = PauseReason.None;
             ViewModel.SelectedBucketStart = null;
@@ -127,7 +129,7 @@ namespace NetworkMonitor.Views
         private async void OnChartBucketSelected(object? sender, ChartPoint point)
         {
             _pauseReason = PauseReason.Bucket;
-            ViewModel.SelectedApp = null;
+            ViewModel.SelectedGroupKey = null;
             ViewModel.SelectedBucketStart = point.BucketStart;
             UpdateChartLabel();
             await ViewModel.LoadAsync(true);
@@ -241,9 +243,9 @@ namespace NetworkMonitor.Views
 
         private void SyncGridSelection()
         {
-            LocalTrafficAppRow? target = ViewModel.SelectedApp is null
-                ? ViewModel.Apps.FirstOrDefault(row => row.IsAllApps)
-                : ViewModel.Apps.FirstOrDefault(row => row.ProcessName == ViewModel.SelectedApp);
+            LocalTrafficGroupRow? target = ViewModel.SelectedGroupKey is null
+                ? ViewModel.Groups.FirstOrDefault(row => row.IsAll)
+                : ViewModel.Groups.FirstOrDefault(row => row.Key == ViewModel.SelectedGroupKey);
 
             _suppressSelection = true;
 
@@ -302,6 +304,46 @@ namespace NetworkMonitor.Views
                     : null;
             }
 
+        }
+
+        private void LensButtonClick(object sender, RoutedEventArgs args)
+        {
+
+            if (sender is Button button)
+            {
+                string tag = button.Tag?.ToString() ?? string.Empty;
+
+                if (Enum.TryParse(tag, out LocalLens lens))
+                {
+                    _pauseReason = PauseReason.None;
+                    ViewModel.SelectedBucketStart = null;
+                    ViewModel.Lens = lens;
+                    UpdateLensButtonStyles(button);
+                    UpdateColumnHeaders();
+                    UpdateChartLabel();
+                }
+
+            }
+
+        }
+
+        private void UpdateLensButtonStyles(Button activeButton)
+        {
+            Button[] allButtons = [LensAppButton, LensDeviceButton];
+
+            foreach (Button button in allButtons)
+            {
+                button.Style = button == activeButton
+                    ? (Style)Application.Current.Resources["AccentButtonStyle"]
+                    : null;
+            }
+
+        }
+
+        private void UpdateColumnHeaders()
+        {
+            GroupColumn.Header = ViewModel.GroupHeader;
+            ChildColumn.Header = ViewModel.ChildHeader;
         }
 
         private Button ButtonForRange(double hours)
@@ -365,7 +407,7 @@ namespace NetworkMonitor.Views
             }
             else
             {
-                string appPart = ViewModel.SelectedApp ?? "All Apps";
+                string appPart = (AppGrid.SelectedItem as LocalTrafficGroupRow)?.DisplayName ?? "All Apps";
                 labelText = $"{appPart} — {rangePart}";
             }
 
@@ -409,14 +451,14 @@ namespace NetworkMonitor.Views
             {
                 _userSelectionChanged = true;
 
-                if (AppGrid.SelectedItem is LocalTrafficAppRow row)
+                if (AppGrid.SelectedItem is LocalTrafficGroupRow row)
                 {
-                    string? newSelectedApp = row.IsAllApps ? null : row.ProcessName;
-                    bool appChanged = newSelectedApp != ViewModel.SelectedApp;
+                    string? newSelectedKey = row.IsAll ? null : row.Key;
+                    bool appChanged = newSelectedKey != ViewModel.SelectedGroupKey;
 
                     if (appChanged)
                     {
-                        ViewModel.SelectedApp = newSelectedApp;
+                        ViewModel.SelectedGroupKey = newSelectedKey;
                         UpdateChartLabel();
 
                         if (_pauseReason == PauseReason.None)
@@ -439,11 +481,11 @@ namespace NetworkMonitor.Views
 
         private void AppGridTapped(object sender, TappedRoutedEventArgs args)
         {
-            LocalTrafficAppRow? tappedRow = FindTappedAppRow(args.OriginalSource as DependencyObject);
+            LocalTrafficGroupRow? tappedRow = FindTappedAppRow(args.OriginalSource as DependencyObject);
 
-            if (!_userSelectionChanged && tappedRow is not null && !tappedRow.IsAllApps && ReferenceEquals(tappedRow, AppGrid.SelectedItem))
+            if (!_userSelectionChanged && tappedRow is not null && !tappedRow.IsAll && ReferenceEquals(tappedRow, AppGrid.SelectedItem))
             {
-                LocalTrafficAppRow? allAppsRow = ViewModel.Apps.FirstOrDefault(row => row.IsAllApps);
+                LocalTrafficGroupRow? allAppsRow = ViewModel.Groups.FirstOrDefault(row => row.IsAll);
 
                 if (allAppsRow is not null)
                 {
@@ -455,9 +497,9 @@ namespace NetworkMonitor.Views
             _userSelectionChanged = false;
         }
 
-        private static LocalTrafficAppRow? FindTappedAppRow(DependencyObject? source)
+        private static LocalTrafficGroupRow? FindTappedAppRow(DependencyObject? source)
         {
-            LocalTrafficAppRow? result = null;
+            LocalTrafficGroupRow? result = null;
             DependencyObject? current = source;
 
             while (current is not null)
@@ -466,7 +508,7 @@ namespace NetworkMonitor.Views
                 if (current is DataGridCell cell)
                 {
 
-                    if (cell.DataContext is LocalTrafficAppRow row)
+                    if (cell.DataContext is LocalTrafficGroupRow row)
                     {
                         result = row;
                     }

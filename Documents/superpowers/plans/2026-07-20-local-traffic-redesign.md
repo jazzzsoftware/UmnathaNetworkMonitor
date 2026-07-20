@@ -843,6 +843,319 @@ AND NOT (Protocol = 17 AND RemotePort IN (5353,5355,1900,3702,137,138,67,68,5350
 
 ---
 
+---
+
+## Tasks 7 & 8 — FIRMED-UP CONCRETE DESIGN (2026-07-20)
+
+> This section supersedes the outline versions of Task 7 and Task 8 above. It is the authoritative spec for the view-model + UI integration. **Correction discovered during firming:** `LocalTrafficAppRow`, `LocalTrafficDeviceRow`, `LocalTrafficMinute`, and `LocalTrafficAggregator` are ALSO used by the digest (`DigestSummaryBuilder`, `DigestGenerator`, `DigestSummaryBuilderTests`). Therefore Task 7 **DELETES NOTHING** — the redesign is purely additive to the view-model. No files removed, no test-csproj link removals.
+
+### Task 7 (firmed): Rewire `LocalViewModel` to lenses + grouper
+
+**Files:**
+- Modify: `NetworkMonitor/Models/LocalTrafficGroupRow.cs`, `NetworkMonitor/Models/LocalTrafficLeafRow.cs` (add two bool helpers each)
+- Modify: `NetworkMonitor/Data/Settings.cs` (add `LocalLens`)
+- Modify: `NetworkMonitor/ViewModels/LocalLoadResult.cs`
+- Modify: `NetworkMonitor/ViewModels/LocalViewModel.cs`
+- **Delete nothing.** `LocalTrafficAppRow/DeviceRow/Minute/Aggregator` stay (digest owns them now).
+
+**Interfaces produced:** `LocalViewModel.Groups` (`ObservableCollection<LocalTrafficGroupRow>`), `LocalViewModel.Lens` (`LocalLens`), `LocalViewModel.GroupHeader`/`ChildHeader` (string), `LocalViewModel.SelectedGroupKey` (string?). `LocalTrafficGroupRow.HasServiceTag`/`HasSubLabel`, `LocalTrafficLeafRow.HasServiceTag`/`HasSubLabel`.
+
+**7.1 — Row model helpers** (avoids needing a string→visibility converter in XAML). Add to `LocalTrafficGroupRow` (and the two byte-based ones already exist):
+```csharp
+public bool HasServiceTag => ServiceTag is not null;
+
+public bool HasSubLabel => SubLabel is not null;
+```
+Add the identical two expression-bodied properties to `LocalTrafficLeafRow`.
+
+**7.2 — `Settings.cs`**: add `using NetworkMonitor.Services.Traffic;` and, alongside `LocalTimeRangeHours`:
+```csharp
+public LocalLens LocalLens
+{
+    get;
+    set;
+} = LocalLens.ByApp;
+```
+
+**7.3 — `LocalLoadResult.cs`** — change the display-row type and add the raw minutes (this record is VM-internal only):
+```csharp
+using System.Collections.Generic;
+using NetworkMonitor.Models;
+using NetworkMonitor.Services.Traffic;
+
+namespace NetworkMonitor.ViewModels
+{
+    internal record LocalLoadResult(
+        List<ChartPoint> ChartPoints,
+        List<LocalTrafficGroupRow> Groups,
+        List<LocalFlowMinute> Minutes,
+        string StatusText,
+        long CutoffEpoch,
+        long BucketSeconds);
+}
+```
+
+**7.4 — `LocalViewModel.cs`** — the concrete changes:
+
+Fields: replace `_windowAppPeerTotals` with a flow accumulator; keep `_namesByIp`:
+```csharp
+private Dictionary<(string ProcessName, string RemoteIp, int Protocol, int RemotePort), (long Upload, long Download)> _windowFlows = new();
+```
+
+Constructor — seed lens + headers from settings:
+```csharp
+public LocalViewModel(IDbContextFactory<AppDbContext> dbFactory, Settings settings)
+{
+    _dbFactory = dbFactory;
+    _settings = settings;
+    _timeRangeHours = settings.LocalTimeRangeHours;
+    _lens = settings.LocalLens;
+    _groupHeader = _lens == LocalLens.ByApp ? "App" : "Device";
+    _childHeader = _lens == LocalLens.ByApp ? "Peers" : "Apps";
+}
+```
+
+Properties — replace `Apps` with `Groups`; rename `SelectedApp` → `SelectedGroupKey`; add `Lens`, `GroupHeader`, `ChildHeader` (all hand-written `SetProperty`, backing field directly above):
+```csharp
+private ObservableCollection<LocalTrafficGroupRow> _groups = [];
+
+public ObservableCollection<LocalTrafficGroupRow> Groups
+{
+    get => _groups;
+    set => SetProperty(ref _groups, value);
+}
+
+private LocalLens _lens;
+
+public LocalLens Lens
+{
+    get => _lens;
+    set
+    {
+
+        if (SetProperty(ref _lens, value))
+        {
+            _settings.LocalLens = value;
+            _settings.Save();
+            GroupHeader = value == LocalLens.ByApp ? "App" : "Device";
+            ChildHeader = value == LocalLens.ByApp ? "Peers" : "Apps";
+            SelectedGroupKey = null;
+            _ = LoadAsync(true);
+        }
+
+    }
+}
+
+private string _groupHeader = "App";
+
+public string GroupHeader
+{
+    get => _groupHeader;
+    set => SetProperty(ref _groupHeader, value);
+}
+
+private string _childHeader = "Peers";
+
+public string ChildHeader
+{
+    get => _childHeader;
+    set => SetProperty(ref _childHeader, value);
+}
+
+private string? _selectedGroupKey;
+
+public string? SelectedGroupKey
+{
+    get => _selectedGroupKey;
+    set => SetProperty(ref _selectedGroupKey, value);
+}
+```
+(Remove the old `_selectedApp`/`SelectedApp` and `_apps`/`Apps` members.)
+
+`BuildDataAsync` — rename the `selectedApp` param to `selectedGroupKey`; replace the app-row/aggregator section with grouper output and carry the raw minutes:
+```csharp
+List<LocalFlowMinute> minutes = await LoadFlowMinutesAsync(db, useRollup, cutoff, cutoffEpoch, bucketRangeStart, bucketRangeEnd);
+IReadOnlyList<LocalTrafficGroupRow> groups = LocalTrafficGrouper.Build(minutes, namesByIp, Lens);
+
+Dictionary<int, (long Upload, long Download)> dataByBucket =
+    await LoadChartBucketsAsync(db, useRollup, cutoff, cutoffEpoch, bucketSeconds, Lens, selectedGroupKey);
+```
+...then build `chartPoints` exactly as before, and compute status/result:
+```csharp
+int normalCount = 0;
+
+foreach (LocalTrafficGroupRow row in groups)
+{
+
+    if (row.Kind == GroupKind.Normal)
+    {
+        normalCount++;
+    }
+
+}
+
+long totalBytes = groups.Count > 0 ? groups[0].TotalBytes : 0;
+string unit = Lens == LocalLens.ByApp ? "app" : "device";
+string scopeText = selectedBucketStart.HasValue
+    ? $"at {selectedBucketStart.Value.ToLocalTime():dd MMM HH:mm:ss}"
+    : "total";
+string statusText = $"{normalCount} {unit}{(normalCount == 1 ? string.Empty : "s")} · {ByteSizeFormatter.Format(totalBytes)} {scopeText}";
+
+LocalLoadResult result = new LocalLoadResult(chartPoints, groups.ToList(), minutes, statusText, cutoffEpoch, bucketSeconds);
+
+return result;
+```
+
+`LoadAppRowsAsync` → rename to `LoadFlowMinutesAsync`, drop the `namesByIp` param and the aggregator call, widen the SQL, return `List<LocalFlowMinute>`:
+- SQL: `SELECT ProcessName, RemoteIp, Protocol, RemotePort, SUM(BytesUploaded) AS Upload, SUM(BytesDownloaded) AS Download FROM {sourceTable} WHERE {whereClause} GROUP BY ProcessName, RemoteIp, Protocol, RemotePort`
+- Reader: `new LocalFlowMinute(reader.GetString(0), reader.GetString(1), reader.GetInt32(2), reader.GetInt32(3), reader.GetInt64(4), reader.GetInt64(5))`
+- Return the `List<LocalFlowMinute>` (no `LocalTrafficAggregator`, no `LocalTrafficMinute`).
+
+`LoadChartBucketsAsync` — add `LocalLens lens, string? selectedGroupKey` params (drop `selectedApp`); exclude discovery and filter by the lens-appropriate column:
+```csharp
+string selectionColumn = lens == LocalLens.ByApp ? "ProcessName" : "RemoteIp";
+```
+WHERE becomes (keep the existing cutoff clause, then):
+```
+AND NOT (Protocol = 17 AND RemotePort IN (5353,5355,1900,3702,137,138,67,68,5350,5351))
+AND ($key IS NULL OR {selectionColumn} = $key)
+```
+Rename the `$app` parameter to `$key` and set it from `selectedGroupKey`.
+
+Live-flush — replace `SeedWindowState`, `ApplyFlushToWindow`, `RebuildAppRows`:
+```csharp
+private void SeedWindowState(LocalLoadResult result)
+{
+    _windowCutoffEpoch = result.CutoffEpoch;
+    _windowBucketSeconds = result.BucketSeconds;
+    _windowChartPoints = new List<ChartPoint>(result.ChartPoints);
+    _windowFlows = new Dictionary<(string ProcessName, string RemoteIp, int Protocol, int RemotePort), (long Upload, long Download)>();
+
+    foreach (LocalFlowMinute minute in result.Minutes)
+    {
+        (string ProcessName, string RemoteIp, int Protocol, int RemotePort) key = (minute.ProcessName, minute.RemoteIp, minute.Protocol, minute.RemotePort);
+        _windowFlows.TryGetValue(key, out (long Upload, long Download) current);
+        _windowFlows[key] = (current.Upload + minute.BytesUploaded, current.Download + minute.BytesDownloaded);
+    }
+
+}
+```
+`ApplyFlushToWindow` becomes synchronous (no more new-app full-reload fallback — the grouper rebuild handles new groups); update the caller `ApplyLiveFlushAsync` to call it without `await` (change `else { await ApplyFlushToWindow(deltas); }` to `else { ApplyFlushToWindow(deltas); }`):
+```csharp
+private void ApplyFlushToWindow(IReadOnlyList<LocalTrafficDelta> deltas)
+{
+    string? selectedKey = SelectedGroupKey;
+    LocalLens lens = Lens;
+    long chartDeltaUpload = 0;
+    long chartDeltaDownload = 0;
+
+    foreach (LocalTrafficDelta delta in deltas)
+    {
+        FlowClassification classification = LocalFlowClassifier.Classify(delta.Protocol, delta.RemotePort);
+
+        if (classification.Category == FlowCategory.Data)
+        {
+            string groupKey = lens == LocalLens.ByApp ? delta.ProcessName : delta.RemoteIp;
+
+            if (selectedKey is null || groupKey == selectedKey)
+            {
+                chartDeltaUpload += delta.BytesUploaded;
+                chartDeltaDownload += delta.BytesDownloaded;
+            }
+
+        }
+
+        (string ProcessName, string RemoteIp, int Protocol, int RemotePort) key = (delta.ProcessName, delta.RemoteIp, delta.Protocol, delta.RemotePort);
+        _windowFlows.TryGetValue(key, out (long Upload, long Download) current);
+        _windowFlows[key] = (current.Upload + delta.BytesUploaded, current.Download + delta.BytesDownloaded);
+    }
+
+    int lastIndex = _windowChartPoints.Count - 1;
+    ChartPoint last = _windowChartPoints[lastIndex];
+    _windowChartPoints[lastIndex] = last with
+    {
+        BytesUploaded = last.BytesUploaded + chartDeltaUpload,
+        BytesDownloaded = last.BytesDownloaded + chartDeltaDownload
+    };
+
+    ChartPoints = new ObservableCollection<ChartPoint>(_windowChartPoints);
+
+    RebuildGroups();
+}
+
+private void RebuildGroups()
+{
+    List<LocalFlowMinute> minutes = new List<LocalFlowMinute>(_windowFlows.Count);
+
+    foreach (KeyValuePair<(string ProcessName, string RemoteIp, int Protocol, int RemotePort), (long Upload, long Download)> flow in _windowFlows)
+    {
+        minutes.Add(new LocalFlowMinute(flow.Key.ProcessName, flow.Key.RemoteIp, flow.Key.Protocol, flow.Key.RemotePort, flow.Value.Upload, flow.Value.Download));
+    }
+
+    IReadOnlyList<LocalTrafficGroupRow> groups = LocalTrafficGrouper.Build(minutes, _namesByIp, Lens);
+    int normalCount = 0;
+
+    foreach (LocalTrafficGroupRow row in groups)
+    {
+
+        if (row.Kind == GroupKind.Normal)
+        {
+            normalCount++;
+        }
+
+    }
+
+    long totalBytes = groups.Count > 0 ? groups[0].TotalBytes : 0;
+    string unit = Lens == LocalLens.ByApp ? "app" : "device";
+    string statusText = $"{normalCount} {unit}{(normalCount == 1 ? string.Empty : "s")} · {ByteSizeFormatter.Format(totalBytes)} total";
+
+    Groups = new ObservableCollection<LocalTrafficGroupRow>(groups);
+    StatusText = statusText;
+}
+```
+Also update `ApplyLiveFlushAsync`'s early guard `if (_windowChartPoints.Count == 0)` (unchanged) — it still calls `LoadAsync()` on first flush.
+
+**7.5 — Build only** (this task alone won't compile against the old XAML which still binds `Apps`/`SelectedApp`). Per the compile-boundary note, DO Task 8 in the SAME working session and make ONE combined commit `Redesign Local page with app/device lenses and background fold.` after both compile.
+
+### Task 8 (firmed): `LocalPage.xaml` + `.xaml.cs`
+
+**8.1 — Toolbar lens toggle** (`LocalPage.xaml`, Row 0). Put two Buttons before the status text in column 0 (mirror the range-button pattern; selected state applied in code-behind):
+```xml
+<Button
+    x:Name="LensAppButton"
+    Content="By app"
+    Tag="ByApp"
+    Padding="10,5"
+    Click="LensButtonClick" />
+
+<Button
+    x:Name="LensDeviceButton"
+    Content="By device"
+    Tag="ByDevice"
+    Padding="10,5"
+    Click="LensButtonClick" />
+```
+
+**8.2 — DataGrid** (`LocalPage.xaml`):
+- `ItemsSource="{x:Bind ViewModel.Groups, Mode=OneWay}"`.
+- Group column `x:Name="GroupColumn"` (header set in code-behind), cell `x:DataType="models:LocalTrafficGroupRow"`: `DisplayName` (FontWeight bound to `IsAll` via existing `BoolToFontWeightConverter`); a second muted `TextBlock` bound to `SubLabel` with `Visibility="{x:Bind HasSubLabel, Converter={StaticResource BoolToVisibilityConverter}}"`; a service-tag chip `Border` (amber) visible on `HasServiceTag`; a "discovery only" chip visible on `IsBackground`.
+- Child column `x:Name="ChildColumn"`: bind `ChildSummary` / tooltip `ChildTooltip` (was `PeerSummary`/`PeerTooltip`).
+- Download/Upload/Total cells: `DownloadText` (`#1976D2`), `UploadText` (`#AB47BC`), `TotalText`; Total FontWeight bound to `IsAll`.
+- RowDetails: `x:DataType="models:LocalTrafficLeafRow"`, visibility bound to `HasChildren` (was `HasMultiplePeers`); bind `DisplayName`, `SubLabel` (its own `HasSubLabel`), `DownloadText`, `UploadText`, `TotalText`, and a service-tag chip on `HasServiceTag`.
+
+**8.3 — `LocalPage.xaml.cs`** renames/handlers:
+- Everywhere: `ViewModel.SelectedApp` → `ViewModel.SelectedGroupKey`; `ViewModel.Apps` → `ViewModel.Groups`; `LocalTrafficAppRow` → `LocalTrafficGroupRow`; `.IsAllApps` → `.IsAll`.
+- `SyncGridSelection`: match on `row.Key == ViewModel.SelectedGroupKey` (was `row.ProcessName == ...SelectedApp`); the "all" target is `ViewModel.Groups.FirstOrDefault(row => row.IsAll)`.
+- `AppGridSelectionChanged`: `string? newKey = row.IsAll ? null : row.Key;` compare/assign against `ViewModel.SelectedGroupKey`.
+- `UpdateChartLabel` line ~368: replace `ViewModel.SelectedApp ?? "All Apps"` with `(AppGrid.SelectedItem as LocalTrafficGroupRow)?.DisplayName ?? "All Apps"`.
+- `AppGridTapped`/`FindTappedAppRow`: retype to `LocalTrafficGroupRow`, `IsAllApps`→`IsAll`.
+- Add `LensButtonClick` (sets `ViewModel.Lens` from the button `Tag` via `Enum.Parse<LocalLens>`; then `UpdateLensButtonStyles(button)` and `UpdateColumnHeaders()`), `UpdateLensButtonStyles(Button active)` (mirror `UpdateRangeButtonStyles`, AccentButtonStyle on the active one, over `[LensAppButton, LensDeviceButton]`), and `UpdateColumnHeaders()` (`GroupColumn.Header = ViewModel.GroupHeader; ChildColumn.Header = ViewModel.ChildHeader;`).
+- In `OnNavigatedTo`, after `UpdateRangeButtonStyles(...)`, also call `UpdateLensButtonStyles(ViewModel.Lens == LocalLens.ByApp ? LensAppButton : LensDeviceButton)` and `UpdateColumnHeaders()`.
+
+**8.4 — Build the WinUI project** x64. MSB3027/MSB3021 exe-copy-lock = success (app running); only `error CS...`/XAML compile errors are real failures. Then ONE combined commit for Tasks 7+8.
+
+---
+
 ## Self-Review
 
 - **Spec coverage:** capture (T3/T4) · classification (T2) · storage+schema (T1) · generic rows (T5) · grouper/lenses/fold (T6) · VM (T7) · UI toggle/chips/background (T8) · digest consistency (T9) · rate badge deferred (T10) · DB delete (Final). All spec §4–§10 mapped.

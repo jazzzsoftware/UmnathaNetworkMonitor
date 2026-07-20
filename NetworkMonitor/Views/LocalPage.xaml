@@ -20,11 +20,29 @@
 
             <StackPanel
                 Grid.Column="0"
-                Spacing="2">
+                Orientation="Horizontal"
+                VerticalAlignment="Center"
+                Spacing="4">
+
+                <Button
+                    x:Name="LensAppButton"
+                    Content="By app"
+                    Tag="ByApp"
+                    Padding="10,5"
+                    Click="LensButtonClick" />
+
+                <Button
+                    x:Name="LensDeviceButton"
+                    Content="By device"
+                    Tag="ByDevice"
+                    Padding="10,5"
+                    Click="LensButtonClick" />
 
                 <TextBlock
                     FontSize="12"
                     Opacity="0.55"
+                    VerticalAlignment="Center"
+                    Margin="8,0,0,0"
                     Text="{x:Bind ViewModel.StatusText, Mode=OneWay}" />
 
             </StackPanel>
@@ -270,7 +288,7 @@
             RowDetailsVisibilityMode="VisibleWhenSelected"
             Loaded="AppGridLoaded"
             SelectionChanged="AppGridSelectionChanged"
-            ItemsSource="{x:Bind ViewModel.Apps, Mode=OneWay}">
+            ItemsSource="{x:Bind ViewModel.Groups, Mode=OneWay}">
 
             <controls:DataGrid.Resources>
 
@@ -295,19 +313,62 @@
             <controls:DataGrid.Columns>
 
                 <controls:DataGridTemplateColumn
+                    x:Name="GroupColumn"
                     Header="App"
                     Width="*">
 
                     <controls:DataGridTemplateColumn.CellTemplate>
 
                         <DataTemplate
-                            x:DataType="models:LocalTrafficAppRow">
+                            x:DataType="models:LocalTrafficGroupRow">
 
-                            <TextBlock
+                            <StackPanel
+                                Orientation="Horizontal"
+                                Spacing="6"
                                 Padding="8,3,0,3"
-                                VerticalAlignment="Center"
-                                FontWeight="{x:Bind IsAllApps, Converter={StaticResource BoolToFontWeightConverter}}"
-                                Text="{x:Bind DisplayName}" />
+                                VerticalAlignment="Center">
+
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    FontWeight="{x:Bind IsAll, Converter={StaticResource BoolToFontWeightConverter}}"
+                                    Text="{x:Bind DisplayName}" />
+
+                                <TextBlock
+                                    FontSize="11"
+                                    Opacity="0.55"
+                                    VerticalAlignment="Center"
+                                    Visibility="{x:Bind HasSubLabel, Converter={StaticResource BoolToVisibilityConverter}}"
+                                    Text="{x:Bind SubLabel}" />
+
+                                <Border
+                                    Background="#FFB300"
+                                    CornerRadius="4"
+                                    Padding="6,1"
+                                    VerticalAlignment="Center"
+                                    Visibility="{x:Bind HasServiceTag, Converter={StaticResource BoolToVisibilityConverter}}">
+
+                                    <TextBlock
+                                        FontSize="10"
+                                        Foreground="#000000"
+                                        Text="{x:Bind ServiceTag}" />
+
+                                </Border>
+
+                                <Border
+                                    Background="#40808080"
+                                    CornerRadius="4"
+                                    Padding="6,1"
+                                    VerticalAlignment="Center"
+                                    Visibility="{x:Bind IsBackground, Converter={StaticResource BoolToVisibilityConverter}}">
+
+                                    <TextBlock
+                                        FontSize="10"
+                                        Opacity="0.8"
+                                        Text="discovery only" />
+
+                                </Border>
+
+                            </StackPanel>
 
                         </DataTemplate>
 
@@ -316,20 +377,21 @@
                 </controls:DataGridTemplateColumn>
 
                 <controls:DataGridTemplateColumn
+                    x:Name="ChildColumn"
                     Header="Peers"
                     Width="180">
 
                     <controls:DataGridTemplateColumn.CellTemplate>
 
                         <DataTemplate
-                            x:DataType="models:LocalTrafficAppRow">
+                            x:DataType="models:LocalTrafficGroupRow">
 
                             <TextBlock
                                 VerticalAlignment="Center"
                                 Opacity="0.75"
                                 TextTrimming="CharacterEllipsis"
-                                ToolTipService.ToolTip="{x:Bind PeerTooltip}"
-                                Text="{x:Bind PeerSummary}" />
+                                ToolTipService.ToolTip="{x:Bind ChildTooltip}"
+                                Text="{x:Bind ChildSummary}" />
 
                         </DataTemplate>
 
@@ -344,7 +406,7 @@
                     <controls:DataGridTemplateColumn.CellTemplate>
 
                         <DataTemplate
-                            x:DataType="models:LocalTrafficAppRow">
+                            x:DataType="models:LocalTrafficGroupRow">
 
                             <TextBlock
                                 Foreground="#1976D2"
@@ -366,7 +428,7 @@
                     <controls:DataGridTemplateColumn.CellTemplate>
 
                         <DataTemplate
-                            x:DataType="models:LocalTrafficAppRow">
+                            x:DataType="models:LocalTrafficGroupRow">
 
                             <TextBlock
                                 Foreground="#AB47BC"
@@ -388,13 +450,13 @@
                     <controls:DataGridTemplateColumn.CellTemplate>
 
                         <DataTemplate
-                            x:DataType="models:LocalTrafficAppRow">
+                            x:DataType="models:LocalTrafficGroupRow">
 
                             <TextBlock
                                 VerticalAlignment="Center"
                                 HorizontalAlignment="Right"
                                 Padding="0,0,8,0"
-                                FontWeight="{x:Bind IsAllApps, Converter={StaticResource BoolToFontWeightConverter}}"
+                                FontWeight="{x:Bind IsAll, Converter={StaticResource BoolToFontWeightConverter}}"
                                 Text="{x:Bind TotalText}" />
 
                         </DataTemplate>
@@ -408,22 +470,22 @@
             <controls:DataGrid.RowDetailsTemplate>
 
                 <DataTemplate
-                    x:DataType="models:LocalTrafficAppRow">
+                    x:DataType="models:LocalTrafficGroupRow">
 
                     <Border
                         Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                         BorderThickness="0,1,0,0"
                         Padding="24,6,8,6"
-                        Visibility="{x:Bind HasMultiplePeers, Converter={StaticResource BoolToVisibilityConverter}}">
+                        Visibility="{x:Bind HasChildren, Converter={StaticResource BoolToVisibilityConverter}}">
 
                         <ItemsControl
-                            ItemsSource="{x:Bind Peers}">
+                            ItemsSource="{x:Bind Children}">
 
                             <ItemsControl.ItemTemplate>
 
                                 <DataTemplate
-                                    x:DataType="models:LocalTrafficDeviceRow">
+                                    x:DataType="models:LocalTrafficLeafRow">
 
                                     <Grid
                                         ColumnDefinitions="*,110,110,110"
@@ -431,18 +493,40 @@
 
                                         <StackPanel
                                             Grid.Column="0"
-                                            Spacing="1"
+                                            Orientation="Horizontal"
+                                            Spacing="6"
                                             VerticalAlignment="Center"
-                                            ToolTipService.ToolTip="{x:Bind RemoteIp}">
+                                            ToolTipService.ToolTip="{x:Bind SubLabel}">
 
-                                            <TextBlock
-                                                FontSize="13"
-                                                Text="{x:Bind DisplayName}" />
+                                            <StackPanel
+                                                Spacing="1"
+                                                VerticalAlignment="Center">
 
-                                            <TextBlock
-                                                FontSize="11"
-                                                Opacity="0.55"
-                                                Text="{x:Bind RemoteIp}" />
+                                                <TextBlock
+                                                    FontSize="13"
+                                                    Text="{x:Bind DisplayName}" />
+
+                                                <TextBlock
+                                                    FontSize="11"
+                                                    Opacity="0.55"
+                                                    Visibility="{x:Bind HasSubLabel, Converter={StaticResource BoolToVisibilityConverter}}"
+                                                    Text="{x:Bind SubLabel}" />
+
+                                            </StackPanel>
+
+                                            <Border
+                                                Background="#FFB300"
+                                                CornerRadius="4"
+                                                Padding="6,1"
+                                                VerticalAlignment="Center"
+                                                Visibility="{x:Bind HasServiceTag, Converter={StaticResource BoolToVisibilityConverter}}">
+
+                                                <TextBlock
+                                                    FontSize="10"
+                                                    Foreground="#000000"
+                                                    Text="{x:Bind ServiceTag}" />
+
+                                            </Border>
 
                                         </StackPanel>
 

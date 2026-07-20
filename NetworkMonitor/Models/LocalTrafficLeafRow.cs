@@ -6,6 +6,10 @@ namespace NetworkMonitor.Models
     {
         public long TotalBytes => BytesUploaded + BytesDownloaded;
 
+        public bool HasServiceTag => ServiceTag is not null;
+
+        public bool HasSubLabel => SubLabel is not null;
+
         public string DownloadText => ByteSizeFormatter.Format(BytesDownloaded);
 
         public string UploadText => ByteSizeFormatter.Format(BytesUploaded);

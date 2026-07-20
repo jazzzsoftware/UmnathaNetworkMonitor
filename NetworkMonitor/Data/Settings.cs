@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text.Json;
+using NetworkMonitor.Services.Traffic;
 
 namespace NetworkMonitor.Data
 {
@@ -80,6 +81,12 @@ namespace NetworkMonitor.Data
             get;
             set;
         } = 5.0 / 60.0;
+
+        public LocalLens LocalLens
+        {
+            get;
+            set;
+        } = LocalLens.ByApp;
 
         public int TrafficIntervalSeconds
         {

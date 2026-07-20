@@ -13,6 +13,10 @@ namespace NetworkMonitor.Models
 
         public bool HasChildren => Children.Count > 1;
 
+        public bool HasServiceTag => ServiceTag is not null;
+
+        public bool HasSubLabel => SubLabel is not null;
+
         public string DownloadText => ByteSizeFormatter.Format(BytesDownloaded);
 
         public string UploadText => ByteSizeFormatter.Format(BytesUploaded);
