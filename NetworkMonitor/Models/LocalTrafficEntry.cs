@@ -32,6 +32,18 @@ namespace NetworkMonitor.Models
             set;
         } = string.Empty;
 
+        public int Protocol
+        {
+            get;
+            set;
+        }
+
+        public int RemotePort
+        {
+            get;
+            set;
+        }
+
         public long BytesUploaded
         {
             get;

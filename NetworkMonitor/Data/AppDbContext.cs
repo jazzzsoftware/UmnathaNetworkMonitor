@@ -40,7 +40,7 @@ namespace NetworkMonitor.Data
                 .IsUnique();
 
             modelBuilder.Entity<LocalTrafficRollup>()
-                .HasIndex(rollup => new { rollup.MinuteEpoch, rollup.ProcessName, rollup.RemoteIp })
+                .HasIndex(rollup => new { rollup.MinuteEpoch, rollup.ProcessName, rollup.RemoteIp, rollup.Protocol, rollup.RemotePort })
                 .IsUnique();
 
             modelBuilder.Entity<LocalTrafficEntry>()
