@@ -98,6 +98,8 @@ namespace NetworkMonitor.Services.Traffic
             {
                 (string processName, string? processPath) = ResolveLocalProcess(pair.Key.Pid);
                 string remoteIp = LanClassifier.Format(pair.Key.RemoteIp);
+                int protocol = pair.Key.Protocol;
+                int remotePort = pair.Key.RemotePort;
 
                 localEntries.Add(new LocalTrafficEntry
                 {
@@ -105,11 +107,13 @@ namespace NetworkMonitor.Services.Traffic
                     ProcessName = processName,
                     ProcessPath = processPath,
                     RemoteIp = remoteIp,
+                    Protocol = protocol,
+                    RemotePort = remotePort,
                     BytesUploaded = pair.Value.Upload,
                     BytesDownloaded = pair.Value.Download
                 });
 
-                localDeltas.Add(new LocalTrafficDelta(processName, processPath, remoteIp, pair.Value.Upload, pair.Value.Download));
+                localDeltas.Add(new LocalTrafficDelta(processName, processPath, remoteIp, protocol, remotePort, pair.Value.Upload, pair.Value.Download));
             }
 
             if (entries.Count > 0 || localEntries.Count > 0)
@@ -233,9 +237,9 @@ namespace NetworkMonitor.Services.Traffic
             {
                 command.Transaction = transaction;
                 command.CommandText = """
-                    INSERT INTO LocalTrafficRollups (MinuteEpoch, ProcessName, ProcessPath, RemoteIp, BytesUploaded, BytesDownloaded)
-                    VALUES ($minute, $name, $path, $ip, $upload, $download)
-                    ON CONFLICT(MinuteEpoch, ProcessName, RemoteIp) DO UPDATE SET
+                    INSERT INTO LocalTrafficRollups (MinuteEpoch, ProcessName, ProcessPath, RemoteIp, Protocol, RemotePort, BytesUploaded, BytesDownloaded)
+                    VALUES ($minute, $name, $path, $ip, $protocol, $port, $upload, $download)
+                    ON CONFLICT(MinuteEpoch, ProcessName, RemoteIp, Protocol, RemotePort) DO UPDATE SET
                         BytesUploaded = BytesUploaded + excluded.BytesUploaded,
                         BytesDownloaded = BytesDownloaded + excluded.BytesDownloaded,
                         ProcessPath = COALESCE(ProcessPath, excluded.ProcessPath)
@@ -258,6 +262,14 @@ namespace NetworkMonitor.Services.Traffic
                 ipParameter.ParameterName = "$ip";
                 command.Parameters.Add(ipParameter);
 
+                DbParameter protocolParameter = command.CreateParameter();
+                protocolParameter.ParameterName = "$protocol";
+                command.Parameters.Add(protocolParameter);
+
+                DbParameter portParameter = command.CreateParameter();
+                portParameter.ParameterName = "$port";
+                command.Parameters.Add(portParameter);
+
                 DbParameter uploadParameter = command.CreateParameter();
                 uploadParameter.ParameterName = "$upload";
                 command.Parameters.Add(uploadParameter);
@@ -271,6 +283,8 @@ namespace NetworkMonitor.Services.Traffic
                     nameParameter.Value = delta.ProcessName;
                     pathParameter.Value = delta.ProcessPath is null ? (object)DBNull.Value : delta.ProcessPath;
                     ipParameter.Value = delta.RemoteIp;
+                    protocolParameter.Value = delta.Protocol;
+                    portParameter.Value = delta.RemotePort;
                     uploadParameter.Value = delta.BytesUploaded;
                     downloadParameter.Value = delta.BytesDownloaded;
 
