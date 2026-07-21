@@ -311,9 +311,46 @@
                                     Padding="8,3,0,3"
                                     VerticalAlignment="Center">
 
-                                    <TextBlock
-                                        FontWeight="{x:Bind IsAllApps, Converter={StaticResource BoolToFontWeightConverter}}"
-                                        Text="{x:Bind DisplayName}" />
+                                    <StackPanel
+                                        Orientation="Horizontal"
+                                        Spacing="6"
+                                        VerticalAlignment="Center">
+
+                                        <TextBlock
+                                            VerticalAlignment="Center"
+                                            FontWeight="{x:Bind IsAllApps, Converter={StaticResource BoolToFontWeightConverter}}"
+                                            Text="{x:Bind DisplayName}" />
+
+                                        <Border
+                                            Background="#332E7D32"
+                                            BorderBrush="#552E7D32"
+                                            BorderThickness="1"
+                                            CornerRadius="4"
+                                            Padding="6,1"
+                                            VerticalAlignment="Center"
+                                            Visibility="{x:Bind HasRate, Converter={StaticResource BoolToVisibilityConverter}}">
+
+                                            <StackPanel
+                                                Orientation="Horizontal"
+                                                Spacing="5"
+                                                VerticalAlignment="Center">
+
+                                                <Ellipse
+                                                    Width="7"
+                                                    Height="7"
+                                                    VerticalAlignment="Center"
+                                                    Fill="#7BC47F" />
+
+                                                <TextBlock
+                                                    FontSize="10"
+                                                    Foreground="#7BC47F"
+                                                    Text="{x:Bind RateText}" />
+
+                                            </StackPanel>
+
+                                        </Border>
+
+                                    </StackPanel>
 
                                     <TextBlock
                                         FontSize="12"

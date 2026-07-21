@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Data.Common;
 using System.Diagnostics;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.EntityFrameworkCore;
 using NetworkMonitor.Data;
@@ -13,6 +14,8 @@ namespace NetworkMonitor.ViewModels
     public partial class InternetViewModel : ObservableObject
     {
         private const int MinimumSpinnerMs = 500;
+        private const int RateSampleCount = 5;
+        private const string AllRateKey = "__all";
 
         private readonly IDbContextFactory<AppDbContext> _dbFactory;
         private readonly Settings _settings;
@@ -20,6 +23,8 @@ namespace NetworkMonitor.ViewModels
         private long _windowBucketSeconds;
         private List<ChartPoint> _windowChartPoints = [];
         private Dictionary<string, (long Upload, long Download, string? Path)> _windowAppTotals = new();
+        private readonly Dictionary<string, Queue<long>> _rateWindows = new();
+        private bool _ratesActive;
 
         public InternetViewModel(IDbContextFactory<AppDbContext> dbFactory, Settings settings)
         {
@@ -146,6 +151,8 @@ namespace NetworkMonitor.ViewModels
         public async Task ApplyLiveFlushAsync(IReadOnlyList<TrafficEntry> entries)
         {
 
+            AccumulateRateWindows(entries);
+
             if (_windowChartPoints.Count == 0)
             {
                 await LoadAsync();
@@ -166,6 +173,7 @@ namespace NetworkMonitor.ViewModels
 
             }
 
+            RebuildAppRows();
         }
 
         private void SeedWindowState(InternetLoadResult result)
@@ -222,8 +230,6 @@ namespace NetworkMonitor.ViewModels
             };
 
             ChartPoints = new ObservableCollection<ChartPoint>(_windowChartPoints);
-
-            RebuildAppRows();
         }
 
         private void RebuildAppRows()
@@ -232,16 +238,21 @@ namespace NetworkMonitor.ViewModels
             long totalDownload = 0;
             List<InternetTrafficAppRow> perAppRows = new List<InternetTrafficAppRow>(_windowAppTotals.Count);
 
+            double intervalSeconds = Math.Max(1.0, _settings.TrafficIntervalSeconds);
+
             foreach (KeyValuePair<string, (long Upload, long Download, string? Path)> pair in _windowAppTotals)
             {
-                perAppRows.Add(new InternetTrafficAppRow(pair.Key, pair.Value.Upload, pair.Value.Download, pair.Value.Path));
+                double appRate = RateFor(pair.Key, intervalSeconds);
+
+                perAppRows.Add(new InternetTrafficAppRow(pair.Key, pair.Value.Upload, pair.Value.Download, pair.Value.Path, appRate));
                 totalUpload += pair.Value.Upload;
                 totalDownload += pair.Value.Download;
             }
 
             perAppRows.Sort((left, right) => (right.BytesUploaded + right.BytesDownloaded).CompareTo(left.BytesUploaded + left.BytesDownloaded));
 
-            InternetTrafficAppRow allAppsRow = new InternetTrafficAppRow(null, totalUpload, totalDownload, null);
+            double allRate = RateFor(AllRateKey, intervalSeconds);
+            InternetTrafficAppRow allAppsRow = new InternetTrafficAppRow(null, totalUpload, totalDownload, null, allRate);
             List<InternetTrafficAppRow> displayRows = new List<InternetTrafficAppRow> { allAppsRow };
             displayRows.AddRange(perAppRows);
 
@@ -249,6 +260,95 @@ namespace NetworkMonitor.ViewModels
 
             Apps = new ObservableCollection<InternetTrafficAppRow>(displayRows);
             StatusText = statusText;
+        }
+
+        private void AccumulateRateWindows(IReadOnlyList<TrafficEntry> entries)
+        {
+            Dictionary<string, long> flushByApp = new Dictionary<string, long>();
+            long flushTotal = 0;
+
+            foreach (TrafficEntry entry in entries)
+            {
+
+                if (entry.ProcessName == "System")
+                {
+                    continue;
+                }
+
+                long bytes = entry.BytesUploaded + entry.BytesDownloaded;
+
+                flushByApp.TryGetValue(entry.ProcessName, out long appBytes);
+                flushByApp[entry.ProcessName] = appBytes + bytes;
+                flushTotal += bytes;
+            }
+
+            flushByApp[AllRateKey] = flushTotal;
+
+            HashSet<string> keys = new HashSet<string>(_rateWindows.Keys);
+
+            foreach (string key in flushByApp.Keys)
+            {
+                keys.Add(key);
+            }
+
+            foreach (string key in keys)
+            {
+                flushByApp.TryGetValue(key, out long bytes);
+
+                if (!_rateWindows.TryGetValue(key, out Queue<long>? window))
+                {
+                    window = new Queue<long>();
+                    _rateWindows[key] = window;
+                }
+
+                window.Enqueue(bytes);
+
+                while (window.Count > RateSampleCount)
+                {
+                    window.Dequeue();
+                }
+
+                if (window.Count == RateSampleCount && window.Sum() == 0)
+                {
+                    _rateWindows.Remove(key);
+                }
+
+            }
+
+        }
+
+        private double RateFor(string key, double intervalSeconds)
+        {
+            double rate = 0.0;
+
+            if (_ratesActive && _rateWindows.TryGetValue(key, out Queue<long>? window) && window.Count > 0)
+            {
+                rate = window.Average() / intervalSeconds;
+            }
+
+            return rate;
+        }
+
+        public void SetRatesActive(bool active)
+        {
+
+            if (_ratesActive != active)
+            {
+                _ratesActive = active;
+
+                if (!active)
+                {
+                    _rateWindows.Clear();
+
+                    if (_windowChartPoints.Count > 0)
+                    {
+                        RebuildAppRows();
+                    }
+
+                }
+
+            }
+
         }
 
         private async Task<InternetLoadResult> BuildDataAsync(double timeRangeHours, string? selectedApp, DateTime? selectedBucketStart)

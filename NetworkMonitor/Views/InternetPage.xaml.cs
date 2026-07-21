@@ -385,6 +385,7 @@ namespace NetworkMonitor.Views
 
             bool isLive = _pauseReason == PauseReason.None;
             AreaChart.IsLive = isLive;
+            ViewModel.SetRatesActive(isLive && ViewModel.TimeRangeHours <= 6);
 
             if (isLive)
             {
