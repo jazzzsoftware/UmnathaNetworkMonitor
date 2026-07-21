@@ -827,6 +827,40 @@
                         FontSize="16" />
 
                     <TextBlock
+                        Text="• New: Local network traffic. The Traffic page now has a Local tab showing which apps on this PC are talking to other devices on your network. Switch between By app and By device — the By device view makes a big transfer obvious, like a NAS backup climbing as a large upload. (Windows performs file-share/SMB copies in the kernel, so they show under System, tagged SMB, rather than the app that started them.)"
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• Live speed badge. While data is actively moving, the busy app or device shows a live throughput badge (e.g. 141 Mb/s · 18 MB/s) on both the Internet and Local tabs."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• Fixed: downloads were being undercounted. A kernel-attribution bug caused most incoming (download) traffic — including reads from network shares, such as a NAS backup verify — to be dropped. Download figures are now accurate."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• Cleaner Local view. Constant device-discovery chatter (from browsers and antivirus scanning the network) is folded into one collapsible row, and phantom entries for broadcast addresses and scanned-but-empty IPs are filtered out, so you see your real devices."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• More accurate speed tests. The speed test now uses parallel connections and measures sustained throughput, so results match speedtest.net and Cloudflare instead of reading low on fast connections. This uses more data per test — see the note next to the Speed Test setting."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• Speed tests in reports. A failed (0-result) speed test now still appears in the charts and reports so you can see when the internet was down, and the daily-digest speed chart now matches the Speed Test page."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• Consistent units. Traffic sizes and live speeds use consistent binary units (KB/MB/GB), while the Speed Test keeps decimal Mbps to match your ISP and speedtest.net."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="Version 0.0.6"
+                        FontWeight="SemiBold"
+                        FontSize="16"
+                        Margin="0,12,0,0" />
+
+                    <TextBlock
                         Text="• Automatic device naming (mDNS/Bonjour). Devices that previously showed only an IP address — phones, and many Apple, Google and smart-home devices — now appear with a friendly name. This especially helps modern devices that use randomised MAC addresses, where vendor and hostname lookups come up blank."
                         TextWrapping="Wrap" />
 
