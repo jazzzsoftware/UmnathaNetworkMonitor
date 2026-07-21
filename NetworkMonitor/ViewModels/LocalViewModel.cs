@@ -13,6 +13,8 @@ namespace NetworkMonitor.ViewModels
     public partial class LocalViewModel : ObservableObject
     {
         private const int MinimumSpinnerMs = 500;
+        private const int RateSampleCount = 5;
+        private const string AllRateKey = "__all";
 
         private readonly IDbContextFactory<AppDbContext> _dbFactory;
         private readonly Settings _settings;
@@ -20,6 +22,7 @@ namespace NetworkMonitor.ViewModels
         private long _windowBucketSeconds;
         private List<ChartPoint> _windowChartPoints = [];
         private Dictionary<(string ProcessName, string RemoteIp, int Protocol, int RemotePort), (long Upload, long Download)> _windowFlows = new();
+        private readonly Dictionary<string, Queue<long>> _rateWindows = new();
         private Dictionary<string, string> _namesByIp = new();
 
         public LocalViewModel(IDbContextFactory<AppDbContext> dbFactory, Settings settings)
@@ -187,6 +190,8 @@ namespace NetworkMonitor.ViewModels
         public async Task ApplyLiveFlushAsync(IReadOnlyList<LocalTrafficDelta> deltas)
         {
 
+            AccumulateRateWindows(deltas);
+
             if (_windowChartPoints.Count == 0)
             {
                 await LoadAsync();
@@ -207,6 +212,7 @@ namespace NetworkMonitor.ViewModels
 
             }
 
+            ApplyRates();
         }
 
         private void SeedWindowState(LocalLoadResult result)
@@ -294,6 +300,107 @@ namespace NetworkMonitor.ViewModels
 
             ApplyGroups(groups, false);
             StatusText = statusText;
+        }
+
+        private void AccumulateRateWindows(IReadOnlyList<LocalTrafficDelta> deltas)
+        {
+            LocalLens lens = Lens;
+            Dictionary<string, long> flushByGroup = new Dictionary<string, long>();
+            long flushTotal = 0;
+
+            foreach (LocalTrafficDelta delta in deltas)
+            {
+                FlowClassification classification = LocalFlowClassifier.Classify(delta.Protocol, delta.RemotePort);
+
+                if (classification.Category == FlowCategory.Data)
+                {
+                    string groupKey = lens == LocalLens.ByApp ? delta.ProcessName : delta.RemoteIp;
+                    long bytes = delta.BytesUploaded + delta.BytesDownloaded;
+
+                    flushByGroup.TryGetValue(groupKey, out long groupBytes);
+                    flushByGroup[groupKey] = groupBytes + bytes;
+                    flushTotal += bytes;
+                }
+
+            }
+
+            flushByGroup[AllRateKey] = flushTotal;
+            UpdateRateWindows(flushByGroup);
+        }
+
+        private void UpdateRateWindows(IReadOnlyDictionary<string, long> flushByGroup)
+        {
+            HashSet<string> keys = new HashSet<string>(_rateWindows.Keys);
+
+            foreach (string key in flushByGroup.Keys)
+            {
+                keys.Add(key);
+            }
+
+            foreach (string key in keys)
+            {
+                flushByGroup.TryGetValue(key, out long bytes);
+
+                if (!_rateWindows.TryGetValue(key, out Queue<long>? window))
+                {
+                    window = new Queue<long>();
+                    _rateWindows[key] = window;
+                }
+
+                window.Enqueue(bytes);
+
+                while (window.Count > RateSampleCount)
+                {
+                    window.Dequeue();
+                }
+
+                if (window.Count == RateSampleCount && window.Sum() == 0)
+                {
+                    _rateWindows.Remove(key);
+                }
+
+            }
+
+        }
+
+        private void ApplyRates()
+        {
+            double intervalSeconds = Math.Max(1.0, _settings.TrafficIntervalSeconds);
+
+            foreach (LocalTrafficGroupRow row in _groups)
+            {
+                double rate = 0.0;
+
+                if (row.Kind != GroupKind.Background)
+                {
+                    string rateKey = row.IsAll ? AllRateKey : row.Key ?? string.Empty;
+
+                    if (_rateWindows.TryGetValue(rateKey, out Queue<long>? window) && window.Count > 0)
+                    {
+                        rate = window.Average() / intervalSeconds;
+                    }
+
+                }
+
+                row.RateBytesPerSec = rate;
+            }
+
+        }
+
+        public void SetRatesActive(bool active)
+        {
+
+            if (!active)
+            {
+                _rateWindows.Clear();
+
+                foreach (LocalTrafficGroupRow row in _groups)
+                {
+                    row.RateBytesPerSec = 0.0;
+                }
+
+            }
+
         }
 
         private void ApplyGroups(IReadOnlyList<LocalTrafficGroupRow> incoming, bool reorder)
@@ -580,7 +687,7 @@ namespace NetworkMonitor.ViewModels
                         SUM(BytesDownloaded) AS Download
                     FROM {sourceTable}
                     WHERE {whereClause}
-                        AND NOT (Protocol = 17 AND RemotePort IN (5353,5355,1900,3702,137,138,67,68,5350,5351))
+                        AND NOT {LocalFlowClassifier.DiscoverySqlPredicate}
                         AND ($key IS NULL OR {selectionColumn} = $key)
                     GROUP BY BucketIndex
                     """;

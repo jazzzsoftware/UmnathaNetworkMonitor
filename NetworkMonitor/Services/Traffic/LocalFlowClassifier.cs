@@ -1,9 +1,16 @@
+using System.Collections.Generic;
+
 namespace NetworkMonitor.Services.Traffic
 {
     public static class LocalFlowClassifier
     {
         private const int Tcp = 6;
         private const int Udp = 17;
+
+        private static readonly int[] DiscoveryPorts = { 5353, 5355, 1900, 3702, 137, 138, 67, 68, 5350, 5351 };
+        private static readonly HashSet<int> DiscoveryPortSet = new HashSet<int>(DiscoveryPorts);
+
+        public static string DiscoverySqlPredicate => $"(Protocol = {Udp} AND RemotePort IN ({string.Join(",", DiscoveryPorts)}))";
 
         public static FlowClassification Classify(int protocol, int remotePort)
         {
@@ -24,20 +31,7 @@ namespace NetworkMonitor.Services.Traffic
 
         private static bool IsDiscoveryPort(int remotePort)
         {
-            bool discovery = remotePort switch
-            {
-                5353 => true,
-                5355 => true,
-                1900 => true,
-                3702 => true,
-                137 => true,
-                138 => true,
-                67 => true,
-                68 => true,
-                5350 => true,
-                5351 => true,
-                _ => false
-            };
+            bool discovery = DiscoveryPortSet.Contains(remotePort);
 
             return discovery;
         }

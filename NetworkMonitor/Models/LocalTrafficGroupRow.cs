@@ -7,6 +7,8 @@ namespace NetworkMonitor.Models
 {
     public class LocalTrafficGroupRow : ObservableObject
     {
+        private const double RateThresholdBytesPerSec = 64_000.0;
+
         public LocalTrafficGroupRow(string? key, string displayName, string? subLabel, long bytesUploaded, long bytesDownloaded, IReadOnlyList<LocalTrafficLeafRow> children, GroupKind kind, string? serviceTag)
         {
             Key = key;
@@ -123,6 +125,23 @@ namespace NetworkMonitor.Models
             }
         }
 
+        private double _rateBytesPerSec;
+
+        public double RateBytesPerSec
+        {
+            get => _rateBytesPerSec;
+            set
+            {
+
+                if (SetProperty(ref _rateBytesPerSec, value))
+                {
+                    OnPropertyChanged(nameof(HasRate));
+                    OnPropertyChanged(nameof(RateText));
+                }
+
+            }
+        }
+
         public long TotalBytes => BytesUploaded + BytesDownloaded;
 
         public bool IsAll => Kind == GroupKind.All;
@@ -134,6 +153,10 @@ namespace NetworkMonitor.Models
         public bool HasServiceTag => ServiceTag is not null;
 
         public bool HasSubLabel => SubLabel is not null;
+
+        public bool HasRate => _rateBytesPerSec >= RateThresholdBytesPerSec;
+
+        public string RateText => $"{_rateBytesPerSec * 8.0 / 1_000_000.0:0.0} Mb/s · {_rateBytesPerSec / 1_000_000.0:0.0} MB/s";
 
         public string DownloadText => ByteSizeFormatter.Format(BytesDownloaded);
 

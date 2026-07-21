@@ -368,6 +368,35 @@
 
                                 </Border>
 
+                                <Border
+                                    Background="#332E7D32"
+                                    BorderBrush="#552E7D32"
+                                    BorderThickness="1"
+                                    CornerRadius="4"
+                                    Padding="6,1"
+                                    VerticalAlignment="Center"
+                                    Visibility="{x:Bind HasRate, Converter={StaticResource BoolToVisibilityConverter}, Mode=OneWay}">
+
+                                    <StackPanel
+                                        Orientation="Horizontal"
+                                        Spacing="5"
+                                        VerticalAlignment="Center">
+
+                                        <Ellipse
+                                            Width="7"
+                                            Height="7"
+                                            VerticalAlignment="Center"
+                                            Fill="#7BC47F" />
+
+                                        <TextBlock
+                                            FontSize="10"
+                                            Foreground="#7BC47F"
+                                            Text="{x:Bind RateText, Mode=OneWay}" />
+
+                                    </StackPanel>
+
+                                </Border>
+
                             </StackPanel>
 
                         </DataTemplate>

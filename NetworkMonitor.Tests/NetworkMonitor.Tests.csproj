@@ -42,9 +42,6 @@
     <Compile Include="..\NetworkMonitor\Services\Traffic\LocalTrafficNameResolver.cs">
       <Link>Linked\LocalTrafficNameResolver.cs</Link>
     </Compile>
-    <Compile Include="..\NetworkMonitor\Services\Traffic\LocalTrafficAggregator.cs">
-      <Link>Linked\LocalTrafficAggregator.cs</Link>
-    </Compile>
     <Compile Include="..\NetworkMonitor\Services\Traffic\LocalTrafficMinute.cs">
       <Link>Linked\LocalTrafficMinute.cs</Link>
     </Compile>
@@ -56,12 +53,6 @@
     </Compile>
     <Compile Include="..\NetworkMonitor\Services\Traffic\LocalFlowClassifier.cs">
       <Link>Linked\LocalFlowClassifier.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Models\LocalTrafficDeviceRow.cs">
-      <Link>Linked\LocalTrafficDeviceRow.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Models\LocalTrafficAppRow.cs">
-      <Link>Linked\LocalTrafficAppRow.cs</Link>
     </Compile>
     <Compile Include="..\NetworkMonitor\Data\OuiDatabase.cs">
       <Link>Linked\OuiDatabase.cs</Link>

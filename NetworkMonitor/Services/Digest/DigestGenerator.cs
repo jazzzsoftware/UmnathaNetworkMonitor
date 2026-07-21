@@ -122,11 +122,11 @@ namespace NetworkMonitor.Services.Digest
 
             await using (DbCommand command = connection.CreateCommand())
             {
-                command.CommandText = """
+                command.CommandText = $"""
                     SELECT ProcessName, RemoteIp, SUM(BytesUploaded) AS Upload, SUM(BytesDownloaded) AS Download
                     FROM LocalTrafficRollups
                     WHERE MinuteEpoch >= $start AND MinuteEpoch < $end
-                      AND NOT (Protocol = 17 AND RemotePort IN (5353,5355,1900,3702,137,138,67,68,5350,5351))
+                      AND NOT {LocalFlowClassifier.DiscoverySqlPredicate}
                     GROUP BY ProcessName, RemoteIp
                     """;
 
