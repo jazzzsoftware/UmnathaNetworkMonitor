@@ -233,6 +233,8 @@ The Local page shows LAN traffic for *this* PC (the only scope any host tool can
   - **By device** — top-level = LAN device (friendly name + IP), expand → the apps that talked to it. This is the lens that makes a **NAS backup obvious**: the NAS rises to the top on a big **upload**, tagged **SMB**, under **System**.
   - All **Discovery** flows fold into one collapsed **"N devices — discovery only"** group so real transfers stay up front; grid, chart and digest all exclude discovery from their totals.
 
+**Non-device noise is filtered out.** Two things otherwise pollute the LAN peer list with addresses nothing lives at: (1) **broadcast/multicast** — `LanClassifier.IsBroadcastOrMulticast` drops directed/limited broadcast (last octet `.255`) and `224–239.x` multicast at capture, alongside self/loopback; (2) **subnet sweeps** — a scanner (AV, another host) probing all 256 addresses of a /24 would otherwise create 256 phantom peers, so the grouper folds a **discovery** flow into the background group **only when its `RemoteIp` is a known device** (present in `namesByIp`, i.e. one the scanner actually found). Real **data** flows are never filtered — a transfer to an as-yet-unscanned device still shows.
+
 Rows are stable observable objects reconciled **in place** (`ApplyGroups`) rather than replaced each flush, so an expanded drill-down keeps its selection and expansion while the numbers tick live. `System` is kept on Local (it's where SMB lives) but excluded from Internet.
 
 ### Live rate badge (both pages)
