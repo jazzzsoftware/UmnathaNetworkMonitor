@@ -2,12 +2,13 @@ using System.Collections.Generic;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using NetworkMonitor.Services.Common;
+using NetworkMonitor.Services.Traffic;
 
 namespace NetworkMonitor.Models
 {
     public class LocalTrafficGroupRow : ObservableObject
     {
-        private const double RateThresholdBytesPerSec = 64_000.0;
+        private const double RateThresholdBytesPerSec = 65_536.0;
 
         public LocalTrafficGroupRow(string? key, string displayName, string? subLabel, long bytesUploaded, long bytesDownloaded, IReadOnlyList<LocalTrafficLeafRow> children, GroupKind kind, string? serviceTag)
         {
@@ -156,7 +157,7 @@ namespace NetworkMonitor.Models
 
         public bool HasRate => _rateBytesPerSec >= RateThresholdBytesPerSec;
 
-        public string RateText => $"{_rateBytesPerSec * 8.0 / 1_000_000.0:0.0} Mb/s · {_rateBytesPerSec / 1_000_000.0:0.0} MB/s";
+        public string RateText => $"{TrafficRateFormatter.BitsPerSecond((long)_rateBytesPerSec, 1.0)} · {TrafficRateFormatter.BytesPerSecond((long)_rateBytesPerSec, 1.0)}";
 
         public string DownloadText => ByteSizeFormatter.Format(BytesDownloaded);
 

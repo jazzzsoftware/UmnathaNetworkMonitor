@@ -242,7 +242,7 @@ Rows are stable observable objects reconciled **in place** (`ApplyGroups`) rathe
 Both grids show a green **`● 118 Mb/s · 15 MB/s`** pill on any top-level row that is actively transferring. How it's computed:
 
 1. On **every** live flush, the per-interval bytes for each group/app are pushed into a small per-key rolling window (`_rateWindows`, last **5** samples), plus an `__all` total. Feeding happens *before* the flush's incremental-vs-reload branch, so it's independent of which path the sliding window takes (getting this wrong is why the badge first appeared only intermittently).
-2. **rate = average(window) ÷ `TrafficIntervalSeconds`** → bytes/sec, shown in **both** units: Mb/s (`× 8 / 1e6`) and MB/s (`/ 1e6`), matching the Speed Test convention.
+2. **rate = average(window) ÷ `TrafficIntervalSeconds`** → bytes/sec, formatted by the shared **`TrafficRateFormatter`** into **both** a bits/s and a bytes/s figure (e.g. `141 Mb/s · 18 MB/s`), auto-scaling the unit. This is **binary** (÷1,048,576) to match the byte columns (`ByteSizeFormatter`) and the chart axis — everything in the Traffic tabs is base-1024. (The **Speed Test** tab is the deliberate exception: it reports **decimal** Mbps/MBps, the ISP/speedtest.net convention people compare against.)
 3. The pill is **live-only** and shows only **above ~0.5 Mb/s** (a 64 KB/s threshold), so idle discovery chatter and paused/long-range views stay clean. Leaving live clears the windows via `SetRatesActive(false)`.
 
 Local bakes the rate onto its in-place observable rows (`RateBytesPerSec` → `HasRate`/`RateText`); Internet, which rebuilds its row *records* each flush, bakes it into each new `InternetTrafficAppRow` after the flush branch. Same threshold, units and smoothing on both.
