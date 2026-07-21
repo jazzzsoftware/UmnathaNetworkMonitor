@@ -143,12 +143,11 @@ Done - My PC not in devices list
 Done - Model column not being filled in.
 Done - Include 0 speed test in report and make charts look the same.
 Done - Remove per second log from logs.
+Done - Implement per app and per device for Local
+Done - When click a row on local expansion closed
 
-Implement per app and per device for Local
-
-
-When click a row on local expansion closed
 Test monitoring NAS transfer.
+Why speed test so different to speedtest.net
 
 Create a Model project with subfolders and refactor.    
 

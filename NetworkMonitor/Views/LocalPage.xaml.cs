@@ -27,6 +27,7 @@ namespace NetworkMonitor.Views
         private const double FiveMinutes = 5.0 / 60.0;
         private bool _suppressSelection;
         private bool _userSelectionChanged;
+        private string? _selectedRowKey;
         private PauseReason _pauseReason;
         private ScrollBar? _appScrollBar;
         private readonly TrafficTracker _trafficTracker;
@@ -73,6 +74,7 @@ namespace NetworkMonitor.Views
             UpdateColumnHeaders();
 
             _pauseReason = PauseReason.None;
+            _selectedRowKey = null;
             ViewModel.SelectedBucketStart = null;
             UpdateChartLabel();
             UpdateTimeLabels();
@@ -129,6 +131,7 @@ namespace NetworkMonitor.Views
         private async void OnChartBucketSelected(object? sender, ChartPoint point)
         {
             _pauseReason = PauseReason.Bucket;
+            _selectedRowKey = null;
             ViewModel.SelectedGroupKey = null;
             ViewModel.SelectedBucketStart = point.BucketStart;
             UpdateChartLabel();
@@ -243,9 +246,9 @@ namespace NetworkMonitor.Views
 
         private void SyncGridSelection()
         {
-            LocalTrafficGroupRow? target = ViewModel.SelectedGroupKey is null
+            LocalTrafficGroupRow? target = _selectedRowKey is null
                 ? ViewModel.Groups.FirstOrDefault(row => row.IsAll)
-                : ViewModel.Groups.FirstOrDefault(row => row.Key == ViewModel.SelectedGroupKey);
+                : ViewModel.Groups.FirstOrDefault(row => row.Key == _selectedRowKey);
 
             _suppressSelection = true;
 
@@ -316,6 +319,7 @@ namespace NetworkMonitor.Views
                 if (Enum.TryParse(tag, out LocalLens lens))
                 {
                     _pauseReason = PauseReason.None;
+                    _selectedRowKey = null;
                     ViewModel.SelectedBucketStart = null;
                     ViewModel.Lens = lens;
                     UpdateLensButtonStyles(button);
@@ -455,6 +459,7 @@ namespace NetworkMonitor.Views
 
                 if (AppGrid.SelectedItem is LocalTrafficGroupRow row)
                 {
+                    _selectedRowKey = row.IsAll ? null : row.Key;
                     string? newSelectedKey = (row.IsAll || row.IsBackground) ? null : row.Key;
                     bool appChanged = newSelectedKey != ViewModel.SelectedGroupKey;
 
