@@ -9,7 +9,7 @@ Network Monitor (Umnatha Network Monitor) is a Windows desktop application that 
 - **Classifies devices** by type (Router, PC, Mobile, Camera, etc.) with an emoji icon.
 - **Identifies vendors** from the IEEE OUI database using the first three octets of each MAC address.
 - **Enriches names via mDNS** — a per-scan mDNS/DNS-SD (Bonjour) discovery pass fills a friendly name and hardware model for devices that OUI vendor and reverse-DNS can't identify (chiefly randomized-MAC devices), stored in dedicated fields that never overwrite a name you've set.
-- **Measures per-application traffic** — captures upload/download bytes per process directly from the Windows kernel and charts it live.
+- **Measures per-application traffic** — captures upload/download bytes per process directly from the Windows kernel and charts it live, in separate **Internet** (WAN) and **Local** (LAN) views, with a live throughput badge on whatever's actively transferring.
 - **Measures internet speed** — runs an hourly download/upload/latency/jitter speed test against Cloudflare (no account needed) and charts the history.
 - **Generates a daily digest** — a once-a-day report summarising device activity and traffic, viewable in-app and exportable to PDF or CSV.
 - **Alerts via toast notifications** (Windows notifications plus an in-app banner) when a device appears or disappears; can be limited to unknown devices only.
@@ -26,7 +26,7 @@ The app runs **as administrator** — capturing per-process traffic uses a kerne
 
 | Page | Purpose |
 |---|---|
-| **Traffic** | Live per-application network usage with a stacked area chart and a sortable grid of download/upload bytes. The default page on launch. |
+| **Traffic** | Live per-application network usage with a stacked area chart and a sortable grid of download/upload bytes, split into **Internet** (WAN) and **Local** (LAN, with By-app/By-device lenses) tabs, plus a live throughput badge. The default page on launch. |
 | **Devices** | A host page with four tabs: **Devices** (everything seen in the last 24 hours; amber rows are unknown), **Approved** (devices you've identified — set a friendly name, type and notes), **Unapproved** (unknown devices awaiting approval), and **History** (per-device appeared/disappeared log). |
 | **Reports** | The daily digest viewer: see the latest report, browse past reports, generate one on demand, and export to PDF or CSV. |
 | **Speed Test** | Internet speed history — run a test on demand or hourly; download/upload throughput (Mbps & MBps), latency and jitter shown as charts and a sortable grid, exportable to CSV. |
@@ -34,9 +34,14 @@ The app runs **as administrator** — capturing per-process traffic uses a kerne
 
 ## Traffic monitoring
 
-The Traffic page shows which applications are using the network right now, with a live stacked area chart and a grid of per-process download/upload totals over a selectable time window. Data is captured from the kernel, so it reflects real per-process usage rather than per-adapter totals.
+The Traffic page shows which applications are using the network right now, with a live stacked area chart and a grid of per-process download/upload totals over a selectable time window. Data is captured from the kernel, so it reflects real per-process usage rather than per-adapter totals. It has two tabs:
 
-Pick a time range (last 5 minutes, hour, 6 hours, 24 hours or 7 days) with the range buttons. The chart runs in **Live** mode and scrolls in real time; clicking a point or a grid app switches to **History** mode so you can inspect a past moment — click the mode badge to return to Live. The axis scale rounds to a clean value, and smooth scrolling can be toggled in Settings.
+- **Internet** — traffic to the wider internet (WAN), per application.
+- **Local** — traffic on your own LAN (this PC to other devices on your network). Toggle **By app** (which apps are talking to the LAN) or **By device** (which devices your PC is talking to, and the apps behind each). The *By device* lens makes a large transfer obvious — for example a NAS backup climbs to the top as a big upload, tagged **SMB**, listed under **System** (Windows performs file-share copies in the kernel, so they're always credited to System rather than the app that started them). Background chatter — the constant device-discovery pings from browsers and antivirus — is folded into a single collapsible **"discovery only"** row so it doesn't drown out real transfers.
+
+**Live rate badge.** While data is actively moving, the busy row shows a green pill with the current throughput in **both** units, e.g. `● 118 Mb/s · 15 MB/s`. It's smoothed over a few seconds, appears only in live mode and only above ~0.5 Mb/s, so idle rows stay clean. Both the Internet and Local tabs show it.
+
+Pick a time range (last 5 minutes, hour, 6 hours, 24 hours or 7 days) with the range buttons. The chart runs in **Live** mode and scrolls in real time; clicking a point or a grid row switches to **History** mode so you can inspect a past moment — click the mode badge to return to Live. The axis scale rounds to a clean value, and smooth scrolling can be toggled in Settings.
 
 ## Internet speed test
 

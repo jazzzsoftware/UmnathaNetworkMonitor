@@ -147,6 +147,8 @@ Done - Implement per app and per device for Local
 Done - When click a row on local expansion closed
 Done - Test monitoring NAS transfer.
 
+In local - discovery row there are entries where there is no device. I think we should remove them
+Check units: shown in both units: × 8 / 1,000,000 for Mb/s and / 1,000,000, decimal or binary
 Why speed test so different to speedtest.net. Notice cloudflare web test runs for longer
 
 Create a Model project with subfolders and refactor.    

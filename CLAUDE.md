@@ -80,6 +80,14 @@ New root-level files (docs, config) must be added to `NetworkMonitor.slnx` so th
 | `NetworkMonitor/ViewModels/AllDevicesViewModel.cs` | Main device list (last 24h) + scan command |
 | `NetworkMonitor/Views/AllDevicesPage.xaml` | Fing-style device grid (All tab, last 24h) |
 | `NetworkMonitor/Views/ApprovedDevicesPage.xaml` | Editable approved-device list with Edit / Delete / CSV import-export |
+| `NetworkMonitor/Services/Traffic/TrafficCollector.cs` | ETW kernel session; per-flow WAN (`_counters` by PID) + LAN (`_localCounters` by `LocalFlowKey`) capture. TCP recv/send use `daddr/dport`; UDP recv uses `saddr` |
+| `NetworkMonitor/Services/Traffic/TrafficTracker.cs` | Flush loop → writes Traffic/LocalTraffic entries + rollups; raises `Flushed(entries, localDeltas)` |
+| `NetworkMonitor/Services/Traffic/LanClassifier.cs` | Classifies a remote IP as LAN vs WAN; `IsSelfOrLoopback` self/loopback drop |
+| `NetworkMonitor/Services/Traffic/LocalFlowClassifier.cs` | `(protocol, remotePort)` → Data/Discovery + service tag (SMB…); single source of the discovery port list (`DiscoverySqlPredicate`) |
+| `NetworkMonitor/Services/Traffic/LocalTrafficGrouper.cs` | Builds the two-level app/device row model + background (discovery) fold |
+| `NetworkMonitor/ViewModels/InternetViewModel.cs` | WAN per-app grid + area chart + live rate badge |
+| `NetworkMonitor/ViewModels/LocalViewModel.cs` | LAN app/device lenses, in-place row reconcile, live rate badge |
+| `NetworkMonitor/Views/LocalPage.xaml` | Local traffic grid (lens toggle, service/discovery/rate chips, drill-down) |
 
 ## Git Workflow
 

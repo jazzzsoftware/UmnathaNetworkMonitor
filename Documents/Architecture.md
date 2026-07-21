@@ -160,23 +160,37 @@ Every ping and the `arp -a` process are **cancellable** — the ping uses the `S
 
 ## Traffic pipeline
 
-Per-process network usage is captured from the kernel, not by polling adapters.
+Per-process network usage is captured from the kernel (ETW), not by polling adapters. One collector feeds two views: **Internet** (WAN, per process) and **Local** (LAN, per process × peer device).
 
 ```
 TrafficCollector (BackgroundService)
     └─ ETW kernel session (NetworkTCPIP): TcpIpSend/Recv + UdpIpSend/Recv
-    └─ accumulates bytes per PID into a lock-light ConcurrentDictionary<int, long[]> counter map
+    └─ per event: resolve the REMOTE endpoint + service port, then classify by remote IP:
+         • self / loopback (this PC's own IPs, 127/8)  → dropped
+         • LAN peer (private ranges)                    → _localCounters, keyed by
+                                                          LocalFlowKey(pid, remoteIp, protocol, remotePort)
+         • WAN / internet                               → _counters, keyed by pid
+    └─ counters are lock-light long[] cells bumped with Interlocked
 
 TrafficTracker (BackgroundService, every TrafficIntervalSeconds)
-    └─ DrainAndReset() snapshot of the counters
+    └─ DrainAndReset() + DrainAndResetLocal() snapshots
     └─ resolve PID → process name + full image path (QueryFullProcessImageName)
-    └─ write raw rows to TrafficEntries
-    └─ upsert per-minute aggregates into TrafficRollups (ON CONFLICT … DO UPDATE)
-    └─ raise Flushed → InternetViewModel refreshes the grid + area chart
+    └─ write raw rows to TrafficEntries (WAN) and LocalTrafficEntries (LAN)
+    └─ upsert per-minute aggregates into TrafficRollups + LocalTrafficRollups (ON CONFLICT … DO UPDATE)
+    └─ raise Flushed(entries, localDeltas) → InternetViewModel + LocalViewModel refresh live
 ```
 
-- **TrafficEntries** holds raw per-flush rows and is purged per `TrafficPurgeDays` (default 7).
-- **TrafficRollups** holds per-minute, per-process aggregates and is the long-lived source for digest traffic totals.
+**Endpoint attribution (a real ETW gotcha).** Which field holds the *remote* side differs between TCP and UDP:
+
+- **TCP** events are *connection-oriented* — `saddr/sport` is always the **local** endpoint and `daddr/dport` the **remote**, for *both* directions. So `TcpIpSend` **and** `TcpIpRecv` read `daddr/dport`.
+- **UDP** events are *packet-oriented* — `saddr` is the sender. So `UdpIpSend` reads `daddr` (we send) and `UdpIpRecv` reads `saddr` (remote sends).
+
+Reading `saddr` on TCP recv (i.e. our own IP) makes every download look like self-traffic, which the self/loopback filter then silently drops — the bug that once hid **all** TCP downloads, including SMB/NAS reads (fixed by "attribute recv to the remote endpoint").
+
+**SMB / file shares are attributed to System (PID 4).** A copy to/from a NAS is done by the kernel SMB redirector, so the socket is owned by `System`, not the app that started it (e.g. Macrium). This is a Windows fact shared by Resource Monitor and every host tool; the Local page surfaces it honestly (below).
+
+- **TrafficEntries / LocalTrafficEntries** hold raw per-flush rows, purged per `TrafficPurgeDays` (default 7).
+- **TrafficRollups / LocalTrafficRollups** hold per-minute aggregates and are the long-lived source for the grids and digest. `LocalTrafficRollups` additionally carry `Protocol` + `RemotePort` (unique key `(MinuteEpoch, ProcessName, RemoteIp, Protocol, RemotePort)`).
 
 ### Internet page — live vs paused
 
@@ -206,6 +220,30 @@ Auto-resume on scroll-to-top is deliberately **not** implemented: a programmatic
 - `InternetPage` subscribes to `Flushed` on `Loaded` and unsubscribes on `Unloaded` (not `OnNavigatedTo`/`OnNavigatedFrom`, which do **not** fire for a page hosted in an inner `Frame` when its outer host is swapped). Any orphaned page detaches the moment it leaves the visual tree, which also covers the repeated Traffic⇄Devices navigation leak.
 
 Because the inner tab switch (Internet ⇄ Speed Test) only toggles `Frame.Visibility` and does not navigate, `TrafficHostPage` explicitly calls `InternetPage.ResetToLive()` when leaving the Internet tab so it returns Live.
+
+### Local page — app/device lenses & noise folding
+
+The Local page shows LAN traffic for *this* PC (the only scope any host tool can attribute per app). Two pieces shape it:
+
+- **`LocalFlowClassifier`** maps each `(protocol, remotePort)` to a category and an optional service tag:
+  - **Discovery** — UDP service ports for mDNS (5353), SSDP (1900), LLMNR (5355), WS-Discovery (3702), NetBIOS (137/138), DHCP (67/68), NAT-PMP/PCP (5350/5351). This is the "every device, tiny bytes" chatter that browsers (Cast/DIAL) and AV suites (LAN scans) generate. The port set lives **once** here and is reused as `DiscoverySqlPredicate` by the Local chart query and the digest, so the three can't drift.
+  - **Data** — everything else, with a tag where known: **SMB** (445/139), NFS, AFP, HTTP/HTTPS, SSH, RDP.
+- **`LocalTrafficGrouper`** turns the classified per-minute flows into a generic two-level row model (`LocalTrafficGroupRow` → `LocalTrafficLeafRow`) for either lens:
+  - **By app** (default) — top-level = process, expand → peer devices.
+  - **By device** — top-level = LAN device (friendly name + IP), expand → the apps that talked to it. This is the lens that makes a **NAS backup obvious**: the NAS rises to the top on a big **upload**, tagged **SMB**, under **System**.
+  - All **Discovery** flows fold into one collapsed **"N devices — discovery only"** group so real transfers stay up front; grid, chart and digest all exclude discovery from their totals.
+
+Rows are stable observable objects reconciled **in place** (`ApplyGroups`) rather than replaced each flush, so an expanded drill-down keeps its selection and expansion while the numbers tick live. `System` is kept on Local (it's where SMB lives) but excluded from Internet.
+
+### Live rate badge (both pages)
+
+Both grids show a green **`● 118 Mb/s · 15 MB/s`** pill on any top-level row that is actively transferring. How it's computed:
+
+1. On **every** live flush, the per-interval bytes for each group/app are pushed into a small per-key rolling window (`_rateWindows`, last **5** samples), plus an `__all` total. Feeding happens *before* the flush's incremental-vs-reload branch, so it's independent of which path the sliding window takes (getting this wrong is why the badge first appeared only intermittently).
+2. **rate = average(window) ÷ `TrafficIntervalSeconds`** → bytes/sec, shown in **both** units: Mb/s (`× 8 / 1e6`) and MB/s (`/ 1e6`), matching the Speed Test convention.
+3. The pill is **live-only** and shows only **above ~0.5 Mb/s** (a 64 KB/s threshold), so idle discovery chatter and paused/long-range views stay clean. Leaving live clears the windows via `SetRatesActive(false)`.
+
+Local bakes the rate onto its in-place observable rows (`RateBytesPerSec` → `HasRate`/`RateText`); Internet, which rebuilds its row *records* each flush, bakes it into each new `InternetTrafficAppRow` after the flush branch. Same threshold, units and smoothing on both.
 
 ## Daily digest pipeline
 
@@ -263,10 +301,26 @@ TrafficEntry            (raw, 7-day retention)
   BytesUploaded, BytesDownloaded
   index (Timestamp, ProcessName)
 
-TrafficRollups          (per-minute aggregate; long-lived)
+TrafficRollups          (per-minute WAN aggregate; long-lived)
   Id, MinuteEpoch, ProcessName, ProcessPath
   BytesUploaded, BytesDownloaded
   unique index (MinuteEpoch, ProcessName)
+
+LocalTrafficEntry       (raw LAN, 7-day retention)
+  Id, Timestamp, ProcessName, ProcessPath
+  RemoteIp, Protocol, RemotePort
+  BytesUploaded, BytesDownloaded
+
+LocalTrafficRollups     (per-minute LAN aggregate; long-lived)
+  Id, MinuteEpoch, ProcessName, ProcessPath
+  RemoteIp, Protocol, RemotePort
+  BytesUploaded, BytesDownloaded
+  unique index (MinuteEpoch, ProcessName, RemoteIp, Protocol, RemotePort)
+
+SpeedTestResult
+  Id, Timestamp, Server
+  DownloadMbps, UploadMbps, LatencyMs, JitterMs
+  Success, Error
 
 DigestReport
   Id, PeriodStart, PeriodEnd, GeneratedAt
