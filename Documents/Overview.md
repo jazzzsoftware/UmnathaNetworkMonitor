@@ -10,7 +10,7 @@ Network Monitor (Umnatha Network Monitor) is a Windows desktop application that 
 - **Identifies vendors** from the IEEE OUI database using the first three octets of each MAC address.
 - **Enriches names via mDNS** — a per-scan mDNS/DNS-SD (Bonjour) discovery pass fills a friendly name and hardware model for devices that OUI vendor and reverse-DNS can't identify (chiefly randomized-MAC devices), stored in dedicated fields that never overwrite a name you've set.
 - **Measures per-application traffic** — captures upload/download bytes per process directly from the Windows kernel and charts it live, in separate **Internet** (WAN) and **Local** (LAN) views, with a live throughput badge on whatever's actively transferring.
-- **Measures internet speed** — runs an hourly download/upload/latency/jitter speed test against Cloudflare (no account needed) and charts the history.
+- **Measures internet speed** — an hourly (or on-demand) download/upload/latency/jitter test against Cloudflare (no account needed), using parallel connections so the numbers line up with speedtest.net; charts the history.
 - **Generates a daily digest** — a once-a-day report summarising device activity and traffic, viewable in-app and exportable to PDF or CSV.
 - **Alerts via toast notifications** (Windows notifications plus an in-app banner) when a device appears or disappears; can be limited to unknown devices only.
 - **Maintains history** of every appearance and disappearance event, with automatic purging of old records.
@@ -45,7 +45,7 @@ Pick a time range (last 5 minutes, hour, 6 hours, 24 hours or 7 days) with the r
 
 ## Internet speed test
 
-The Speed Test page measures your internet connection against Cloudflare's free service (no account or API key needed). A test runs automatically every hour and can be run on demand. Each result records download and upload throughput (shown in both Mbps and MBps), latency and jitter, with the nearest Cloudflare data centre as the server. History is shown as stacked throughput and latency charts plus a sortable grid, and can be exported to CSV.
+The Speed Test page measures your internet connection against Cloudflare's free service (no account or API key needed). To measure accurately on fast connections it opens **several parallel connections** and records the sustained speed over a few seconds — the same approach speedtest.net and Cloudflare's own web test use — so the numbers match them instead of reading low. A test runs automatically every hour and can be run on demand. Each result records download and upload throughput (shown in both Mbps and MBps), latency and jitter, with the nearest Cloudflare data centre as the server. History is shown as stacked throughput and latency charts plus a sortable grid, and can be exported to CSV. **Note:** an accurate test transfers roughly 750 MB, so the hourly schedule uses about 18 GB/day — turn it off in Settings if you're on a metered connection.
 
 ## Daily digest
 

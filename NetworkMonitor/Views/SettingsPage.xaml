@@ -152,6 +152,12 @@
                                 Opacity="0.65"
                                 TextWrapping="Wrap" />
 
+                            <TextBlock
+                                Text="⚠ Warning: to measure accurately, each test saturates your line with parallel connections and uses roughly 750 MB, about 18 GB/day, for an hourly test. Turn this off if you're on a metered or capped connection."
+                                FontSize="12"
+                                Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                TextWrapping="Wrap" />
+
                         </StackPanel>
 
                     </StackPanel>

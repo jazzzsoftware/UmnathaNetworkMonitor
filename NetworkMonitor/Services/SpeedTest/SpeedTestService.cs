@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,9 +16,12 @@ namespace NetworkMonitor.Services.SpeedTest
     {
         private const string DownloadUrl = "https://speed.cloudflare.com/__down?bytes=";
         private const string UploadUrl = "https://speed.cloudflare.com/__up";
-        private const long DownloadBytes = 50_000_000;
-        private const long UploadBytes = 50_000_000;
         private const int LatencySamples = 10;
+        private const int ParallelStreams = 6;
+        private const int WarmupSeconds = 2;
+        private const int MeasureSeconds = 6;
+        private const long StreamRequestBytes = 99_999_999;
+        private const int UploadBufferBytes = 262_144;
 
         public async Task<SpeedTestResult> RunAsync(CancellationToken ct = default)
         {
@@ -144,43 +148,167 @@ namespace NetworkMonitor.Services.SpeedTest
 
         private async Task<double> MeasureDownloadAsync(CancellationToken ct)
         {
-            Stopwatch stopwatch = Stopwatch.StartNew();
-            long total = 0;
-
-            using HttpResponseMessage response = await httpClient.GetAsync(
-                DownloadUrl + DownloadBytes, HttpCompletionOption.ResponseHeadersRead, ct);
-
-            response.EnsureSuccessStatusCode();
-
-            await using Stream stream = await response.Content.ReadAsStreamAsync(ct);
-            byte[] buffer = new byte[81920];
-            int read = await stream.ReadAsync(buffer, ct);
-
-            while (read > 0)
-            {
-                total += read;
-                read = await stream.ReadAsync(buffer, ct);
-            }
-
-            stopwatch.Stop();
-            double mbps = SpeedTestMath.ToMbps(total, stopwatch.Elapsed);
+            double mbps = await MeasureAsync(upload: false, ct);
 
             return mbps;
         }
 
         private async Task<double> MeasureUploadAsync(CancellationToken ct)
         {
-            byte[] payload = new byte[UploadBytes];
-            Stopwatch stopwatch = Stopwatch.StartNew();
-
-            using ByteArrayContent content = new ByteArrayContent(payload);
-            using HttpResponseMessage response = await httpClient.PostAsync(UploadUrl, content, ct);
-
-            response.EnsureSuccessStatusCode();
-            stopwatch.Stop();
-            double mbps = SpeedTestMath.ToMbps(payload.LongLength, stopwatch.Elapsed);
+            double mbps = await MeasureAsync(upload: true, ct);
 
             return mbps;
+        }
+
+        private async Task<double> MeasureAsync(bool upload, CancellationToken ct)
+        {
+            long[] counter = new long[1];
+
+            using CancellationTokenSource streamCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            List<Task> streams = new List<Task>();
+
+            for (int index = 0; index < ParallelStreams; index++)
+            {
+
+                if (upload)
+                {
+                    streams.Add(UploadStreamAsync(counter, streamCts.Token));
+                }
+                else
+                {
+                    streams.Add(DownloadStreamAsync(counter, streamCts.Token));
+                }
+
+            }
+
+            await Task.Delay(TimeSpan.FromSeconds(WarmupSeconds), ct);
+
+            long startBytes = Interlocked.Read(ref counter[0]);
+            long startTicks = Stopwatch.GetTimestamp();
+
+            await Task.Delay(TimeSpan.FromSeconds(MeasureSeconds), ct);
+
+            long endBytes = Interlocked.Read(ref counter[0]);
+            long endTicks = Stopwatch.GetTimestamp();
+
+            streamCts.Cancel();
+
+            try
+            {
+                await Task.WhenAll(streams);
+            }
+            catch (Exception)
+            {
+            }
+
+            long deltaBytes = endBytes - startBytes;
+            TimeSpan elapsed = TimeSpan.FromSeconds((endTicks - startTicks) / (double)Stopwatch.Frequency);
+            double mbps = SpeedTestMath.ToMbps(deltaBytes, elapsed);
+
+            return mbps;
+        }
+
+        private async Task DownloadStreamAsync(long[] counter, CancellationToken token)
+        {
+
+            try
+            {
+
+                while (!token.IsCancellationRequested)
+                {
+                    using HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, DownloadUrl + StreamRequestBytes)
+                    {
+                        Version = HttpVersion.Version11,
+                        VersionPolicy = HttpVersionPolicy.RequestVersionOrLower
+                    };
+
+                    using HttpResponseMessage response = await httpClient.SendAsync(
+                        request, HttpCompletionOption.ResponseHeadersRead, token);
+
+                    response.EnsureSuccessStatusCode();
+
+                    await using Stream stream = await response.Content.ReadAsStreamAsync(token);
+                    byte[] buffer = new byte[81920];
+                    int read = await stream.ReadAsync(buffer, token);
+
+                    while (read > 0)
+                    {
+                        Interlocked.Add(ref counter[0], read);
+                        read = await stream.ReadAsync(buffer, token);
+                    }
+
+                }
+
+            }
+            catch (Exception)
+            {
+            }
+
+        }
+
+        private async Task UploadStreamAsync(long[] counter, CancellationToken token)
+        {
+
+            try
+            {
+                using CountingUploadContent content = new CountingUploadContent(counter, token);
+                using HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, UploadUrl)
+                {
+                    Version = HttpVersion.Version11,
+                    VersionPolicy = HttpVersionPolicy.RequestVersionOrLower,
+                    Content = content
+                };
+
+                using HttpResponseMessage response = await httpClient.SendAsync(request, token);
+
+                response.EnsureSuccessStatusCode();
+            }
+            catch (Exception)
+            {
+            }
+
+        }
+
+        private sealed class CountingUploadContent : HttpContent
+        {
+            private static readonly byte[] Payload = new byte[UploadBufferBytes];
+
+            private readonly long[] _counter;
+            private readonly CancellationToken _token;
+
+            public CountingUploadContent(long[] counter, CancellationToken token)
+            {
+                _counter = counter;
+                _token = token;
+            }
+
+            protected override async Task SerializeToStreamAsync(Stream stream, TransportContext? context)
+            {
+
+                try
+                {
+
+                    while (!_token.IsCancellationRequested)
+                    {
+                        await stream.WriteAsync(Payload, _token);
+                        Interlocked.Add(ref _counter[0], Payload.Length);
+                    }
+
+                }
+                catch (Exception)
+                {
+                }
+
+            }
+
+            protected override bool TryComputeLength(out long length)
+            {
+                length = 0;
+
+                bool computed = false;
+
+                return computed;
+            }
         }
     }
 }

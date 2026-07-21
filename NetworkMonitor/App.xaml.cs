@@ -109,7 +109,13 @@ namespace NetworkMonitor
                         services.AddSingleton<InAppNotificationService>();
                         services.AddSingleton<SpeedTestService>(serviceProvider =>
                         {
-                            HttpClient httpClient = new HttpClient
+                            SocketsHttpHandler handler = new SocketsHttpHandler
+                            {
+                                MaxConnectionsPerServer = 32,
+                                PooledConnectionLifetime = TimeSpan.FromMinutes(2)
+                            };
+
+                            HttpClient httpClient = new HttpClient(handler)
                             {
                                 Timeout = TimeSpan.FromSeconds(120)
                             };

@@ -146,13 +146,13 @@ Done - Remove per second log from logs.
 Done - Implement per app and per device for Local
 Done - When click a row on local expansion closed
 Done - Test monitoring NAS transfer.
+Done - In local - discovery row there are entries where there is no device. I think we should remove them
+Done - Check units: shown in both units: × 8 / 1,000,000 for Mb/s and / 1,000,000, decimal or binary
+Done - Why speed test so different to speedtest.net. Notice cloudflare web test runs for longer
 
-In local - discovery row there are entries where there is no device. I think we should remove them
-Check units: shown in both units: × 8 / 1,000,000 for Mb/s and / 1,000,000, decimal or binary
-Why speed test so different to speedtest.net. Notice cloudflare web test runs for longer
-
+Make a setting of Mbps or MBps or both?
 Create a Model project with subfolders and refactor.    
-
+Release on github
 
 Auto update
 

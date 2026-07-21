@@ -79,7 +79,7 @@ NetworkMonitor/
 │   │   ├── DigestPdfExporter.cs     QuestPDF document (charts + tables) → PDF bytes
 │   │   └── DigestCsvExporter.cs     One/all digest reports → CSV
 │   ├── SpeedTest/
-│   │   ├── SpeedTestService.cs      Cloudflare download/upload/latency measurement (self-bounded, 120s)
+│   │   ├── SpeedTestService.cs      Cloudflare parallel-stream download/upload + latency (self-bounded, 120s)
 │   │   ├── SpeedTestWorker.cs       Hourly speed-test loop; RunNowAsync for on-demand (BackgroundService)
 │   │   ├── SpeedTestMath.cs         Pure throughput/jitter maths (unit-tested)
 │   │   ├── SpeedTestMessage.cs      Status-message helper
@@ -246,6 +246,18 @@ Both grids show a green **`● 118 Mb/s · 15 MB/s`** pill on any top-level row 
 3. The pill is **live-only** and shows only **above ~0.5 Mb/s** (a 64 KB/s threshold), so idle discovery chatter and paused/long-range views stay clean. Leaving live clears the windows via `SetRatesActive(false)`.
 
 Local bakes the rate onto its in-place observable rows (`RateBytesPerSec` → `HasRate`/`RateText`); Internet, which rebuilds its row *records* each flush, bakes it into each new `InternetTrafficAppRow` after the flush branch. Same threshold, units and smoothing on both.
+
+## Speed test
+
+`SpeedTestService` measures against Cloudflare's public endpoints (`speed.cloudflare.com/__down` / `__up`). A single TCP stream is throughput-limited by the bandwidth-delay product and can't fill a fast link, so — like speedtest.net and Cloudflare's own web test — it runs **6 parallel streams** and reports the **aggregate throughput over a steady-state window** (a 2 s warm-up is discarded, then ~6 s measured). That lands within a few percent of those tools, where a single 50 MB transfer read far low.
+
+Three details make it work:
+
+- **Parallelism needs separate TCP connections.** The throughput requests force **HTTP/1.1** (the handler allows 32 connections/server) so the six streams open six real connections. Over **HTTP/2** they'd multiplex onto *one* connection and share one congestion window — no faster than a single stream.
+- **Latency stays on HTTP/2.** The latency/warm-up probes use the client's default HTTP/2; Cloudflare's `__down` is slow over HTTP/1.1 (~450 ms vs ~24 ms), so forcing 1.1 there inflates it. Server processing (`Server-Timing: cfRequestDuration`) is subtracted, and the reported latency is the **min** of 10 samples (jitter = their spread).
+- **Download chunk cap.** `/__down?bytes=N` returns **403 for N ≥ 100 MB**, so each stream requests 99,999,999 bytes and loops to refill the window; upload streams a continuous body per connection (`CountingUploadContent`).
+
+Throughput is reported in **decimal** Mbps/MBps (÷1,000,000) — the ISP/speedtest.net convention — unlike the binary Traffic-tab figures. An accurate run transfers **~750 MB** (~18 GB/day at the hourly cadence); Settings warns about this so metered users can disable it.
 
 ## Daily digest pipeline
 
