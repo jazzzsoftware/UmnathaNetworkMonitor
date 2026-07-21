@@ -98,6 +98,20 @@ namespace NetworkMonitor.Services.Traffic
             return result;
         }
 
+        public bool IsBroadcastOrMulticast(IPAddress address)
+        {
+            bool result = false;
+
+            if (TryPackIpv4(address, out uint packed))
+            {
+                bool multicast = (packed & 0xF0000000u) == 0xE0000000u;
+                bool broadcast = (packed & 0x000000FFu) == 0x000000FFu;
+                result = multicast || broadcast;
+            }
+
+            return result;
+        }
+
         public void Refresh()
         {
             List<(uint Start, uint End)> ranges = new List<(uint Start, uint End)>(FixedRanges);

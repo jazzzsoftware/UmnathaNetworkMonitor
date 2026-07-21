@@ -64,6 +64,34 @@ namespace NetworkMonitor.Tests
             Assert.False(isSelfOrLoopback);
         }
 
+        [Theory]
+        [InlineData("192.168.1.255")]
+        [InlineData("192.168.100.255")]
+        [InlineData("255.255.255.255")]
+        [InlineData("224.0.0.251")]
+        [InlineData("239.255.255.250")]
+        public void TreatsBroadcastAndMulticastAsNonDevice(string address)
+        {
+            LanClassifier classifier = new LanClassifier();
+
+            bool result = classifier.IsBroadcastOrMulticast(IPAddress.Parse(address));
+
+            Assert.True(result);
+        }
+
+        [Theory]
+        [InlineData("192.168.1.50")]
+        [InlineData("192.168.1.126")]
+        [InlineData("8.8.8.8")]
+        public void TreatsRegularAddressesAsDevices(string address)
+        {
+            LanClassifier classifier = new LanClassifier();
+
+            bool result = classifier.IsBroadcastOrMulticast(IPAddress.Parse(address));
+
+            Assert.False(result);
+        }
+
         [Fact]
         public void RejectsIpv6Addresses()
         {

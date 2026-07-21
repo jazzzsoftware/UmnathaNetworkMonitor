@@ -48,6 +48,23 @@ namespace NetworkMonitor.Tests
         }
 
         [Fact]
+        public void DropsDiscoveryToAddressesThatAreNotKnownDevices()
+        {
+            List<LocalFlowMinute> minutes = new List<LocalFlowMinute>
+            {
+                new LocalFlowMinute("avp", "192.168.1.126", 17, 5353, 0, 100),
+                new LocalFlowMinute("avp", "192.168.1.200", 17, 137, 0, 100)
+            };
+
+            IReadOnlyList<LocalTrafficGroupRow> groups = LocalTrafficGrouper.Build(minutes, Names, LocalLens.ByApp);
+            LocalTrafficGroupRow background = groups[^1];
+
+            Assert.True(background.IsBackground);
+            Assert.Single(background.Children);
+            Assert.Equal("Geyser IOT", background.Children[0].DisplayName);
+        }
+
+        [Fact]
         public void ByDevice_AllRowIsLabelledAllDevices()
         {
             List<LocalFlowMinute> minutes = new List<LocalFlowMinute>

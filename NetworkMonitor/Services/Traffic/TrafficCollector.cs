@@ -120,7 +120,7 @@ namespace NetworkMonitor.Services.Traffic
             if (bytes > 0)
             {
 
-                if (!_lanClassifier.IsSelfOrLoopback(remote))
+                if (!_lanClassifier.IsSelfOrLoopback(remote) && !_lanClassifier.IsBroadcastOrMulticast(remote))
                 {
                     int slot = upload ? 0 : 1;
 

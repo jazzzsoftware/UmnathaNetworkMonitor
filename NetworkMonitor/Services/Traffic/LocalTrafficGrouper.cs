@@ -15,8 +15,13 @@ namespace NetworkMonitor.Services.Traffic
 
                 if (classification.Category == FlowCategory.Discovery)
                 {
-                    string deviceName = LocalTrafficNameResolver.Resolve(minute.RemoteIp, namesByIp);
-                    background.Add(minute.RemoteIp, deviceName, minute.RemoteIp, minute.BytesUploaded, minute.BytesDownloaded, null);
+
+                    if (namesByIp.ContainsKey(minute.RemoteIp))
+                    {
+                        string deviceName = LocalTrafficNameResolver.Resolve(minute.RemoteIp, namesByIp);
+                        background.Add(minute.RemoteIp, deviceName, minute.RemoteIp, minute.BytesUploaded, minute.BytesDownloaded, null);
+                    }
+
                 }
                 else
                 {
