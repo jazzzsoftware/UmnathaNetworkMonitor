@@ -146,8 +146,14 @@ Done - Remove per second log from logs.
 Done - Implement per app and per device for Local
 Done - When click a row on local expansion closed
 
-Test monitoring NAS transfer.
-Why speed test so different to speedtest.net
+Done - Test monitoring NAS transfer.
+
+Deferred (whenever you want them):
+- Remove the now-orphaned LocalTrafficAggregator/AppRow/DeviceRow dead code.
+- Centralize the discovery port list (it lives in 3 places — identical today but drift-prone).
+- The live Mb/s rate badge from the mockup.
+
+Why speed test so different to speedtest.net. Notice cloudflare web test runs for longer
 
 Create a Model project with subfolders and refactor.    
 

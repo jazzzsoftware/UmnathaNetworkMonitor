@@ -74,7 +74,7 @@ namespace NetworkMonitor.Services.Traffic
                 _session.EnableKernelProvider(KernelTraceEventParser.Keywords.NetworkTCPIP);
 
                 _session.Source.Kernel.TcpIpSend += args => AddBytes(args.ProcessID, args.daddr, args.size, upload: true, protocol: 6, remotePort: (ushort)args.dport);
-                _session.Source.Kernel.TcpIpRecv += args => AddBytes(args.ProcessID, args.saddr, args.size, upload: false, protocol: 6, remotePort: (ushort)args.sport);
+                _session.Source.Kernel.TcpIpRecv += args => AddBytes(args.ProcessID, args.daddr, args.size, upload: false, protocol: 6, remotePort: (ushort)args.dport);
                 _session.Source.Kernel.UdpIpSend += args => AddBytes(args.ProcessID, args.daddr, args.size, upload: true, protocol: 17, remotePort: (ushort)args.dport);
                 _session.Source.Kernel.UdpIpRecv += args => AddBytes(args.ProcessID, args.saddr, args.size, upload: false, protocol: 17, remotePort: (ushort)args.sport);
 
