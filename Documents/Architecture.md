@@ -342,7 +342,7 @@ The database uses `EnsureCreated` (no EF migrations) as the **sole** schema sour
 
 | Data | Default retention | Configurable | Mechanism |
 |---|---|---|---|
-| Device history (`DeviceEvents`, `ScanSessions`) | 30 days | ✅ `Settings.HistoryPurgeDays` (Settings → Device) | `ScanWorker` 24h purge loop (0 = disabled) |
+| Device history (`DeviceEvents`, `ScanSessions`) | 30 days | ✅ `Settings.HistoryPurgeDays` (Settings → Devices) | `ScanWorker` 24h purge loop (0 = disabled) |
 | Traffic — raw rows (`TrafficEntries`) | 7 days | ✅ `Settings.TrafficPurgeDays` (Settings → Traffic) | `ScanWorker` purge loop |
 | Traffic — per-minute rollups (`TrafficRollups`) | 7 days | ✅ `Settings.TrafficPurgeDays` | `ScanWorker` purge loop |
 | Speed test results (`SpeedTestResults`) | 7 days | ✅ `Settings.TrafficPurgeDays` (folded into traffic purge) | `ScanWorker` purge loop |
