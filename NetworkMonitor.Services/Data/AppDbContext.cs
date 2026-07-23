@@ -5,7 +5,7 @@ using NetworkMonitor.Models.Scanning;
 using NetworkMonitor.Models.SpeedTest;
 using NetworkMonitor.Models.Traffic;
 
-namespace NetworkMonitor.Data
+namespace NetworkMonitor.Services.Data
 {
     public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
     {

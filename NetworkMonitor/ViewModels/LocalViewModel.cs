@@ -3,7 +3,7 @@ using System.Data.Common;
 using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.EntityFrameworkCore;
-using NetworkMonitor.Data;
+using NetworkMonitor.Services.Data;
 using NetworkMonitor.Models.Charting;
 using NetworkMonitor.Models.Devices;
 using NetworkMonitor.Models.Formatting;

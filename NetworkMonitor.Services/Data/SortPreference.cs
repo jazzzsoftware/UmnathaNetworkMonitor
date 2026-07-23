@@ -1,7 +1,7 @@
 using System.Text.Json;
 using NetworkMonitor.Services.Platform;
 
-namespace NetworkMonitor.Data
+namespace NetworkMonitor.Services.Data
 {
     public record SortPreference(string Property, bool Ascending)
     {

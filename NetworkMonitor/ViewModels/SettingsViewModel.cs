@@ -6,7 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.UI.Dispatching;
-using NetworkMonitor.Data;
+using NetworkMonitor.Services.Data;
 using NetworkMonitor.Models.Formatting;
 using NetworkMonitor.Services.Platform;
 

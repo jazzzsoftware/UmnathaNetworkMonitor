@@ -3,7 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.UI.Dispatching;
-using NetworkMonitor.Data;
+using NetworkMonitor.Services.Data;
 using NetworkMonitor.Models.Devices;
 using NetworkMonitor.Services.Scanning;
 using NetworkMonitor.Services.Platform;

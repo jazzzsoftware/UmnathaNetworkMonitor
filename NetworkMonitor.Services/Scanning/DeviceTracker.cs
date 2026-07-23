@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using NetworkMonitor.Data;
+using NetworkMonitor.Services.Data;
 using NetworkMonitor.Models.Devices;
 using NetworkMonitor.Models.Scanning;
 using NetworkMonitor.Core.Scanning;

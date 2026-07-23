@@ -5,7 +5,7 @@ using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using NetworkMonitor.Data;
+using NetworkMonitor.Services.Data;
 using Windows.Data.Xml.Dom;
 using Windows.UI.Notifications;
 using NetworkMonitor.Models.Devices;

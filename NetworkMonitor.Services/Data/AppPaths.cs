@@ -1,4 +1,4 @@
-namespace NetworkMonitor.Data
+namespace NetworkMonitor.Services.Data
 {
     public static class AppPaths
     {

@@ -1,5 +1,5 @@
 using CommunityToolkit.WinUI.UI.Controls;
-using NetworkMonitor.Data;
+using NetworkMonitor.Services.Data;
 
 namespace NetworkMonitor.Views
 {

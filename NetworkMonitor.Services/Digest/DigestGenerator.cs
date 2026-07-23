@@ -1,7 +1,7 @@
 using System.Data.Common;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
-using NetworkMonitor.Data;
+using NetworkMonitor.Services.Data;
 using NetworkMonitor.Models.Devices;
 using NetworkMonitor.Models.Digest;
 using NetworkMonitor.Models.SpeedTest;

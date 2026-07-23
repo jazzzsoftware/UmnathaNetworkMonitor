@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.EntityFrameworkCore;
-using NetworkMonitor.Data;
+using NetworkMonitor.Services.Data;
 using NetworkMonitor.Models.Charting;
 using NetworkMonitor.Models.Formatting;
 using NetworkMonitor.Models.Traffic;

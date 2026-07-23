@@ -1,6 +1,6 @@
 using NetworkMonitor.Services.Platform;
 
-namespace NetworkMonitor.Data
+namespace NetworkMonitor.Services.Data
 {
     public static class AtomicFile
     {

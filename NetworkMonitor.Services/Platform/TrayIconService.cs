@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 
 namespace NetworkMonitor.Services.Platform
 {
-    internal sealed class TrayIconService : IDisposable
+    public sealed class TrayIconService : IDisposable
     {
         private delegate IntPtr SubclassProcDelegate(
             IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam,

@@ -8,7 +8,7 @@ using System.Text.Json;
 using NetworkMonitor.Models.Formatting;
 using NetworkMonitor.Core.Traffic;
 
-namespace NetworkMonitor.Data
+namespace NetworkMonitor.Services.Data
 {
     public class Settings
     {
