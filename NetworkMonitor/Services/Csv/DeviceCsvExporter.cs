@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using System.Text;
-using NetworkMonitor.Models;
+using NetworkMonitor.Models.Devices;
 
 namespace NetworkMonitor.Services.Csv
 {

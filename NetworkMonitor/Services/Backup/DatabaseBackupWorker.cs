@@ -3,7 +3,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using NetworkMonitor.Data;
-using NetworkMonitor.Models;
+using NetworkMonitor.Models.Devices;
 using NetworkMonitor.Services.Common;
 using NetworkMonitor.Services.Csv;
 using NetworkMonitor.Services.Platform;

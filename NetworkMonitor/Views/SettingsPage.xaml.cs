@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml.Media.Imaging;
 using NetworkMonitor.Data;
 using NetworkMonitor.Services.Platform;
 using NetworkMonitor.ViewModels;
+using NetworkMonitor.Models.Devices;
 
 namespace NetworkMonitor.Views
 {

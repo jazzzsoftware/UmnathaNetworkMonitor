@@ -6,7 +6,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:CommunityToolkit.WinUI.UI.Controls"
     xmlns:chart="using:NetworkMonitor.Views.Controls"
-    xmlns:models="using:NetworkMonitor.Models"
+    xmlns:models="using:NetworkMonitor.Models.Traffic"
     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
     <Grid

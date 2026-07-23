@@ -6,6 +6,7 @@ using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text.Json;
 using NetworkMonitor.Services.Traffic;
+using NetworkMonitor.Models.Formatting;
 
 namespace NetworkMonitor.Data
 {

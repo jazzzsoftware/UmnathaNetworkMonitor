@@ -1,5 +1,5 @@
 using System.Collections.ObjectModel;
-using NetworkMonitor.Models;
+using NetworkMonitor.Models.Devices;
 using NetworkMonitor.Services.Common;
 using Xunit;
 

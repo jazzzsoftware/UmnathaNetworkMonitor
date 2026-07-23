@@ -5,8 +5,9 @@ using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.EntityFrameworkCore;
 using NetworkMonitor.Data;
-using NetworkMonitor.Models;
-using NetworkMonitor.Services.Common;
+using NetworkMonitor.Models.Charting;
+using NetworkMonitor.Models.Formatting;
+using NetworkMonitor.Models.Traffic;
 using NetworkMonitor.Services.Traffic;
 
 namespace NetworkMonitor.ViewModels

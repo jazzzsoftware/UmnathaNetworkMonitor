@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
-using NetworkMonitor.Models;
+using NetworkMonitor.Models.Devices;
 using NetworkMonitor.Services.Scanning;
 
 namespace NetworkMonitor.Services.Csv

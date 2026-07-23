@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using NetworkMonitor.Data;
-using NetworkMonitor.Models;
+using NetworkMonitor.Models.Digest;
 using NetworkMonitor.Services.Common;
 using NetworkMonitor.Services.Platform;
 

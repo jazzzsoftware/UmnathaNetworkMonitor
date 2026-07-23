@@ -151,9 +151,10 @@ Done - Check units: shown in both units: × 8 / 1,000,000 for Mb/s and / 1,000,0
 Done - Why speed test so different to speedtest.net. Notice cloudflare web test runs for longer
 Done - Make all units decimal based and not binary based.
 Done - Make a setting to switch Mb/s, MB/s or both
+Done - Detect ip had changed. Can this be done outmatically so it always has valid data from the existing connection or if not add a network detect button
 
-Detect ip had changed. Can this be done outmatically so it always has valid data from the existing connection or if not add a network detect button
-Create a Model project with subfolders similar to services and refactor.    
+Done - Create a Model project with subfolders similar to services and refactor.
+Create a Core\Services project
 
 Release on github:
 Images

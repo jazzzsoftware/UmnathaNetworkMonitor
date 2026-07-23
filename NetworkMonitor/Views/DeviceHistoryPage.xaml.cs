@@ -4,7 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
-using NetworkMonitor.Models;
+using NetworkMonitor.Models.Devices;
 using NetworkMonitor.Services.Csv;
 using NetworkMonitor.Services.Platform;
 using NetworkMonitor.ViewModels;

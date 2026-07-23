@@ -1,4 +1,4 @@
-using NetworkMonitor.Models;
+using NetworkMonitor.Models.Traffic;
 
 namespace NetworkMonitor.Services.Traffic
 {

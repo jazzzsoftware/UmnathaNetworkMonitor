@@ -7,9 +7,8 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.UI.Dispatching;
 using NetworkMonitor.Data;
-using NetworkMonitor.Models;
+using NetworkMonitor.Models.Formatting;
 using NetworkMonitor.Services.Platform;
-using NetworkMonitor.Services.Traffic;
 
 namespace NetworkMonitor.ViewModels
 {

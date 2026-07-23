@@ -96,7 +96,7 @@
                     <ListView.ItemTemplate>
 
                         <DataTemplate
-                            xmlns:models="using:NetworkMonitor.Models"
+                            xmlns:models="using:NetworkMonitor.Models.Digest"
                             x:DataType="models:DigestReport">
 
                             <StackPanel

@@ -1,6 +1,6 @@
-using NetworkMonitor.Models;
+using NetworkMonitor.Models.Formatting;
+using NetworkMonitor.Models.SpeedTest;
 using NetworkMonitor.Services.SpeedTest;
-using NetworkMonitor.Services.Traffic;
 using Xunit;
 
 namespace NetworkMonitor.Tests

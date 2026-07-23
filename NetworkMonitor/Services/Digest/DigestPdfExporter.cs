@@ -1,9 +1,10 @@
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
-using NetworkMonitor.Models;
-using NetworkMonitor.Services.Common;
-using NetworkMonitor.Services.Traffic;
+using NetworkMonitor.Models.Digest;
+using NetworkMonitor.Models.Formatting;
+using NetworkMonitor.Models.SpeedTest;
+using NetworkMonitor.Models.Traffic;
 
 namespace NetworkMonitor.Services.Digest
 {

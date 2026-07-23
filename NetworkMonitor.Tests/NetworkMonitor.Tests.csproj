@@ -11,6 +11,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\NetworkMonitor.Models\NetworkMonitor.Models.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.*" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.6.0" />
     <PackageReference Include="xunit.v3" Version="3.2.2" />
@@ -21,21 +25,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="..\NetworkMonitor\Models\Device.cs">
-      <Link>Linked\Device.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Models\DeviceType.cs">
-      <Link>Linked\DeviceType.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Models\ChartPoint.cs">
-      <Link>Linked\ChartPoint.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Services\Traffic\TrafficRateFormatter.cs">
-      <Link>Linked\TrafficRateFormatter.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Services\Traffic\RateUnitMode.cs">
-      <Link>Linked\RateUnitMode.cs</Link>
-    </Compile>
     <Compile Include="..\NetworkMonitor\Services\Traffic\TrafficWindow.cs">
       <Link>Linked\TrafficWindow.cs</Link>
     </Compile>
@@ -81,45 +70,11 @@
     <Compile Include="..\NetworkMonitor\Services\Scanning\MdnsResponseParser.cs">
       <Link>Linked\MdnsResponseParser.cs</Link>
     </Compile>
-    <Compile Include="..\NetworkMonitor\Services\Common\ByteSizeFormatter.cs">
-      <Link>Linked\ByteSizeFormatter.cs</Link>
-    </Compile>
-
     <Compile Include="..\NetworkMonitor\Services\Common\Watchdog.cs">
       <Link>Linked\Watchdog.cs</Link>
     </Compile>
     <Compile Include="..\NetworkMonitor\Services\Common\CollectionReconciler.cs">
       <Link>Linked\CollectionReconciler.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Models\DeviceEvent.cs">
-      <Link>Linked\DeviceEvent.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Models\DeviceEventType.cs">
-      <Link>Linked\DeviceEventType.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Models\DigestSummary.cs">
-      <Link>Linked\DigestSummary.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Models\SpeedTestRowSummary.cs">
-      <Link>Linked\SpeedTestRowSummary.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Models\InternetTrafficAppSummary.cs">
-      <Link>Linked\InternetTrafficAppSummary.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Models\LocalTrafficAppSummary.cs">
-      <Link>Linked\LocalTrafficAppSummary.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Models\NewDeviceSummary.cs">
-      <Link>Linked\NewDeviceSummary.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Models\UnapprovedDeviceSummary.cs">
-      <Link>Linked\UnapprovedDeviceSummary.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Models\HourlyActivitySummary.cs">
-      <Link>Linked\HourlyActivitySummary.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Models\AppTrafficTotal.cs">
-      <Link>Linked\AppTrafficTotal.cs</Link>
     </Compile>
     <Compile Include="..\NetworkMonitor\Services\Digest\DigestSummaryBuilder.cs">
       <Link>Linked\DigestSummaryBuilder.cs</Link>
@@ -132,9 +87,6 @@
     </Compile>
     <Compile Include="..\NetworkMonitor\Services\SpeedTest\SpeedTestMath.cs">
       <Link>Linked\SpeedTestMath.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Models\SpeedTestResult.cs">
-      <Link>Linked\SpeedTestResult.cs</Link>
     </Compile>
     <Compile Include="..\NetworkMonitor\Services\SpeedTest\SpeedTestMessage.cs">
       <Link>Linked\SpeedTestMessage.cs</Link>
@@ -150,15 +102,6 @@
     </Compile>
     <Compile Include="..\NetworkMonitor\Services\Traffic\LocalTrafficGrouper.cs">
       <Link>Linked\LocalTrafficGrouper.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Models\GroupKind.cs">
-      <Link>Linked\GroupKind.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Models\LocalTrafficLeafRow.cs">
-      <Link>Linked\LocalTrafficLeafRow.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Models\LocalTrafficGroupRow.cs">
-      <Link>Linked\LocalTrafficGroupRow.cs</Link>
     </Compile>
   </ItemGroup>
 

@@ -1,4 +1,4 @@
-using NetworkMonitor.Models;
+using NetworkMonitor.Models.Devices;
 
 namespace NetworkMonitor.Services.Scanning
 {

@@ -1,6 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using NetworkMonitor.Models;
+using NetworkMonitor.Models.Devices;
 using Windows.ApplicationModel.DataTransfer;
 
 namespace NetworkMonitor.Views

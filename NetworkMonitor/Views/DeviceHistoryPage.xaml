@@ -5,7 +5,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:CommunityToolkit.WinUI.UI.Controls"
-    xmlns:models="using:NetworkMonitor.Models"
+    xmlns:models="using:NetworkMonitor.Models.Devices"
     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
     <Grid

@@ -4,7 +4,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
-using NetworkMonitor.Models;
+using NetworkMonitor.Models.Charting;
 using Windows.Foundation;
 using Windows.UI;
 using Path = Microsoft.UI.Xaml.Shapes.Path;

@@ -1,5 +1,5 @@
 using System;
-using NetworkMonitor.Models;
+using NetworkMonitor.Models.Devices;
 using Xunit;
 
 namespace NetworkMonitor.Tests

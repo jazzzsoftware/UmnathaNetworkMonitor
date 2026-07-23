@@ -33,6 +33,16 @@ App() ctor
 ## Project layout
 
 ```
+NetworkMonitor.Models/   (class library, net10.0 — referenced by the app AND the test project;
+│                         each sub-folder is its own namespace, e.g. NetworkMonitor.Models.Traffic)
+├── Charting/            ChartPoint, ChartSeries, ChartValue — chart primitives
+├── Devices/             Device, DeviceEvent, DeviceEventType, DeviceType
+├── Digest/              DigestReport, DigestSummary + per-section summary rows (New/Unapproved device, hourly)
+├── Formatting/          TrafficRateFormatter, ByteSizeFormatter, RateUnitMode — shared unit formatting
+├── Scanning/            ScanSession — metadata for each completed scan run
+├── SpeedTest/           SpeedTestResult, SpeedTestRowSummary
+└── Traffic/             Traffic/LocalTraffic entities + rollups, app/device row models, per-app summaries
+
 NetworkMonitor/
 ├── App.xaml.cs               Elevation + single-instance, IHost build, DI, DB init, startup window handling
 ├── MainWindow.xaml.cs        NavigationView shell, tray icon, toast/digest dispatch, window-placement persistence
@@ -43,19 +53,6 @@ NetworkMonitor/
 │   ├── OuiDatabase.cs        Loads oui.txt → MAC prefix → vendor name
 │   ├── Settings.cs           Scan, traffic, digest, notification and window settings; persisted to settings.json
 │   └── SortPreference.cs     Per-page sort state persisted to LocalApplicationData
-│
-├── Models/
-│   ├── Device.cs             Persisted device record (MAC, IP, hostname, IsApproved, etc.)
-│   ├── DeviceEvent.cs        Single appeared/disappeared event linked to a Device
-│   ├── DeviceEventType.cs    Enum: Appeared | Disappeared
-│   ├── DeviceType.cs         Enum: Unknown | Router | Switch | WiFi | PC | Server | Mobile | Camera | ...
-│   ├── ScanSession.cs        Metadata for each completed scan run
-│   ├── TrafficEntry.cs       Per-flush per-process byte counters (raw, 7-day retention)
-│   ├── TrafficAppRow.cs      Aggregated per-process row for the Traffic page grid
-│   ├── AppTrafficTotal.cs    Per-process totals over a period (digest input)
-│   ├── ChartPoint.cs         Point for the Traffic area chart
-│   ├── DigestReport.cs       Persisted digest row (period, headline, serialised summary JSON)
-│   └── DigestSummary.cs      Full digest payload (devices + traffic) serialised into DigestReport
 │
 ├── Services/   (grouped by concern; each sub-folder is its own namespace, e.g. NetworkMonitor.Services.Traffic)
 │   ├── Scanning/
@@ -68,8 +65,7 @@ NetworkMonitor/
 │   │   ├── TrafficCollector.cs      ETW kernel TCP/UDP session → per-PID byte counters (BackgroundService)
 │   │   ├── TrafficTracker.cs        Periodic flush of counters → process name/path → TrafficEntries + TrafficRollups
 │   │   ├── TrafficFlushedEventArgs.cs  Carries the just-flushed entries to the Traffic page
-│   │   ├── TrafficWindow.cs         Time-window helpers for the Traffic page
-│   │   └── TrafficRateFormatter.cs  Byte/rate formatting helpers
+│   │   └── TrafficWindow.cs         Time-window helpers for the Traffic page
 │   ├── Digest/
 │   │   ├── DigestGenerator.cs       Builds + persists a DigestReport for a period; raises ReportGenerated
 │   │   ├── DigestSummaryBuilder.cs  Pure builder: events + devices + traffic → DigestSummary

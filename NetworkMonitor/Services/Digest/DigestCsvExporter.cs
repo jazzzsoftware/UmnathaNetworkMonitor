@@ -1,6 +1,8 @@
 using System.Text;
-using NetworkMonitor.Models;
-using NetworkMonitor.Services.Common;
+using NetworkMonitor.Models.Digest;
+using NetworkMonitor.Models.Formatting;
+using NetworkMonitor.Models.SpeedTest;
+using NetworkMonitor.Models.Traffic;
 using NetworkMonitor.Services.Csv;
 
 namespace NetworkMonitor.Services.Digest

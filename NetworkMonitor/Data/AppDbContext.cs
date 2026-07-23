@@ -1,5 +1,9 @@
 using Microsoft.EntityFrameworkCore;
-using NetworkMonitor.Models;
+using NetworkMonitor.Models.Devices;
+using NetworkMonitor.Models.Digest;
+using NetworkMonitor.Models.Scanning;
+using NetworkMonitor.Models.SpeedTest;
+using NetworkMonitor.Models.Traffic;
 
 namespace NetworkMonitor.Data
 {

@@ -9,8 +9,8 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
-using NetworkMonitor.Models;
-using NetworkMonitor.Services.Traffic;
+using NetworkMonitor.Models.Charting;
+using NetworkMonitor.Models.Formatting;
 using Windows.Foundation;
 using Windows.UI;
 

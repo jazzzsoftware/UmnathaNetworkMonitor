@@ -5,8 +5,10 @@ using Microsoft.Graphics.Canvas;
 using Microsoft.Graphics.Canvas.Geometry;
 using Microsoft.Graphics.Canvas.Text;
 using Windows.UI;
-using NetworkMonitor.Models;
-using NetworkMonitor.Services.Traffic;
+using NetworkMonitor.Models.Digest;
+using NetworkMonitor.Models.Formatting;
+using NetworkMonitor.Models.SpeedTest;
+using NetworkMonitor.Models.Traffic;
 
 namespace NetworkMonitor.Services.Digest
 {

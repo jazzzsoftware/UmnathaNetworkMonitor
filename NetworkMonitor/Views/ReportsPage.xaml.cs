@@ -3,7 +3,7 @@ using System.Text;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using NetworkMonitor.Models;
+using NetworkMonitor.Models.Digest;
 using NetworkMonitor.ViewModels;
 using WinRT.Interop;
 using NetworkMonitor.Services.Platform;

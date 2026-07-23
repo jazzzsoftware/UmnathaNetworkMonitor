@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using NetworkMonitor.Models;
+using NetworkMonitor.Models.Traffic;
 using NetworkMonitor.Services.Traffic;
 using Xunit;
 

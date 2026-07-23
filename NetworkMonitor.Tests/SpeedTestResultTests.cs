@@ -1,4 +1,4 @@
-using NetworkMonitor.Models;
+using NetworkMonitor.Models.SpeedTest;
 using Xunit;
 
 namespace NetworkMonitor.Tests

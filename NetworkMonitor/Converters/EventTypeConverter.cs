@@ -1,7 +1,7 @@
 using Microsoft.UI;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Media;
-using NetworkMonitor.Models;
+using NetworkMonitor.Models.Devices;
 
 namespace NetworkMonitor.Converters
 {

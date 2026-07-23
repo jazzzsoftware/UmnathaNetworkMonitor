@@ -18,6 +18,7 @@ using NetworkMonitor.Services.Backup;
 using NetworkMonitor.Services.Platform;
 using NetworkMonitor.Services.SpeedTest;
 using NetworkMonitor.ViewModels;
+using NetworkMonitor.Models.Formatting;
 
 namespace NetworkMonitor
 {

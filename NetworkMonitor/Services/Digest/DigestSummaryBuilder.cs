@@ -1,4 +1,6 @@
-using NetworkMonitor.Models;
+using NetworkMonitor.Models.Devices;
+using NetworkMonitor.Models.Digest;
+using NetworkMonitor.Models.Traffic;
 using NetworkMonitor.Services.Traffic;
 
 namespace NetworkMonitor.Services.Digest

@@ -2,7 +2,7 @@ using System.Net.NetworkInformation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using NetworkMonitor.Data;
-using NetworkMonitor.Models;
+using NetworkMonitor.Models.Scanning;
 using NetworkMonitor.Services.Common;
 using NetworkMonitor.Services.Platform;
 

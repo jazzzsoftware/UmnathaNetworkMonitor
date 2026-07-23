@@ -1,4 +1,4 @@
-using NetworkMonitor.Models;
+using NetworkMonitor.Models.SpeedTest;
 
 namespace NetworkMonitor.Services.SpeedTest
 {

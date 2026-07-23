@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using NetworkMonitor.Models;
+using NetworkMonitor.Models.Devices;
 using NetworkMonitor.Services.Csv;
 using Xunit;
 

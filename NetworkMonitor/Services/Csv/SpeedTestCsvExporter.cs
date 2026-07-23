@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using System.Text;
-using NetworkMonitor.Models;
+using NetworkMonitor.Models.SpeedTest;
 
 namespace NetworkMonitor.Services.Csv
 {

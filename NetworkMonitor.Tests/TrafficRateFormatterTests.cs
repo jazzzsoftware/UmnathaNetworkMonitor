@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
-using NetworkMonitor.Models;
-using NetworkMonitor.Services.Traffic;
+using NetworkMonitor.Models.Charting;
+using NetworkMonitor.Models.Formatting;
 using Xunit;
 
 namespace NetworkMonitor.Tests

@@ -4,10 +4,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
-using NetworkMonitor.Models;
+using NetworkMonitor.Models.Digest;
+using NetworkMonitor.Models.Formatting;
 using Windows.Storage.Streams;
 using NetworkMonitor.Services.Digest;
-using NetworkMonitor.Services.Traffic;
 
 namespace NetworkMonitor.Views.Controls
 {

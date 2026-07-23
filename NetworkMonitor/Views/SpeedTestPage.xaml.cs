@@ -9,8 +9,8 @@ using Microsoft.UI.Xaml.Navigation;
 using NetworkMonitor.Data;
 using NetworkMonitor.Services.Csv;
 using NetworkMonitor.Services.Platform;
-using NetworkMonitor.Services.Traffic;
 using NetworkMonitor.ViewModels;
+using NetworkMonitor.Models.Formatting;
 
 namespace NetworkMonitor.Views
 {

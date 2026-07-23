@@ -5,7 +5,9 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:converters="using:NetworkMonitor.Converters"
-    xmlns:models="using:NetworkMonitor.Models">
+    xmlns:digestModels="using:NetworkMonitor.Models.Digest"
+    xmlns:trafficModels="using:NetworkMonitor.Models.Traffic"
+    xmlns:speedModels="using:NetworkMonitor.Models.SpeedTest">
 
     <UserControl.Resources>
 
@@ -17,7 +19,7 @@
 
         <DataTemplate
             x:Key="DeviceRowTemplate"
-            x:DataType="models:UnapprovedDeviceSummary">
+            x:DataType="digestModels:UnapprovedDeviceSummary">
 
             <Grid
                 ColumnDefinitions="1.4*,0.6*,2*,1.3*,1.6*,1.8*,1.2*"
@@ -216,7 +218,7 @@
                             <ItemsControl.ItemTemplate>
 
                                 <DataTemplate
-                                    x:DataType="models:InternetTrafficAppSummary">
+                                    x:DataType="trafficModels:InternetTrafficAppSummary">
 
                                     <Grid
                                         ColumnDefinitions="2*,*,*">
@@ -384,7 +386,7 @@
                             <ItemsControl.ItemTemplate>
 
                                 <DataTemplate
-                                    x:DataType="models:LocalTrafficAppSummary">
+                                    x:DataType="trafficModels:LocalTrafficAppSummary">
 
                                     <Grid
                                         ColumnDefinitions="2*,1.5*,*,*,*">
@@ -615,7 +617,7 @@
                             <ItemsControl.ItemTemplate>
 
                                 <DataTemplate
-                                    x:DataType="models:SpeedTestRowSummary">
+                                    x:DataType="speedModels:SpeedTestRowSummary">
 
                                     <Grid
                                         Loaded="SpeedRowGridLoaded"

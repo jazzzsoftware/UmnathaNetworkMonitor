@@ -1,4 +1,4 @@
-using NetworkMonitor.Models;
+using NetworkMonitor.Models.Digest;
 using NetworkMonitor.Services.Digest;
 using Xunit;
 

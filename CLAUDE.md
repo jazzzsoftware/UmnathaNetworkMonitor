@@ -4,6 +4,8 @@
 
 WinUI 3 desktop app (.NET 10, unpackaged) that periodically scans the local network, tracks devices by MAC address, and maintains a known-devices list.
 
+Three projects: **NetworkMonitor** (the WinUI app), **NetworkMonitor.Models** (net10.0 class library — all model types plus the shared unit formatters, one namespace per sub-folder, e.g. `NetworkMonitor.Models.Traffic`; referenced by both other projects), and **NetworkMonitor.Tests** (xunit; models come via ProjectReference, service classes under test are still source-linked).
+
 ## Stack
 
 - **UI**: WinUI 3 (Windows App SDK), Blazor NavigationView shell

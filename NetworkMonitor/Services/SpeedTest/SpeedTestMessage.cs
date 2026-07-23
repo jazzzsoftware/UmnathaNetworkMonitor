@@ -1,5 +1,5 @@
-using NetworkMonitor.Models;
-using NetworkMonitor.Services.Traffic;
+using NetworkMonitor.Models.Formatting;
+using NetworkMonitor.Models.SpeedTest;
 
 namespace NetworkMonitor.Services.SpeedTest
 {

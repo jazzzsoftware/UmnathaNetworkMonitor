@@ -1,5 +1,5 @@
 using Microsoft.UI.Xaml.Data;
-using NetworkMonitor.Services.Common;
+using NetworkMonitor.Models.Formatting;
 
 namespace NetworkMonitor.Converters
 {
