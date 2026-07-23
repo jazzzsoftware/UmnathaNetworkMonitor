@@ -1,6 +1,6 @@
 using NetworkMonitor.Models.Devices;
-using NetworkMonitor.Services.Scanning;
 using Xunit;
+using NetworkMonitor.Core.Scanning;
 
 namespace NetworkMonitor.Tests
 {

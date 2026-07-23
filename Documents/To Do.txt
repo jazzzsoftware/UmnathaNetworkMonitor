@@ -154,7 +154,7 @@ Done - Make a setting to switch Mb/s, MB/s or both
 Done - Detect ip had changed. Can this be done outmatically so it always has valid data from the existing connection or if not add a network detect button
 
 Done - Create a Model project with subfolders similar to services and refactor.
-Create a Core\Services project
+Done - Create a Core\Services project
 
 Release on github:
 Images

@@ -12,6 +12,7 @@ using NetworkMonitor.Models.Traffic;
 using NetworkMonitor.ViewModels;
 using NetworkMonitor.Services.Traffic;
 using NetworkMonitor.Services.Platform;
+using NetworkMonitor.Core.Traffic;
 
 namespace NetworkMonitor.Views
 {

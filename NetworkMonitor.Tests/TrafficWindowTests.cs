@@ -1,5 +1,5 @@
-using NetworkMonitor.Services.Traffic;
 using Xunit;
+using NetworkMonitor.Core.Traffic;
 
 namespace NetworkMonitor.Tests
 {

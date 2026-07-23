@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using NetworkMonitor.Data;
 using NetworkMonitor.Models.Devices;
 using NetworkMonitor.Models.Scanning;
+using NetworkMonitor.Core.Scanning;
 
 namespace NetworkMonitor.Services.Scanning
 {

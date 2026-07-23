@@ -12,97 +12,16 @@
 
   <ItemGroup>
     <ProjectReference Include="..\NetworkMonitor.Models\NetworkMonitor.Models.csproj" />
+    <ProjectReference Include="..\NetworkMonitor.Core\NetworkMonitor.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.*" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.6.0" />
     <PackageReference Include="xunit.v3" Version="3.2.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Compile Include="..\NetworkMonitor\Services\Traffic\TrafficWindow.cs">
-      <Link>Linked\TrafficWindow.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Services\Traffic\LanClassifier.cs">
-      <Link>Linked\LanClassifier.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Services\Traffic\LocalTrafficNameResolver.cs">
-      <Link>Linked\LocalTrafficNameResolver.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Services\Traffic\LocalTrafficMinute.cs">
-      <Link>Linked\LocalTrafficMinute.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Services\Traffic\FlowCategory.cs">
-      <Link>Linked\FlowCategory.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Services\Traffic\FlowClassification.cs">
-      <Link>Linked\FlowClassification.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Services\Traffic\LocalFlowClassifier.cs">
-      <Link>Linked\LocalFlowClassifier.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Data\OuiDatabase.cs">
-      <Link>Linked\OuiDatabase.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Services\Csv\CsvField.cs">
-      <Link>Linked\CsvField.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Services\Csv\DeviceCsvExporter.cs">
-      <Link>Linked\DeviceCsvExporter.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Services\Csv\DeviceCsvImporter.cs">
-      <Link>Linked\DeviceCsvImporter.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Services\Scanning\MacNormalizer.cs">
-      <Link>Linked\MacNormalizer.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Services\Scanning\MdnsInfo.cs">
-      <Link>Linked\MdnsInfo.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Services\Scanning\MdnsEnrichment.cs">
-      <Link>Linked\MdnsEnrichment.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Services\Scanning\MdnsResponseParser.cs">
-      <Link>Linked\MdnsResponseParser.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Services\Common\Watchdog.cs">
-      <Link>Linked\Watchdog.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Services\Common\CollectionReconciler.cs">
-      <Link>Linked\CollectionReconciler.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Services\Digest\DigestSummaryBuilder.cs">
-      <Link>Linked\DigestSummaryBuilder.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Services\Digest\DigestSchedule.cs">
-      <Link>Linked\DigestSchedule.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Services\Digest\DigestCsvExporter.cs">
-      <Link>Linked\DigestCsvExporter.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Services\SpeedTest\SpeedTestMath.cs">
-      <Link>Linked\SpeedTestMath.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Services\SpeedTest\SpeedTestMessage.cs">
-      <Link>Linked\SpeedTestMessage.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Services\Csv\SpeedTestCsvExporter.cs">
-      <Link>Linked\SpeedTestCsvExporter.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Services\Traffic\LocalFlowMinute.cs">
-      <Link>Linked\LocalFlowMinute.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Services\Traffic\LocalLens.cs">
-      <Link>Linked\LocalLens.cs</Link>
-    </Compile>
-    <Compile Include="..\NetworkMonitor\Services\Traffic\LocalTrafficGrouper.cs">
-      <Link>Linked\LocalTrafficGrouper.cs</Link>
-    </Compile>
   </ItemGroup>
 
 </Project>

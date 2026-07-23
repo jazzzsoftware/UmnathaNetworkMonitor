@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using NetworkMonitor.Models.Charting;
 using NetworkMonitor.Models.Traffic;
-using NetworkMonitor.Services.Traffic;
+using NetworkMonitor.Core.Traffic;
 
 namespace NetworkMonitor.ViewModels
 {

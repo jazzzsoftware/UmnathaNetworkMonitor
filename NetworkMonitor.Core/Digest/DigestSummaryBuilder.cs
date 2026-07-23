@@ -1,9 +1,9 @@
 using NetworkMonitor.Models.Devices;
 using NetworkMonitor.Models.Digest;
 using NetworkMonitor.Models.Traffic;
-using NetworkMonitor.Services.Traffic;
+using NetworkMonitor.Core.Traffic;
 
-namespace NetworkMonitor.Services.Digest
+namespace NetworkMonitor.Core.Digest
 {
     public static class DigestSummaryBuilder
     {

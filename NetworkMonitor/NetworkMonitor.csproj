@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\NetworkMonitor.Models\NetworkMonitor.Models.csproj" />
+    <ProjectReference Include="..\NetworkMonitor.Core\NetworkMonitor.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>

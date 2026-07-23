@@ -1,6 +1,6 @@
 using System.Collections.ObjectModel;
 
-namespace NetworkMonitor.Services.Common
+namespace NetworkMonitor.Core.Common
 {
     public static class CollectionReconciler
     {

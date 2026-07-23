@@ -6,7 +6,8 @@ using NetworkMonitor.Models.Devices;
 using NetworkMonitor.Models.Digest;
 using NetworkMonitor.Models.SpeedTest;
 using NetworkMonitor.Models.Traffic;
-using NetworkMonitor.Services.Traffic;
+using NetworkMonitor.Core.Digest;
+using NetworkMonitor.Core.Traffic;
 
 namespace NetworkMonitor.Services.Digest
 {

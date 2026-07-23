@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace NetworkMonitor.Services.SpeedTest
+namespace NetworkMonitor.Core.SpeedTest
 {
     public static class SpeedTestMath
     {

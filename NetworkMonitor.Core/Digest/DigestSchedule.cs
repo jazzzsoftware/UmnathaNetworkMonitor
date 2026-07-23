@@ -1,4 +1,4 @@
-namespace NetworkMonitor.Services.Digest
+namespace NetworkMonitor.Core.Digest
 {
     public static class DigestSchedule
     {

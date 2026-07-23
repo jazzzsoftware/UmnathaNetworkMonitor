@@ -1,7 +1,7 @@
 using System;
 using System.IO;
-using NetworkMonitor.Data;
 using Xunit;
+using NetworkMonitor.Core.Data;
 
 namespace NetworkMonitor.Tests
 {

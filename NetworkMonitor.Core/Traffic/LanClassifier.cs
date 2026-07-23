@@ -2,7 +2,7 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 
-namespace NetworkMonitor.Services.Traffic
+namespace NetworkMonitor.Core.Traffic
 {
     public class LanClassifier
     {

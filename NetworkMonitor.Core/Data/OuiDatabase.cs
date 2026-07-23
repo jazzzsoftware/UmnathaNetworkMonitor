@@ -1,4 +1,4 @@
-namespace NetworkMonitor.Data
+namespace NetworkMonitor.Core.Data
 {
     public class OuiDatabase
     {

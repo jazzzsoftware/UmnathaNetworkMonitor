@@ -7,8 +7,8 @@ using System.IO;
 using NetworkMonitor.Data;
 using NetworkMonitor.Models.Devices;
 using NetworkMonitor.ViewModels;
-using NetworkMonitor.Services.Csv;
 using NetworkMonitor.Services.Platform;
+using NetworkMonitor.Core.Csv;
 
 namespace NetworkMonitor.Views
 {

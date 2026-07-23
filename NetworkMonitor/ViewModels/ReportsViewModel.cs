@@ -8,6 +8,7 @@ using NetworkMonitor.Data;
 using NetworkMonitor.Models.Digest;
 using NetworkMonitor.Services.Digest;
 using NetworkMonitor.Services.Platform;
+using NetworkMonitor.Core.Digest;
 
 namespace NetworkMonitor.ViewModels
 {

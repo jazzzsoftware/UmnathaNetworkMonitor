@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using NetworkMonitor.Models.Devices;
-using NetworkMonitor.Services.Csv;
 using Xunit;
+using NetworkMonitor.Core.Csv;
 
 namespace NetworkMonitor.Tests
 {

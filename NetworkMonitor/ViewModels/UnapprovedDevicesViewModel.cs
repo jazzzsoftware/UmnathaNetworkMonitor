@@ -6,8 +6,8 @@ using Microsoft.UI.Dispatching;
 using NetworkMonitor.Data;
 using NetworkMonitor.Models.Devices;
 using NetworkMonitor.Services.Scanning;
-using NetworkMonitor.Services.Common;
 using NetworkMonitor.Services.Platform;
+using NetworkMonitor.Core.Common;
 
 namespace NetworkMonitor.ViewModels
 {

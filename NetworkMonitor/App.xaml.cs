@@ -19,6 +19,8 @@ using NetworkMonitor.Services.Platform;
 using NetworkMonitor.Services.SpeedTest;
 using NetworkMonitor.ViewModels;
 using NetworkMonitor.Models.Formatting;
+using NetworkMonitor.Core.Data;
+using NetworkMonitor.Core.Traffic;
 
 namespace NetworkMonitor
 {

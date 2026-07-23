@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace NetworkMonitor.Services.Scanning
+namespace NetworkMonitor.Core.Scanning
 {
     public readonly record struct MdnsAddressRecord(string Host, string Ip);
 

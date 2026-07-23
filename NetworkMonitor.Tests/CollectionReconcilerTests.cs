@@ -1,7 +1,7 @@
 using System.Collections.ObjectModel;
 using NetworkMonitor.Models.Devices;
-using NetworkMonitor.Services.Common;
 using Xunit;
+using NetworkMonitor.Core.Common;
 
 namespace NetworkMonitor.Tests
 {

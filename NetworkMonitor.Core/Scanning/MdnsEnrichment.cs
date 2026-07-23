@@ -1,6 +1,6 @@
 using NetworkMonitor.Models.Devices;
 
-namespace NetworkMonitor.Services.Scanning
+namespace NetworkMonitor.Core.Scanning
 {
     public static class MdnsEnrichment
     {

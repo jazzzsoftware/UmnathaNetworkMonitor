@@ -1,4 +1,4 @@
-namespace NetworkMonitor.Services.Csv
+namespace NetworkMonitor.Core.Csv
 {
     public static class CsvField
     {

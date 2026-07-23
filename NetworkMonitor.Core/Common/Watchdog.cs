@@ -2,7 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace NetworkMonitor.Services.Common
+namespace NetworkMonitor.Core.Common
 {
     public static class Watchdog
     {

@@ -74,5 +74,6 @@
     <Platform Solution="Debug|x64" Project="x64" />
   </Project>
   <Project Path="NetworkMonitor.Models\NetworkMonitor.Models.csproj" />
+  <Project Path="NetworkMonitor.Core\NetworkMonitor.Core.csproj" />
   <Project Path="NetworkMonitor.Tests\NetworkMonitor.Tests.csproj" />
 </Solution>

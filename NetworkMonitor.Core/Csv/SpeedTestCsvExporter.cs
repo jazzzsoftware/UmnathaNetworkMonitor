@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Text;
 using NetworkMonitor.Models.SpeedTest;
 
-namespace NetworkMonitor.Services.Csv
+namespace NetworkMonitor.Core.Csv
 {
     public static class SpeedTestCsvExporter
     {

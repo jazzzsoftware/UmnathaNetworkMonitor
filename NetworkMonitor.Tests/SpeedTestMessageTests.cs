@@ -1,7 +1,7 @@
 using NetworkMonitor.Models.Formatting;
 using NetworkMonitor.Models.SpeedTest;
-using NetworkMonitor.Services.SpeedTest;
 using Xunit;
+using NetworkMonitor.Core.SpeedTest;
 
 namespace NetworkMonitor.Tests
 {

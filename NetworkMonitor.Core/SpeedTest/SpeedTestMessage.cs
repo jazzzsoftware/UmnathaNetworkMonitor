@@ -1,7 +1,7 @@
 using NetworkMonitor.Models.Formatting;
 using NetworkMonitor.Models.SpeedTest;
 
-namespace NetworkMonitor.Services.SpeedTest
+namespace NetworkMonitor.Core.SpeedTest
 {
     public static class SpeedTestMessage
     {

@@ -1,6 +1,6 @@
 using NetworkMonitor.Models.Traffic;
 
-namespace NetworkMonitor.Services.Traffic
+namespace NetworkMonitor.Core.Traffic
 {
     public static class LocalTrafficGrouper
     {

@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using NetworkMonitor.Models.SpeedTest;
 using NetworkMonitor.Services.Platform;
+using NetworkMonitor.Core.SpeedTest;
 
 namespace NetworkMonitor.Services.SpeedTest
 {

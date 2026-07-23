@@ -1,5 +1,5 @@
-using NetworkMonitor.Services.Common;
 using Xunit;
+using NetworkMonitor.Core.Common;
 
 namespace NetworkMonitor.Tests
 {

@@ -17,6 +17,7 @@ using NetworkMonitor.Services.Platform;
 using NetworkMonitor.Views;
 using System.Runtime.InteropServices;
 using Windows.Graphics;
+using NetworkMonitor.Core.SpeedTest;
 
 namespace NetworkMonitor
 {

@@ -2,12 +2,13 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using NetworkMonitor.Data;
 using NetworkMonitor.Models.Traffic;
-using NetworkMonitor.Services.Common;
 using NetworkMonitor.Services.Platform;
 using System.Data.Common;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
+using NetworkMonitor.Core.Common;
+using NetworkMonitor.Core.Traffic;
 
 namespace NetworkMonitor.Services.Traffic
 {

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Hosting;
 using NetworkMonitor.Services.Platform;
 using System.Collections.Concurrent;
 using System.Net;
+using NetworkMonitor.Core.Traffic;
 
 namespace NetworkMonitor.Services.Traffic
 {

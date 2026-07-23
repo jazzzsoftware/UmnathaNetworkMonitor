@@ -3,9 +3,9 @@ using NetworkMonitor.Models.Digest;
 using NetworkMonitor.Models.Formatting;
 using NetworkMonitor.Models.SpeedTest;
 using NetworkMonitor.Models.Traffic;
-using NetworkMonitor.Services.Csv;
+using NetworkMonitor.Core.Csv;
 
-namespace NetworkMonitor.Services.Digest
+namespace NetworkMonitor.Core.Digest
 {
     public static class DigestCsvExporter
     {

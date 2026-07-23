@@ -43,6 +43,17 @@ NetworkMonitor.Models/   (class library, net10.0 — referenced by the app AND t
 ├── SpeedTest/           SpeedTestResult, SpeedTestRowSummary
 └── Traffic/             Traffic/LocalTraffic entities + rollups, app/device row models, per-app summaries
 
+NetworkMonitor.Core/     (class library, net10.0 — pure, UI-free service logic; referenced by the app AND the tests;
+│                         each sub-folder is its own namespace, e.g. NetworkMonitor.Core.Traffic)
+├── Common/              Watchdog (timeout wrapper), CollectionReconciler (in-place list reconcile)
+├── Csv/                 CsvField, DeviceCsvExporter, DeviceCsvImporter, SpeedTestCsvExporter
+├── Data/                OuiDatabase — loads oui.txt → MAC prefix → vendor name
+├── Digest/              DigestSummaryBuilder, DigestSchedule, DigestCsvExporter
+├── Scanning/            MacNormalizer, MdnsInfo, MdnsEnrichment, MdnsResponseParser
+├── SpeedTest/           SpeedTestMath, SpeedTestMessage
+└── Traffic/             LanClassifier, LocalFlowClassifier, LocalTrafficGrouper, TrafficWindow,
+                         LocalTrafficNameResolver, flow/minute records, LocalLens
+
 NetworkMonitor/
 ├── App.xaml.cs               Elevation + single-instance, IHost build, DI, DB init, startup window handling
 ├── MainWindow.xaml.cs        NavigationView shell, tray icon, toast/digest dispatch, window-placement persistence
@@ -50,7 +61,6 @@ NetworkMonitor/
 │
 ├── Data/
 │   ├── AppDbContext.cs       EF Core context; DbPath → LocalApplicationData; schema via EnsureCreated
-│   ├── OuiDatabase.cs        Loads oui.txt → MAC prefix → vendor name
 │   ├── Settings.cs           Scan, traffic, digest, notification and window settings; persisted to settings.json
 │   └── SortPreference.cs     Per-page sort state persisted to LocalApplicationData
 │
@@ -59,42 +69,30 @@ NetworkMonitor/
 │   │   ├── NetworkScanner.cs        Ping sweep + ARP parse + DNS resolve → ScannedDevice list
 │   │   ├── DeviceTracker.cs         Merges scan results into the database
 │   │   ├── ScanWorker.cs            PeriodicTimer scan loop; daily history auto-purge
-│   │   ├── DeviceNotification.cs    DTO carrying notification data between services and UI
-│   │   └── MacNormalizer.cs         Single write-time MAC canonicalisation rule
+│   │   └── DeviceNotification.cs    DTO carrying notification data between services and UI
 │   ├── Traffic/
 │   │   ├── TrafficCollector.cs      ETW kernel TCP/UDP session → per-PID byte counters (BackgroundService)
 │   │   ├── TrafficTracker.cs        Periodic flush of counters → process name/path → TrafficEntries + TrafficRollups
-│   │   ├── TrafficFlushedEventArgs.cs  Carries the just-flushed entries to the Traffic page
-│   │   └── TrafficWindow.cs         Time-window helpers for the Traffic page
+│   │   └── TrafficFlushedEventArgs.cs  Carries the just-flushed entries to the Traffic page
 │   ├── Digest/
 │   │   ├── DigestGenerator.cs       Builds + persists a DigestReport for a period; raises ReportGenerated
-│   │   ├── DigestSummaryBuilder.cs  Pure builder: events + devices + traffic → DigestSummary
-│   │   ├── DigestSchedule.cs        Pure schedule maths: next run + missed-window catch-up
 │   │   ├── DigestWorker.cs          Daily digest loop, catch-up, report purge (BackgroundService)
 │   │   ├── DigestChartRenderer.cs   Win2D bar + donut charts → PNG (rendered at 288 DPI for crisp output)
-│   │   ├── DigestPdfExporter.cs     QuestPDF document (charts + tables) → PDF bytes
-│   │   └── DigestCsvExporter.cs     One/all digest reports → CSV
+│   │   └── DigestPdfExporter.cs     QuestPDF document (charts + tables) → PDF bytes
 │   ├── SpeedTest/
 │   │   ├── SpeedTestService.cs      Cloudflare parallel-stream download/upload + latency (self-bounded, 120s)
 │   │   ├── SpeedTestWorker.cs       Hourly speed-test loop; RunNowAsync for on-demand (BackgroundService)
-│   │   ├── SpeedTestMath.cs         Pure throughput/jitter maths (unit-tested)
-│   │   ├── SpeedTestMessage.cs      Status-message helper
 │   │   └── SpeedTestCompletedEventArgs.cs  Carries the latest result to the UI
 │   ├── Csv/
-│   │   ├── DeviceCsvExporter.cs     Export device list to CSV
-│   │   ├── DeviceCsvImporter.cs     Import device list from CSV
-│   │   └── CsvField.cs              Shared CSV escaping + formula-injection guard
+│   │   └── DeviceEventCsvExporter.cs  Export device event history to CSV
 │   ├── Backup/
 │   │   └── DatabaseBackupWorker.cs  Daily timestamped DB backup + approved-devices CSV (BackgroundService)
-│   ├── Platform/
-│   │   ├── AppLog.cs                Opt-in diagnostic file logger (app/scan events + exceptions, no PII)
-│   │   ├── InAppNotificationService.cs  Raises in-app toast-banner messages
-│   │   ├── TrayIconService.cs       Win32 system tray icon + context menu (Show / Exit)
-│   │   ├── WindowsStartupService.cs Enable/disable "start with Windows" via schtasks onlogon task
-│   │   └── OpenFileDialog.cs / Win32FileSaveDialog.cs  Win32 file pickers (open + IFileDialog save)
-│   └── Common/
-│       ├── CollectionReconciler.cs  In-place ObservableCollection/list reconcile by key (no full rebuild)
-│       └── Watchdog.cs              Runs an async operation under a timeout; abandons + cancels a hung await
+│   └── Platform/
+│       ├── AppLog.cs                Opt-in diagnostic file logger (app/scan events + exceptions, no PII)
+│       ├── InAppNotificationService.cs  Raises in-app toast-banner messages
+│       ├── TrayIconService.cs       Win32 system tray icon + context menu (Show / Exit)
+│       ├── WindowsStartupService.cs Enable/disable "start with Windows" via schtasks onlogon task
+│       └── OpenFileDialog.cs / Win32FileSaveDialog.cs  Win32 file pickers (open + IFileDialog save)
 │
 ├── ViewModels/
 │   ├── AllDevicesViewModel.cs      Devices grid (last 24h), scan command, mark-known logic

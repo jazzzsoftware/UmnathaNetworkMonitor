@@ -4,9 +4,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using NetworkMonitor.Data;
 using NetworkMonitor.Models.Devices;
-using NetworkMonitor.Services.Common;
-using NetworkMonitor.Services.Csv;
 using NetworkMonitor.Services.Platform;
+using NetworkMonitor.Core.Common;
+using NetworkMonitor.Core.Csv;
 
 namespace NetworkMonitor.Services.Backup
 {

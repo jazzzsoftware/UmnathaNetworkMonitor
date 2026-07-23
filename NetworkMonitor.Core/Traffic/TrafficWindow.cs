@@ -1,4 +1,4 @@
-namespace NetworkMonitor.Services.Traffic
+namespace NetworkMonitor.Core.Traffic
 {
     public static class TrafficWindow
     {

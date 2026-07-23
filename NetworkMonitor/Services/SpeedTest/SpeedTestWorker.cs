@@ -5,8 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using NetworkMonitor.Data;
 using NetworkMonitor.Models.SpeedTest;
-using NetworkMonitor.Services.Common;
 using NetworkMonitor.Services.Platform;
+using NetworkMonitor.Core.Common;
 
 namespace NetworkMonitor.Services.SpeedTest
 {

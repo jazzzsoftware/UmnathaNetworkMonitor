@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
-using NetworkMonitor.Services.SpeedTest;
 using Xunit;
+using NetworkMonitor.Core.SpeedTest;
 
 namespace NetworkMonitor.Tests
 {

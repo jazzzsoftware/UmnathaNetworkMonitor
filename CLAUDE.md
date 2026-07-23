@@ -4,7 +4,7 @@
 
 WinUI 3 desktop app (.NET 10, unpackaged) that periodically scans the local network, tracks devices by MAC address, and maintains a known-devices list.
 
-Three projects: **NetworkMonitor** (the WinUI app), **NetworkMonitor.Models** (net10.0 class library — all model types plus the shared unit formatters, one namespace per sub-folder, e.g. `NetworkMonitor.Models.Traffic`; referenced by both other projects), and **NetworkMonitor.Tests** (xunit; models come via ProjectReference, service classes under test are still source-linked).
+Four projects: **NetworkMonitor** (the WinUI app — UI, workers, platform/ETW/EF services), **NetworkMonitor.Models** (net10.0 class library — all model types plus the shared unit formatters), **NetworkMonitor.Core** (net10.0 class library — pure, UI-free service logic: classifiers, grouper, CSV, digest builder/schedule, speed-test maths, mDNS parsing, OuiDatabase), and **NetworkMonitor.Tests** (xunit — references Models + Core via ProjectReference only; no source links). In every project each sub-folder is its own namespace (e.g. `NetworkMonitor.Core.Traffic`). New pure logic that needs tests goes in Core, not the app project.
 
 ## Stack
 
@@ -75,7 +75,7 @@ New root-level files (docs, config) must be added to `NetworkMonitor.slnx` so th
 |---|---|
 | `NetworkMonitor/App.xaml.cs` | IHost build + DI registration + DB init |
 | `NetworkMonitor/Data/AppDbContext.cs` | EF context; DbPath points to LocalApplicationData |
-| `NetworkMonitor/Data/OuiDatabase.cs` | Loads oui.txt → MAC prefix → vendor name |
+| `NetworkMonitor.Core/Data/OuiDatabase.cs` | Loads oui.txt → MAC prefix → vendor name |
 | `NetworkMonitor/Services/Scanning/NetworkScanner.cs` | Ping sweep + ARP parse + DNS resolve |
 | `NetworkMonitor/Services/Scanning/DeviceTracker.cs` | Merges scan results into DB |
 | `NetworkMonitor/Services/Scanning/ScanWorker.cs` | PeriodicTimer background scan loop |
@@ -84,9 +84,9 @@ New root-level files (docs, config) must be added to `NetworkMonitor.slnx` so th
 | `NetworkMonitor/Views/ApprovedDevicesPage.xaml` | Editable approved-device list with Edit / Delete / CSV import-export |
 | `NetworkMonitor/Services/Traffic/TrafficCollector.cs` | ETW kernel session; per-flow WAN (`_counters` by PID) + LAN (`_localCounters` by `LocalFlowKey`) capture. TCP recv/send use `daddr/dport`; UDP recv uses `saddr` |
 | `NetworkMonitor/Services/Traffic/TrafficTracker.cs` | Flush loop → writes Traffic/LocalTraffic entries + rollups; raises `Flushed(entries, localDeltas)` |
-| `NetworkMonitor/Services/Traffic/LanClassifier.cs` | Classifies a remote IP as LAN vs WAN; `IsSelfOrLoopback` self/loopback drop |
-| `NetworkMonitor/Services/Traffic/LocalFlowClassifier.cs` | `(protocol, remotePort)` → Data/Discovery + service tag (SMB…); single source of the discovery port list (`DiscoverySqlPredicate`) |
-| `NetworkMonitor/Services/Traffic/LocalTrafficGrouper.cs` | Builds the two-level app/device row model + background (discovery) fold |
+| `NetworkMonitor.Core/Traffic/LanClassifier.cs` | Classifies a remote IP as LAN vs WAN; `IsSelfOrLoopback` self/loopback drop |
+| `NetworkMonitor.Core/Traffic/LocalFlowClassifier.cs` | `(protocol, remotePort)` → Data/Discovery + service tag (SMB…); single source of the discovery port list (`DiscoverySqlPredicate`) |
+| `NetworkMonitor.Core/Traffic/LocalTrafficGrouper.cs` | Builds the two-level app/device row model + background (discovery) fold |
 | `NetworkMonitor/ViewModels/InternetViewModel.cs` | WAN per-app grid + area chart + live rate badge |
 | `NetworkMonitor/ViewModels/LocalViewModel.cs` | LAN app/device lenses, in-place row reconcile, live rate badge |
 | `NetworkMonitor/Views/LocalPage.xaml` | Local traffic grid (lens toggle, service/discovery/rate chips, drill-down) |

@@ -1,4 +1,4 @@
-namespace NetworkMonitor.Services.Scanning
+namespace NetworkMonitor.Core.Scanning
 {
     public static class MacNormalizer
     {

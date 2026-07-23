@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 using NetworkMonitor.Models.Devices;
-using NetworkMonitor.Services.Scanning;
+using NetworkMonitor.Core.Scanning;
 
-namespace NetworkMonitor.Services.Csv
+namespace NetworkMonitor.Core.Csv
 {
     public static class DeviceCsvImporter
     {

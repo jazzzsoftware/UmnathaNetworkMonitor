@@ -1,5 +1,6 @@
 using Makaretu.Dns;
 using NetworkMonitor.Services.Platform;
+using NetworkMonitor.Core.Scanning;
 
 namespace NetworkMonitor.Services.Scanning
 {

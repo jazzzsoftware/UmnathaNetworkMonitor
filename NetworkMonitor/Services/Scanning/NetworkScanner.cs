@@ -3,6 +3,8 @@ using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text.RegularExpressions;
 using NetworkMonitor.Data;
+using NetworkMonitor.Core.Data;
+using NetworkMonitor.Core.Scanning;
 
 namespace NetworkMonitor.Services.Scanning
 {
