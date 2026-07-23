@@ -99,13 +99,13 @@
                             FontSize="20"
                             FontWeight="SemiBold"
                             Foreground="#1976D2"
-                            Text="{x:Bind ViewModel.Latest.DownloadMbps, Mode=OneWay, Converter={StaticResource DoubleFormatConverter}, ConverterParameter='0.0 Mbps'}" />
+                            Text="{x:Bind ViewModel.Latest.DownloadMbps, Mode=OneWay, Converter={StaticResource DoubleFormatConverter}, ConverterParameter='0.0 Mb/s'}" />
 
                         <TextBlock
                             FontSize="20"
                             FontWeight="SemiBold"
                             Foreground="#1976D2"
-                            Text="{x:Bind ViewModel.Latest.DownloadMBps, Mode=OneWay, Converter={StaticResource DoubleFormatConverter}, ConverterParameter='0.0 MBps'}" />
+                            Text="{x:Bind ViewModel.Latest.DownloadMBps, Mode=OneWay, Converter={StaticResource DoubleFormatConverter}, ConverterParameter='0.0 MB/s'}" />
 
                     </StackPanel>
 
@@ -121,13 +121,13 @@
                             FontSize="20"
                             FontWeight="SemiBold"
                             Foreground="#AB47BC"
-                            Text="{x:Bind ViewModel.Latest.UploadMbps, Mode=OneWay, Converter={StaticResource DoubleFormatConverter}, ConverterParameter='0.0 Mbps'}" />
+                            Text="{x:Bind ViewModel.Latest.UploadMbps, Mode=OneWay, Converter={StaticResource DoubleFormatConverter}, ConverterParameter='0.0 Mb/s'}" />
 
                         <TextBlock
                             FontSize="20"
                             FontWeight="SemiBold"
                             Foreground="#AB47BC"
-                            Text="{x:Bind ViewModel.Latest.UploadMBps, Mode=OneWay, Converter={StaticResource DoubleFormatConverter}, ConverterParameter='0.0 MBps'}" />
+                            Text="{x:Bind ViewModel.Latest.UploadMBps, Mode=OneWay, Converter={StaticResource DoubleFormatConverter}, ConverterParameter='0.0 MB/s'}" />
 
                     </StackPanel>
 
@@ -184,7 +184,7 @@
                             FontWeight="SemiBold"
                             Opacity="0.7"
                             VerticalAlignment="Center"
-                            Text="Throughput (Mbps/MBps)" />
+                            Text="Throughput (Mb/s · MB/s)" />
 
                         <StackPanel
                             Grid.Column="1"
@@ -239,8 +239,8 @@
                     <chart:SpeedTrendChart
                         x:Name="ThroughputChart"
                         Height="110"
-                        Unit="Mbps"
-                        SecondaryUnit="MBps"
+                        Unit="Mb/s"
+                        SecondaryUnit="MB/s"
                         SecondaryDivisor="8"
                         Series="{x:Bind ViewModel.ThroughputSeries, Mode=OneWay}" />
 
@@ -352,7 +352,7 @@
                     Binding="{Binding LocalTimestamp}" />
 
                 <controls:DataGridTemplateColumn
-                    Header="Download (Mbps)"
+                    Header="Download (Mb/s)"
                     Width="150"
                     CanUserSort="True"
                     Tag="DownloadMbps">
@@ -375,7 +375,7 @@
                 </controls:DataGridTemplateColumn>
 
                 <controls:DataGridTemplateColumn
-                    Header="Upload (Mbps)"
+                    Header="Upload (Mb/s)"
                     Width="150"
                     CanUserSort="True"
                     Tag="UploadMbps">
@@ -398,7 +398,7 @@
                 </controls:DataGridTemplateColumn>
 
                 <controls:DataGridTemplateColumn
-                    Header="Download (MBps)"
+                    Header="Download (MB/s)"
                     Width="150"
                     CanUserSort="True"
                     Tag="DownloadMBps">
@@ -421,7 +421,7 @@
                 </controls:DataGridTemplateColumn>
 
                 <controls:DataGridTemplateColumn
-                    Header="Upload (MBps)"
+                    Header="Upload (MB/s)"
                     Width="150"
                     CanUserSort="True"
                     Tag="UploadMBps">

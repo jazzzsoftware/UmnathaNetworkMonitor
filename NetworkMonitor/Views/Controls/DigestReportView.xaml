@@ -524,7 +524,7 @@
                                 <TextBlock
                                     FontWeight="SemiBold"
                                     Foreground="{ThemeResource DigestAccentTealBrush}"
-                                    Text="Download (Mbps)" />
+                                    Text="Download (Mb/s)" />
 
                             </Border>
 
@@ -537,7 +537,7 @@
                                 <TextBlock
                                     FontWeight="SemiBold"
                                     Foreground="{ThemeResource DigestAccentTealBrush}"
-                                    Text="Upload (Mbps)" />
+                                    Text="Upload (Mb/s)" />
 
                             </Border>
 
@@ -550,7 +550,7 @@
                                 <TextBlock
                                     FontWeight="SemiBold"
                                     Foreground="{ThemeResource DigestAccentBlueBrush}"
-                                    Text="Download (MBps)" />
+                                    Text="Download (MB/s)" />
 
                             </Border>
 
@@ -563,7 +563,7 @@
                                 <TextBlock
                                     FontWeight="SemiBold"
                                     Foreground="{ThemeResource DigestAccentBlueBrush}"
-                                    Text="Upload (MBps)" />
+                                    Text="Upload (MB/s)" />
 
                             </Border>
 

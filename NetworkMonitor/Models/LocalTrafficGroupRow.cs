@@ -8,7 +8,7 @@ namespace NetworkMonitor.Models
 {
     public class LocalTrafficGroupRow : ObservableObject
     {
-        private const double RateThresholdBytesPerSec = 65_536.0;
+        private const double RateThresholdBytesPerSec = 62_500.0;
 
         public LocalTrafficGroupRow(string? key, string displayName, string? subLabel, long bytesUploaded, long bytesDownloaded, IReadOnlyList<LocalTrafficLeafRow> children, GroupKind kind, string? serviceTag)
         {

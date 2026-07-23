@@ -5,7 +5,7 @@ namespace NetworkMonitor.Models
 {
     public record InternetTrafficAppRow(string? ProcessName, long BytesUploaded, long BytesDownloaded, string? ProcessPath, double RateBytesPerSec = 0.0)
     {
-        private const double RateThresholdBytesPerSec = 65_536.0;
+        private const double RateThresholdBytesPerSec = 62_500.0;
 
         public long TotalBytes => BytesUploaded + BytesDownloaded;
         public bool IsAllApps => ProcessName is null;

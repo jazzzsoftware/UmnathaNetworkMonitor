@@ -150,7 +150,8 @@ Done - In local - discovery row there are entries where there is no device. I th
 Done - Check units: shown in both units: × 8 / 1,000,000 for Mb/s and / 1,000,000, decimal or binary
 Done - Why speed test so different to speedtest.net. Notice cloudflare web test runs for longer
 
-Make a setting of Mbps or MBps or both?
+Done - Make all units decimal based and not binary based.
+Make a setting to switch Mb/s, MB/s or both 
 Create a Model project with subfolders and refactor.    
 Release on github
 

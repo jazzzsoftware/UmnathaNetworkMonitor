@@ -17,7 +17,7 @@ namespace NetworkMonitor.Tests
 
             string firstLine = csv.Split('\n')[0].TrimEnd('\r');
 
-            Assert.Equal("Timestamp,Download (Mbps),Upload (Mbps),Download (MBps),Upload (MBps),Latency (ms),Jitter (ms),Server,Success,Error", firstLine);
+            Assert.Equal("Timestamp,Download (Mb/s),Upload (Mb/s),Download (MB/s),Upload (MB/s),Latency (ms),Jitter (ms),Server,Success,Error", firstLine);
         }
 
         [Fact]

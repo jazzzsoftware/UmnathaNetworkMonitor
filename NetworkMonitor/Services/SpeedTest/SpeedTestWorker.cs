@@ -107,7 +107,7 @@ namespace NetworkMonitor.Services.SpeedTest
             await db.SaveChangesAsync(ct);
 
             SpeedTestCompleted?.Invoke(this, new SpeedTestCompletedEventArgs(result));
-            AppLog.Info($"Speed test completed: {result.DownloadMbps:0.0} down / {result.UploadMbps:0.0} up Mbps, ping={result.LatencyMs:0.0} ms, jitter={result.JitterMs:0.0} ms, success={result.Success}.");
+            AppLog.Info($"Speed test completed: {result.DownloadMbps:0.0} down / {result.UploadMbps:0.0} up Mb/s, ping={result.LatencyMs:0.0} ms, jitter={result.JitterMs:0.0} ms, success={result.Success}.");
         }
     }
 }

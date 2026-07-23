@@ -99,7 +99,7 @@ namespace NetworkMonitor.Services.Digest
             Color background = lightBackground ? LightBackground : DarkBackground;
             Color textColour = lightBackground ? LightText : DarkText;
             byte[] png = RenderToPng(background, SpeedChartHeight, dpi, (session, device) =>
-                DrawLineChart(session, device, SpeedChartHeight, seriesNames, seriesColours, values, timestamps, textColour, "Mbps", "MBps", 8.0));
+                DrawLineChart(session, device, SpeedChartHeight, seriesNames, seriesColours, values, timestamps, textColour, "Mb/s", "MB/s", 8.0));
 
             return png;
         }
@@ -522,17 +522,17 @@ namespace NetworkMonitor.Services.Digest
         {
             string result;
 
-            if (bytes >= 1_073_741_824.0)
+            if (bytes >= 1_000_000_000.0)
             {
-                result = $"{bytes / 1_073_741_824.0:F1} GB";
+                result = $"{bytes / 1_000_000_000.0:F1} GB";
             }
-            else if (bytes >= 1_048_576.0)
+            else if (bytes >= 1_000_000.0)
             {
-                result = $"{bytes / 1_048_576.0:F1} MB";
+                result = $"{bytes / 1_000_000.0:F1} MB";
             }
-            else if (bytes >= 1_024.0)
+            else if (bytes >= 1_000.0)
             {
-                result = $"{bytes / 1_024.0:F1} KB";
+                result = $"{bytes / 1_000.0:F1} KB";
             }
             else
             {

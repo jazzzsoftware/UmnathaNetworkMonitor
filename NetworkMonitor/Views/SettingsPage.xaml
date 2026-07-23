@@ -851,7 +851,7 @@
                         TextWrapping="Wrap" />
 
                     <TextBlock
-                        Text="• Consistent units. Traffic sizes and live speeds use consistent binary units (KB/MB/GB), while the Speed Test keeps decimal Mbps to match your ISP and speedtest.net."
+                        Text="• Consistent units. All sizes and speeds across the app — traffic totals, live speed badges, charts and the Speed Test — use decimal units (KB/MB/GB, ÷1000), matching your ISP and speedtest.net."
                         TextWrapping="Wrap" />
 
                     <TextBlock
@@ -895,7 +895,7 @@
                         TextWrapping="Wrap" />
 
                     <TextBlock
-                        Text="• Throughput is now labelled Download/Upload (renamed from Received/Sent) and shown in both Mbps and MBps, colour-coded — on the Speed Test page and in the daily digest."
+                        Text="• Throughput is now labelled Download/Upload (renamed from Received/Sent) and shown in both Mb/s and MB/s, colour-coded — on the Speed Test page and in the daily digest."
                         TextWrapping="Wrap" />
 
                     <TextBlock
@@ -911,7 +911,7 @@
                         TextWrapping="Wrap" />
 
                     <TextBlock
-                        Text="• Scan and speed-test completions now also raise Windows toast notifications (when toasts are enabled); the speed-test toast shows both Mbps and MBps."
+                        Text="• Scan and speed-test completions now also raise Windows toast notifications (when toasts are enabled); the speed-test toast shows both Mb/s and MB/s."
                         TextWrapping="Wrap" />
 
                     <TextBlock

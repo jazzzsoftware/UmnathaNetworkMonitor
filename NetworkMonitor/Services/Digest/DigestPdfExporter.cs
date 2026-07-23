@@ -168,10 +168,10 @@ namespace NetworkMonitor.Services.Digest
                 table.Header(header =>
                 {
                     header.Cell().Text("Time").SemiBold();
-                    header.Cell().AlignRight().Text("Download (Mbps)").SemiBold().FontColor(MbpsColor);
-                    header.Cell().AlignRight().Text("Upload (Mbps)").SemiBold().FontColor(MbpsColor);
-                    header.Cell().AlignRight().Text("Download (MBps)").SemiBold().FontColor(MBpsColor);
-                    header.Cell().AlignRight().Text("Upload (MBps)").SemiBold().FontColor(MBpsColor);
+                    header.Cell().AlignRight().Text("Download (Mb/s)").SemiBold().FontColor(MbpsColor);
+                    header.Cell().AlignRight().Text("Upload (Mb/s)").SemiBold().FontColor(MbpsColor);
+                    header.Cell().AlignRight().Text("Download (MB/s)").SemiBold().FontColor(MBpsColor);
+                    header.Cell().AlignRight().Text("Upload (MB/s)").SemiBold().FontColor(MBpsColor);
                     header.Cell().AlignRight().Text("Latency (ms)").SemiBold();
                     header.Cell().AlignRight().Text("Jitter (ms)").SemiBold();
                     header.Cell().Text("Server").SemiBold();

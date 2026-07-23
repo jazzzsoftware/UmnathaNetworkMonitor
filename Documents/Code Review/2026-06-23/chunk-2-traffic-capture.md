@@ -41,6 +41,7 @@ Status: **FIXED 2026-06-26 (start-time-keyed cache)** — user chose "do it prop
 ### C2-7 [CLEANUP] Unit-base inconsistency (SI vs binary)
 `TrafficRateFormatter.cs` formats rates with SI 1000 (Kb/s, MB/s), while byte *sizes* elsewhere (`DigestChartRenderer.FormatBytes`, `TrafficViewModel.FormatBytes`) use binary 1024 (KB, MB). May be intentional (rates SI, sizes binary), but worth an explicit decision for consistency.
 Status: **FIXED 2026-06-25 (decided cleanups)** — user chose **binary (1024)**. `TrafficRateFormatter.BitsPerSecond`/`BytesPerSecond` thresholds + divisors changed 1000→1024 (1_073_741_824 / 1_048_576 / 1024). Now consistent with the size formatters. `TrafficRateFormatterTests` InlineData updated to binary-clean inputs/outputs.
+> **Superseded 2026-07-23** — decision reversed: the whole app (rates *and* sizes) now uses **decimal (SI, ÷1000)** units, since binary divisors would strictly require KiB/MiB labels and network speeds are universally quoted decimal.
 
 ### C2-8 [CLEANUP] `AppTrafficTotal` DTO lives in `Services`, not `Models`
 `AppTrafficTotal.cs` — it's a pure data record used as digest input; sits in the `Services` namespace while sibling DTOs live in `Models`. Minor placement/consistency nit.

@@ -10,9 +10,9 @@ namespace NetworkMonitor.Tests
     {
         [Theory]
         [InlineData(10, 1.0, "80 b/s")]
-        [InlineData(128, 1.0, "1 Kb/s")]
-        [InlineData(131_072, 1.0, "1 Mb/s")]
-        [InlineData(134_217_728, 1.0, "1 Gb/s")]
+        [InlineData(125, 1.0, "1 Kb/s")]
+        [InlineData(125_000, 1.0, "1 Mb/s")]
+        [InlineData(125_000_000, 1.0, "1 Gb/s")]
         public void BitsPerSecondFormatsByMagnitude(long bytes, double seconds, string expected)
         {
             string result = TrafficRateFormatter.BitsPerSecond(bytes, seconds);
@@ -22,9 +22,9 @@ namespace NetworkMonitor.Tests
 
         [Theory]
         [InlineData(500, 1.0, "500 B/s")]
-        [InlineData(1024, 1.0, "1 KB/s")]
-        [InlineData(1_048_576, 1.0, "1 MB/s")]
-        [InlineData(2_147_483_648, 1.0, "2 GB/s")]
+        [InlineData(1000, 1.0, "1 KB/s")]
+        [InlineData(1_000_000, 1.0, "1 MB/s")]
+        [InlineData(2_000_000_000, 1.0, "2 GB/s")]
         public void BytesPerSecondFormatsByMagnitude(long bytes, double seconds, string expected)
         {
             string result = TrafficRateFormatter.BytesPerSecond(bytes, seconds);

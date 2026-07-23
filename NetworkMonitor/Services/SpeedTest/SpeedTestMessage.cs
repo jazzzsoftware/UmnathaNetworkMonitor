@@ -10,7 +10,7 @@ namespace NetworkMonitor.Services.SpeedTest
 
             if (result.Success)
             {
-                message = $"Speed test: {result.DownloadMbps:0.0} ↓ / {result.UploadMbps:0.0} ↑ Mbps · {result.DownloadMBps:0.0} ↓ / {result.UploadMBps:0.0} ↑ MBps · {result.LatencyMs:0} ms";
+                message = $"Speed test: {result.DownloadMbps:0.0} ↓ / {result.UploadMbps:0.0} ↑ Mb/s · {result.DownloadMBps:0.0} ↓ / {result.UploadMBps:0.0} ↑ MB/s · {result.LatencyMs:0} ms";
             }
             else
             {

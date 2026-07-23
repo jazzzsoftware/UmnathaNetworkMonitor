@@ -19,7 +19,7 @@ namespace NetworkMonitor.Tests
 
             string message = SpeedTestMessage.Format(result);
 
-            Assert.Equal("Speed test: 240.0 ↓ / 16.0 ↑ Mbps · 30.0 ↓ / 2.0 ↑ MBps · 12 ms", message);
+            Assert.Equal("Speed test: 240.0 ↓ / 16.0 ↑ Mb/s · 30.0 ↓ / 2.0 ↑ MB/s · 12 ms", message);
         }
 
         [Fact]

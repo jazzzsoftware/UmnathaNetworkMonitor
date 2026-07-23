@@ -184,7 +184,7 @@ namespace NetworkMonitor.Services.Digest
         private static string BuildHeadline(DigestSummary summary)
         {
             int newUnapproved = summary.NewDevices.Count(device => !device.IsApproved);
-            double totalGb = (summary.TotalBytesUploaded + summary.TotalBytesDownloaded) / 1_073_741_824.0;
+            double totalGb = (summary.TotalBytesUploaded + summary.TotalBytesDownloaded) / 1_000_000_000.0;
             string trafficPart = $"{totalGb:0.0} GB traffic";
             string headline;
 

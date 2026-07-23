@@ -6,17 +6,17 @@ namespace NetworkMonitor.Services.Common
         {
             string result;
 
-            if (bytes >= 1_073_741_824L)
+            if (bytes >= 1_000_000_000L)
             {
-                result = $"{bytes / 1_073_741_824.0:F1} GB";
+                result = $"{bytes / 1_000_000_000.0:F1} GB";
             }
-            else if (bytes >= 1_048_576L)
+            else if (bytes >= 1_000_000L)
             {
-                result = $"{bytes / 1_048_576.0:F1} MB";
+                result = $"{bytes / 1_000_000.0:F1} MB";
             }
-            else if (bytes >= 1_024L)
+            else if (bytes >= 1_000L)
             {
-                result = $"{bytes / 1_024.0:F1} KB";
+                result = $"{bytes / 1_000.0:F1} KB";
             }
             else
             {

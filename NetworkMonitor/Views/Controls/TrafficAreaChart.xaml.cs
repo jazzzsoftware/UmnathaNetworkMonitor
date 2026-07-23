@@ -577,17 +577,17 @@ namespace NetworkMonitor.Views.Controls
             double bitsPerSecond = peakBytes * 8.0 / bucketSeconds;
             double divisor;
 
-            if (bitsPerSecond >= 1_073_741_824)
+            if (bitsPerSecond >= 1_000_000_000)
             {
-                divisor = 1_073_741_824;
+                divisor = 1_000_000_000;
             }
-            else if (bitsPerSecond >= 1_048_576)
+            else if (bitsPerSecond >= 1_000_000)
             {
-                divisor = 1_048_576;
+                divisor = 1_000_000;
             }
-            else if (bitsPerSecond >= 1024)
+            else if (bitsPerSecond >= 1000)
             {
-                divisor = 1024;
+                divisor = 1000;
             }
             else
             {

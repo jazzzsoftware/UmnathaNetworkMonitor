@@ -242,8 +242,8 @@ Rows are stable observable objects reconciled **in place** (`ApplyGroups`) rathe
 Both grids show a green **`● 118 Mb/s · 15 MB/s`** pill on any top-level row that is actively transferring. How it's computed:
 
 1. On **every** live flush, the per-interval bytes for each group/app are pushed into a small per-key rolling window (`_rateWindows`, last **5** samples), plus an `__all` total. Feeding happens *before* the flush's incremental-vs-reload branch, so it's independent of which path the sliding window takes (getting this wrong is why the badge first appeared only intermittently).
-2. **rate = average(window) ÷ `TrafficIntervalSeconds`** → bytes/sec, formatted by the shared **`TrafficRateFormatter`** into **both** a bits/s and a bytes/s figure (e.g. `141 Mb/s · 18 MB/s`), auto-scaling the unit. This is **binary** (÷1,048,576) to match the byte columns (`ByteSizeFormatter`) and the chart axis — everything in the Traffic tabs is base-1024. (The **Speed Test** tab is the deliberate exception: it reports **decimal** Mbps/MBps, the ISP/speedtest.net convention people compare against.)
-3. The pill is **live-only** and shows only **above ~0.5 Mb/s** (a 64 KB/s threshold), so idle discovery chatter and paused/long-range views stay clean. Leaving live clears the windows via `SetRatesActive(false)`.
+2. **rate = average(window) ÷ `TrafficIntervalSeconds`** → bytes/sec, formatted by the shared **`TrafficRateFormatter`** into **both** a bits/s and a bytes/s figure (e.g. `141 Mb/s · 18 MB/s`), auto-scaling the unit. This is **decimal** (÷1,000,000) to match the byte columns (`ByteSizeFormatter`), the chart axis and the Speed Test tab — the **whole app uses base-1000 (SI) units**, the ISP/speedtest.net convention people compare against. (Binary ÷1,024 units — strictly KiB/MiB — were tried and dropped: network speeds are universally quoted decimal.)
+3. The pill is **live-only** and shows only **above 0.5 Mb/s** (a 62.5 KB/s threshold), so idle discovery chatter and paused/long-range views stay clean. Leaving live clears the windows via `SetRatesActive(false)`.
 
 Local bakes the rate onto its in-place observable rows (`RateBytesPerSec` → `HasRate`/`RateText`); Internet, which rebuilds its row *records* each flush, bakes it into each new `InternetTrafficAppRow` after the flush branch. Same threshold, units and smoothing on both.
 
@@ -257,7 +257,7 @@ Three details make it work:
 - **Latency stays on HTTP/2.** The latency/warm-up probes use the client's default HTTP/2; Cloudflare's `__down` is slow over HTTP/1.1 (~450 ms vs ~24 ms), so forcing 1.1 there inflates it. Server processing (`Server-Timing: cfRequestDuration`) is subtracted, and the reported latency is the **min** of 10 samples (jitter = their spread).
 - **Download chunk cap.** `/__down?bytes=N` returns **403 for N ≥ 100 MB**, so each stream requests 99,999,999 bytes and loops to refill the window; upload streams a continuous body per connection (`CountingUploadContent`).
 
-Throughput is reported in **decimal** Mbps/MBps (÷1,000,000) — the ISP/speedtest.net convention — unlike the binary Traffic-tab figures. An accurate run transfers **~750 MB** (~18 GB/day at the hourly cadence); Settings warns about this so metered users can disable it.
+Throughput is reported in **decimal** Mb/s / MB/s (÷1,000,000) — the ISP/speedtest.net convention, and the same base-1000 units used everywhere else in the app. An accurate run transfers **~750 MB** (~18 GB/day at the hourly cadence); Settings warns about this so metered users can disable it.
 
 ## Daily digest pipeline
 

@@ -9,7 +9,7 @@ namespace NetworkMonitor.Services.Csv
         public static string ToCsv(IEnumerable<SpeedTestResult> results)
         {
             StringBuilder builder = new();
-            builder.AppendLine("Timestamp,Download (Mbps),Upload (Mbps),Download (MBps),Upload (MBps),Latency (ms),Jitter (ms),Server,Success,Error");
+            builder.AppendLine("Timestamp,Download (Mb/s),Upload (Mb/s),Download (MB/s),Upload (MB/s),Latency (ms),Jitter (ms),Server,Success,Error");
 
             foreach (SpeedTestResult result in results)
             {

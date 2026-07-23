@@ -10,9 +10,9 @@ namespace NetworkMonitor.Services.Traffic
 
             string result = bitsPerSecond switch
             {
-                >= 1_073_741_824 => $"{bitsPerSecond / 1_073_741_824:F0} Gb/s",
-                >= 1_048_576 => $"{bitsPerSecond / 1_048_576:F0} Mb/s",
-                >= 1024 => $"{bitsPerSecond / 1024:F0} Kb/s",
+                >= 1_000_000_000 => $"{bitsPerSecond / 1_000_000_000:F0} Gb/s",
+                >= 1_000_000 => $"{bitsPerSecond / 1_000_000:F0} Mb/s",
+                >= 1000 => $"{bitsPerSecond / 1000:F0} Kb/s",
                 _ => $"{bitsPerSecond:F0} b/s"
             };
 
@@ -25,9 +25,9 @@ namespace NetworkMonitor.Services.Traffic
 
             string result = bytesPerSecond switch
             {
-                >= 1_073_741_824 => $"{bytesPerSecond / 1_073_741_824:F0} GB/s",
-                >= 1_048_576 => $"{bytesPerSecond / 1_048_576:F0} MB/s",
-                >= 1024 => $"{bytesPerSecond / 1024:F0} KB/s",
+                >= 1_000_000_000 => $"{bytesPerSecond / 1_000_000_000:F0} GB/s",
+                >= 1_000_000 => $"{bytesPerSecond / 1_000_000:F0} MB/s",
+                >= 1000 => $"{bytesPerSecond / 1000:F0} KB/s",
                 _ => $"{bytesPerSecond:F0} B/s"
             };
 

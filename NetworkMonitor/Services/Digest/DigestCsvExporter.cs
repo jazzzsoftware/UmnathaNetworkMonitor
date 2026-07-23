@@ -111,7 +111,7 @@ namespace NetworkMonitor.Services.Digest
         private static void AppendSpeedTestTable(StringBuilder builder, IReadOnlyList<SpeedTestRowSummary> speedTests)
         {
             builder.AppendLine("Speed tests (last 24 hours)");
-            builder.AppendLine("Time,Download (Mbps),Upload (Mbps),Download (MBps),Upload (MBps),Latency (ms),Jitter (ms),Server");
+            builder.AppendLine("Time,Download (Mb/s),Upload (Mb/s),Download (MB/s),Upload (MB/s),Latency (ms),Jitter (ms),Server");
 
             foreach (SpeedTestRowSummary test in speedTests.OrderByDescending(row => row.Timestamp))
             {
