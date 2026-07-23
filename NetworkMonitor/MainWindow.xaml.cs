@@ -69,6 +69,7 @@ namespace NetworkMonitor
             AppWindow.Changed += OnAppWindowChanged;
             scanWorker.ScanCompleted += OnScanCompleted;
             scanWorker.DeviceStatusChanged += OnDeviceStatusChanged;
+            scanWorker.NetworkChanged += OnNetworkChanged;
             _speedTestWorker.SpeedTestCompleted += OnSpeedTestCompleted;
 
             DigestGenerator digestGenerator = App.AppHost.Services.GetRequiredService<DigestGenerator>();
@@ -351,6 +352,29 @@ namespace NetworkMonitor
         private void OnDeviceStatusChanged(object? sender, DeviceStatusChangedEventArgs args)
         {
             ShowNotification(args.Notification);
+        }
+
+        private void OnNetworkChanged(object? sender, NetworkChangedEventArgs args)
+        {
+            string message = $"Network changed: now scanning {args.NewSubnetBase}.x (was {args.OldSubnetBase}.x)";
+
+            _dispatcherQueue.TryEnqueue(() =>
+            {
+                _notificationService.Show(message);
+
+                if (_settings.ShowToasts)
+                {
+                    XmlDocument toastXml = new XmlDocument();
+                    toastXml.LoadXml("<toast><visual><binding template=\"ToastGeneric\"><text id=\"1\"/><text id=\"2\"/></binding></visual><audio silent=\"true\"/></toast>");
+                    XmlNodeList textNodes = toastXml.GetElementsByTagName("text");
+                    textNodes[0].InnerText = "Network changed";
+                    textNodes[1].InnerText = message;
+                    ToastNotification toastNotification = new ToastNotification(toastXml);
+                    toastNotification.ExpirationTime = DateTimeOffset.Now.AddMinutes(10);
+                    ToastNotificationManager.CreateToastNotifier(App.Aumid).Show(toastNotification);
+                }
+
+            });
         }
 
         private void OnNotificationRequested(string message)

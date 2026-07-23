@@ -12,6 +12,6 @@ namespace NetworkMonitor.Models
         public string DisplayName => ProcessPath is not null ? Path.GetFileName(ProcessPath) : ProcessName ?? "All Apps";
         public bool CanOpen => !IsAllApps && ProcessPath is not null;
         public bool HasRate => RateBytesPerSec >= RateThresholdBytesPerSec;
-        public string RateText => $"{TrafficRateFormatter.BitsPerSecond((long)RateBytesPerSec, 1.0)} · {TrafficRateFormatter.BytesPerSecond((long)RateBytesPerSec, 1.0)}";
+        public string RateText => TrafficRateFormatter.Composite((long)RateBytesPerSec, 1.0);
     }
 }

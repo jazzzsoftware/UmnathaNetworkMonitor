@@ -96,12 +96,14 @@
                             Text="Download" />
 
                         <TextBlock
+                            x:Name="DownloadBitsText"
                             FontSize="20"
                             FontWeight="SemiBold"
                             Foreground="#1976D2"
                             Text="{x:Bind ViewModel.Latest.DownloadMbps, Mode=OneWay, Converter={StaticResource DoubleFormatConverter}, ConverterParameter='0.0 Mb/s'}" />
 
                         <TextBlock
+                            x:Name="DownloadBytesText"
                             FontSize="20"
                             FontWeight="SemiBold"
                             Foreground="#1976D2"
@@ -118,12 +120,14 @@
                             Text="Upload" />
 
                         <TextBlock
+                            x:Name="UploadBitsText"
                             FontSize="20"
                             FontWeight="SemiBold"
                             Foreground="#AB47BC"
                             Text="{x:Bind ViewModel.Latest.UploadMbps, Mode=OneWay, Converter={StaticResource DoubleFormatConverter}, ConverterParameter='0.0 Mb/s'}" />
 
                         <TextBlock
+                            x:Name="UploadBytesText"
                             FontSize="20"
                             FontWeight="SemiBold"
                             Foreground="#AB47BC"
@@ -179,6 +183,7 @@
                         ColumnDefinitions="*,Auto">
 
                         <TextBlock
+                            x:Name="ThroughputTitle"
                             Grid.Column="0"
                             FontSize="13"
                             FontWeight="SemiBold"

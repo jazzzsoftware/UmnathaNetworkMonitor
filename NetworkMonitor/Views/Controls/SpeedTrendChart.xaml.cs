@@ -41,6 +41,13 @@ namespace NetworkMonitor.Views.Controls
                 typeof(SpeedTrendChart),
                 new PropertyMetadata(0.0));
 
+        public static readonly DependencyProperty PrimaryDivisorProperty =
+            DependencyProperty.Register(
+                nameof(PrimaryDivisor),
+                typeof(double),
+                typeof(SpeedTrendChart),
+                new PropertyMetadata(1.0));
+
         public SpeedTrendChart()
         {
             InitializeComponent();
@@ -68,6 +75,12 @@ namespace NetworkMonitor.Views.Controls
         {
             get => (double)GetValue(SecondaryDivisorProperty);
             set => SetValue(SecondaryDivisorProperty, value);
+        }
+
+        public double PrimaryDivisor
+        {
+            get => (double)GetValue(PrimaryDivisorProperty);
+            set => SetValue(PrimaryDivisorProperty, value);
         }
 
         private static void OnSeriesChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
@@ -288,7 +301,10 @@ namespace NetworkMonitor.Views.Controls
 
         private string FormatAxisValue(double value)
         {
-            string text = string.IsNullOrEmpty(Unit) ? $"{value:0}" : $"{value:0} {Unit}";
+            double divisor = PrimaryDivisor > 0 ? PrimaryDivisor : 1.0;
+            double primaryValue = value / divisor;
+            string primaryFormat = divisor == 1.0 ? "0" : "0.0";
+            string text = string.IsNullOrEmpty(Unit) ? primaryValue.ToString(primaryFormat) : $"{primaryValue.ToString(primaryFormat)} {Unit}";
 
             if (SecondaryDivisor > 0 && !string.IsNullOrEmpty(SecondaryUnit))
             {
@@ -381,9 +397,10 @@ namespace NetworkMonitor.Views.Controls
                     if (nearest < chartSeries.Points.Count)
                     {
                         double value = chartSeries.Points[nearest].Value;
-                        string text = $"{chartSeries.Name}: {value:0.0} {Unit}";
+                        double divisor = PrimaryDivisor > 0 ? PrimaryDivisor : 1.0;
+                        string text = $"{chartSeries.Name}: {value / divisor:0.0} {Unit}";
 
-                        if (SecondaryDivisor > 0)
+                        if (SecondaryDivisor > 0 && !string.IsNullOrEmpty(SecondaryUnit))
                         {
                             text += $" / {value / SecondaryDivisor:0.0} {SecondaryUnit}";
                         }

@@ -500,6 +500,7 @@
                     <StackPanel>
 
                         <Grid
+                            x:Name="SpeedHeaderGrid"
                             ColumnDefinitions="1.6*,1.2*,1.2*,1.2*,1.2*,1*,1*,1.2*">
 
                             <Border
@@ -617,6 +618,7 @@
                                     x:DataType="models:SpeedTestRowSummary">
 
                                     <Grid
+                                        Loaded="SpeedRowGridLoaded"
                                         ColumnDefinitions="1.6*,1.2*,1.2*,1.2*,1.2*,1*,1*,1.2*">
 
                                         <Border

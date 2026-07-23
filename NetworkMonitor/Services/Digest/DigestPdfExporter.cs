@@ -3,6 +3,7 @@ using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using NetworkMonitor.Models;
 using NetworkMonitor.Services.Common;
+using NetworkMonitor.Services.Traffic;
 
 namespace NetworkMonitor.Services.Digest
 {
@@ -151,15 +152,28 @@ namespace NetworkMonitor.Services.Digest
 
         private static void AddSpeedTestTable(ColumnDescriptor column, IReadOnlyList<SpeedTestRowSummary> speedTests)
         {
+            RateUnitMode mode = TrafficRateFormatter.Mode;
+            bool showBits = mode != RateUnitMode.Bytes;
+            bool showBytes = mode != RateUnitMode.Bits;
+
             column.Item().Table(table =>
             {
                 table.ColumnsDefinition(columns =>
                 {
                     columns.RelativeColumn(1.6f);
-                    columns.RelativeColumn(1.2f);
-                    columns.RelativeColumn(1.2f);
-                    columns.RelativeColumn(1.2f);
-                    columns.RelativeColumn(1.2f);
+
+                    if (showBits)
+                    {
+                        columns.RelativeColumn(1.2f);
+                        columns.RelativeColumn(1.2f);
+                    }
+
+                    if (showBytes)
+                    {
+                        columns.RelativeColumn(1.2f);
+                        columns.RelativeColumn(1.2f);
+                    }
+
                     columns.RelativeColumn();
                     columns.RelativeColumn();
                     columns.RelativeColumn(1.2f);
@@ -168,10 +182,19 @@ namespace NetworkMonitor.Services.Digest
                 table.Header(header =>
                 {
                     header.Cell().Text("Time").SemiBold();
-                    header.Cell().AlignRight().Text("Download (Mb/s)").SemiBold().FontColor(MbpsColor);
-                    header.Cell().AlignRight().Text("Upload (Mb/s)").SemiBold().FontColor(MbpsColor);
-                    header.Cell().AlignRight().Text("Download (MB/s)").SemiBold().FontColor(MBpsColor);
-                    header.Cell().AlignRight().Text("Upload (MB/s)").SemiBold().FontColor(MBpsColor);
+
+                    if (showBits)
+                    {
+                        header.Cell().AlignRight().Text("Download (Mb/s)").SemiBold().FontColor(MbpsColor);
+                        header.Cell().AlignRight().Text("Upload (Mb/s)").SemiBold().FontColor(MbpsColor);
+                    }
+
+                    if (showBytes)
+                    {
+                        header.Cell().AlignRight().Text("Download (MB/s)").SemiBold().FontColor(MBpsColor);
+                        header.Cell().AlignRight().Text("Upload (MB/s)").SemiBold().FontColor(MBpsColor);
+                    }
+
                     header.Cell().AlignRight().Text("Latency (ms)").SemiBold();
                     header.Cell().AlignRight().Text("Jitter (ms)").SemiBold();
                     header.Cell().Text("Server").SemiBold();
@@ -180,10 +203,19 @@ namespace NetworkMonitor.Services.Digest
                 foreach (SpeedTestRowSummary test in speedTests.OrderByDescending(row => row.Timestamp))
                 {
                     table.Cell().Text(test.TimeDisplay);
-                    table.Cell().AlignRight().Text(test.DownloadDisplay).FontColor(MbpsColor);
-                    table.Cell().AlignRight().Text(test.UploadDisplay).FontColor(MbpsColor);
-                    table.Cell().AlignRight().Text(test.DownloadMBpsDisplay).FontColor(MBpsColor);
-                    table.Cell().AlignRight().Text(test.UploadMBpsDisplay).FontColor(MBpsColor);
+
+                    if (showBits)
+                    {
+                        table.Cell().AlignRight().Text(test.DownloadDisplay).FontColor(MbpsColor);
+                        table.Cell().AlignRight().Text(test.UploadDisplay).FontColor(MbpsColor);
+                    }
+
+                    if (showBytes)
+                    {
+                        table.Cell().AlignRight().Text(test.DownloadMBpsDisplay).FontColor(MBpsColor);
+                        table.Cell().AlignRight().Text(test.UploadMBpsDisplay).FontColor(MBpsColor);
+                    }
+
                     table.Cell().AlignRight().Text(test.LatencyDisplay);
                     table.Cell().AlignRight().Text(test.JitterDisplay);
                     table.Cell().Text(test.Server);

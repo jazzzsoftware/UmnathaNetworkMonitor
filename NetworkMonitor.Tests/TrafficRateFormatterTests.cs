@@ -6,6 +6,7 @@ using Xunit;
 
 namespace NetworkMonitor.Tests
 {
+    [Collection("RateUnitMode")]
     public class TrafficRateFormatterTests
     {
         [Theory]
@@ -30,6 +31,50 @@ namespace NetworkMonitor.Tests
             string result = TrafficRateFormatter.BytesPerSecond(bytes, seconds);
 
             Assert.Equal(expected, result);
+        }
+
+        [Fact]
+        public void CompositeShowsBothUnitsByDefault()
+        {
+            string result = TrafficRateFormatter.Composite(1_000_000, 1.0);
+
+            Assert.Equal("8 Mb/s · 1 MB/s", result);
+        }
+
+        [Fact]
+        public void CompositeShowsOnlyBitsInBitsMode()
+        {
+
+            try
+            {
+                TrafficRateFormatter.Mode = RateUnitMode.Bits;
+                string result = TrafficRateFormatter.Composite(1_000_000, 1.0);
+
+                Assert.Equal("8 Mb/s", result);
+            }
+            finally
+            {
+                TrafficRateFormatter.Mode = RateUnitMode.Both;
+            }
+
+        }
+
+        [Fact]
+        public void CompositeShowsOnlyBytesInBytesMode()
+        {
+
+            try
+            {
+                TrafficRateFormatter.Mode = RateUnitMode.Bytes;
+                string result = TrafficRateFormatter.Composite(1_000_000, 1.0);
+
+                Assert.Equal("1 MB/s", result);
+            }
+            finally
+            {
+                TrafficRateFormatter.Mode = RateUnitMode.Both;
+            }
+
         }
 
         [Fact]

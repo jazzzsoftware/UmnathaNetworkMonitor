@@ -9,6 +9,7 @@ using Microsoft.UI.Dispatching;
 using NetworkMonitor.Data;
 using NetworkMonitor.Models;
 using NetworkMonitor.Services.Platform;
+using NetworkMonitor.Services.Traffic;
 
 namespace NetworkMonitor.ViewModels
 {
@@ -28,6 +29,7 @@ namespace NetworkMonitor.ViewModels
             _startupService = startupService;
             _notificationService = notificationService;
             _subnetBase = settings.SubnetBase;
+            _autoDetectSubnet = settings.AutoDetectSubnet;
             _startHost = settings.StartHost;
             _endHost = settings.EndHost;
             _intervalMinutes = settings.IntervalMinutes;
@@ -45,6 +47,7 @@ namespace NetworkMonitor.ViewModels
             _digestNotify = settings.DigestNotify;
             _enableLogging = settings.EnableLogging;
             _speedTestEnabled = settings.SpeedTestEnabled;
+            _rateUnitModeIndex = (int)settings.RateUnitMode;
 
             PropertyChanged += OnSettingChanged;
             _ = InitializeRunAtStartupAsync();
@@ -57,6 +60,24 @@ namespace NetworkMonitor.ViewModels
             get => _subnetBase;
             set => SetProperty(ref _subnetBase, value);
         }
+
+        private bool _autoDetectSubnet;
+
+        public bool AutoDetectSubnet
+        {
+            get => _autoDetectSubnet;
+            set
+            {
+
+                if (SetProperty(ref _autoDetectSubnet, value))
+                {
+                    OnPropertyChanged(nameof(SubnetBaseEditable));
+                }
+
+            }
+        }
+
+        public bool SubnetBaseEditable => !_autoDetectSubnet;
 
         private int _startHost;
 
@@ -270,9 +291,18 @@ namespace NetworkMonitor.ViewModels
             set => SetProperty(ref _speedTestEnabled, value);
         }
 
+        private int _rateUnitModeIndex;
+
+        public int RateUnitModeIndex
+        {
+            get => _rateUnitModeIndex;
+            set => SetProperty(ref _rateUnitModeIndex, value);
+        }
+
         private void PersistAll()
         {
             _settings.SubnetBase = SubnetBase;
+            _settings.AutoDetectSubnet = AutoDetectSubnet;
             _settings.StartHost = StartHost;
             _settings.EndHost = EndHost;
             _settings.IntervalMinutes = IntervalMinutes;
@@ -289,6 +319,8 @@ namespace NetworkMonitor.ViewModels
             _settings.DigestNotify = DigestNotify;
             _settings.EnableLogging = EnableLogging;
             _settings.SpeedTestEnabled = SpeedTestEnabled;
+            _settings.RateUnitMode = (RateUnitMode)RateUnitModeIndex;
+            TrafficRateFormatter.Mode = _settings.RateUnitMode;
 
 #if DEBUG
             AppLog.IsEnabled = true;
@@ -304,7 +336,8 @@ namespace NetworkMonitor.ViewModels
             bool isPersistable = args.PropertyName is not null
                 && args.PropertyName != nameof(PurgeStatus)
                 && args.PropertyName != nameof(TrafficPurgeStatus)
-                && args.PropertyName != nameof(RunAtStartup);
+                && args.PropertyName != nameof(RunAtStartup)
+                && args.PropertyName != nameof(SubnetBaseEditable);
 
             if (isPersistable)
             {

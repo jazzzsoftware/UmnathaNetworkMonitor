@@ -430,11 +430,23 @@ namespace NetworkMonitor.Views.Controls
 
             float topRow = (float)(height - usableHeight);
             float midRow = (float)(height - usableHeight / 2.0 - 14.0);
+            RateUnitMode mode = TrafficRateFormatter.Mode;
+            bool showBits = mode != RateUnitMode.Bytes;
+            bool showBytes = mode != RateUnitMode.Bits;
+            float bytesOffset = showBits ? 15f : 0f;
 
-            session.DrawText(_labelTopBits, 6f, topRow, axisColor, format);
-            session.DrawText(_labelTopBytes, 6f, topRow + 15f, axisColor, format);
-            session.DrawText(_labelMidBits, 6f, midRow, axisColor, format);
-            session.DrawText(_labelMidBytes, 6f, midRow + 15f, axisColor, format);
+            if (showBits)
+            {
+                session.DrawText(_labelTopBits, 6f, topRow, axisColor, format);
+                session.DrawText(_labelMidBits, 6f, midRow, axisColor, format);
+            }
+
+            if (showBytes)
+            {
+                session.DrawText(_labelTopBytes, 6f, topRow + bytesOffset, axisColor, format);
+                session.DrawText(_labelMidBytes, 6f, midRow + bytesOffset, axisColor, format);
+            }
+
         }
 
         private void EaseValues()
@@ -604,9 +616,17 @@ namespace NetworkMonitor.Views.Controls
         private void UpdatePeakLabels(IReadOnlyList<ChartPoint> points, long maxValue)
         {
             double bucketSeconds = TrafficRateFormatter.BucketSeconds(points);
+            RateUnitMode mode = TrafficRateFormatter.Mode;
+            Visibility bitsVisibility = mode == RateUnitMode.Bytes ? Visibility.Collapsed : Visibility.Visible;
+            Visibility bytesVisibility = mode == RateUnitMode.Bits ? Visibility.Collapsed : Visibility.Visible;
 
             MaxScaleLabel.Text = TrafficRateFormatter.BitsPerSecond(maxValue, bucketSeconds);
             MaxScaleMBpsLabel.Text = TrafficRateFormatter.BytesPerSecond(maxValue, bucketSeconds);
+            MaxScaleLabel.Visibility = bitsVisibility;
+            MaxScaleCaption.Visibility = bitsVisibility;
+            MaxScaleMBpsLabel.Visibility = bytesVisibility;
+            MaxScaleMBpsCaption.Visibility = bytesVisibility;
+            MaxScaleMBpsLabel.Margin = mode == RateUnitMode.Bytes ? new Thickness(0) : new Thickness(0, 15, 0, 0);
         }
 
         private int NearestIndex(double pointerX, double width)
@@ -660,8 +680,8 @@ namespace NetworkMonitor.Views.Controls
                 ChartPoint hoveredPoint = points[index];
 
                 HoverTimeLabel.Text = hoveredPoint.BucketStart.ToLocalTime().ToString("dd MMM yyyy  HH:mm:ss");
-                HoverDownloadLabel.Text = TrafficRateFormatter.BitsPerSecond(hoveredPoint.BytesDownloaded, _bucketSeconds);
-                HoverUploadLabel.Text = TrafficRateFormatter.BitsPerSecond(hoveredPoint.BytesUploaded, _bucketSeconds);
+                HoverDownloadLabel.Text = HoverRateText(hoveredPoint.BytesDownloaded);
+                HoverUploadLabel.Text = HoverRateText(hoveredPoint.BytesUploaded);
                 HoverPanel.Visibility = Visibility.Visible;
 
                 double panelWidth = HoverPanel.ActualWidth > 0 ? HoverPanel.ActualWidth : 130;
@@ -675,6 +695,22 @@ namespace NetworkMonitor.Views.Controls
                 HoverPanel.Margin = new Thickness(Math.Max(0, leftPos), 8, 0, 0);
             }
 
+        }
+
+        private string HoverRateText(long bytes)
+        {
+            string result;
+
+            if (TrafficRateFormatter.Mode == RateUnitMode.Bytes)
+            {
+                result = TrafficRateFormatter.BytesPerSecond(bytes, _bucketSeconds);
+            }
+            else
+            {
+                result = TrafficRateFormatter.BitsPerSecond(bytes, _bucketSeconds);
+            }
+
+            return result;
         }
 
         private void InputLayerPointerExited(object sender, PointerRoutedEventArgs args)

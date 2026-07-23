@@ -1,4 +1,5 @@
 using NetworkMonitor.Models;
+using NetworkMonitor.Services.Traffic;
 
 namespace NetworkMonitor.Services.SpeedTest
 {
@@ -10,7 +11,14 @@ namespace NetworkMonitor.Services.SpeedTest
 
             if (result.Success)
             {
-                message = $"Speed test: {result.DownloadMbps:0.0} ↓ / {result.UploadMbps:0.0} ↑ Mb/s · {result.DownloadMBps:0.0} ↓ / {result.UploadMBps:0.0} ↑ MB/s · {result.LatencyMs:0} ms";
+                string throughput = TrafficRateFormatter.Mode switch
+                {
+                    RateUnitMode.Bits => $"{result.DownloadMbps:0.0} ↓ / {result.UploadMbps:0.0} ↑ Mb/s",
+                    RateUnitMode.Bytes => $"{result.DownloadMBps:0.0} ↓ / {result.UploadMBps:0.0} ↑ MB/s",
+                    _ => $"{result.DownloadMbps:0.0} ↓ / {result.UploadMbps:0.0} ↑ Mb/s · {result.DownloadMBps:0.0} ↓ / {result.UploadMBps:0.0} ↑ MB/s"
+                };
+
+                message = $"Speed test: {throughput} · {result.LatencyMs:0} ms";
             }
             else
             {

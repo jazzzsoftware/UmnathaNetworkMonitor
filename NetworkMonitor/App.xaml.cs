@@ -170,6 +170,9 @@ namespace NetworkMonitor
                 AppLog.Initialize(loggingEnabled);
                 AppLog.Info($"Application started (version {AppInfo.GetVersion()}, minimized={startMinimized}).");
 
+                Settings appSettings = AppHost.Services.GetRequiredService<Settings>();
+                TrafficRateFormatter.Mode = appSettings.RateUnitMode;
+
                 if (!startMinimized)
                 {
                     splash = new SplashWindow();

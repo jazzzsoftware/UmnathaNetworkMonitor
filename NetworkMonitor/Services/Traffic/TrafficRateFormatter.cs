@@ -4,6 +4,24 @@ namespace NetworkMonitor.Services.Traffic
 {
     public static class TrafficRateFormatter
     {
+        public static RateUnitMode Mode
+        {
+            get;
+            set;
+        } = RateUnitMode.Both;
+
+        public static string Composite(long bytes, double seconds)
+        {
+            string result = Mode switch
+            {
+                RateUnitMode.Bits => BitsPerSecond(bytes, seconds),
+                RateUnitMode.Bytes => BytesPerSecond(bytes, seconds),
+                _ => $"{BitsPerSecond(bytes, seconds)} · {BytesPerSecond(bytes, seconds)}"
+            };
+
+            return result;
+        }
+
         public static string BitsPerSecond(long bytes, double seconds)
         {
             double bitsPerSecond = bytes * 8.0 / seconds;

@@ -1,25 +1,59 @@
 using NetworkMonitor.Models;
 using NetworkMonitor.Services.SpeedTest;
+using NetworkMonitor.Services.Traffic;
 using Xunit;
 
 namespace NetworkMonitor.Tests
 {
+    [Collection("RateUnitMode")]
     public class SpeedTestMessageTests
     {
         [Fact]
         public void FormatProducesSuccessSummary()
         {
-            SpeedTestResult result = new SpeedTestResult
-            {
-                DownloadMbps = 240.0,
-                UploadMbps = 16.0,
-                LatencyMs = 12.4,
-                Success = true
-            };
+            SpeedTestResult result = BuildSuccessResult();
 
             string message = SpeedTestMessage.Format(result);
 
             Assert.Equal("Speed test: 240.0 ↓ / 16.0 ↑ Mb/s · 30.0 ↓ / 2.0 ↑ MB/s · 12 ms", message);
+        }
+
+        [Fact]
+        public void FormatShowsOnlyBitsInBitsMode()
+        {
+            SpeedTestResult result = BuildSuccessResult();
+
+            try
+            {
+                TrafficRateFormatter.Mode = RateUnitMode.Bits;
+                string message = SpeedTestMessage.Format(result);
+
+                Assert.Equal("Speed test: 240.0 ↓ / 16.0 ↑ Mb/s · 12 ms", message);
+            }
+            finally
+            {
+                TrafficRateFormatter.Mode = RateUnitMode.Both;
+            }
+
+        }
+
+        [Fact]
+        public void FormatShowsOnlyBytesInBytesMode()
+        {
+            SpeedTestResult result = BuildSuccessResult();
+
+            try
+            {
+                TrafficRateFormatter.Mode = RateUnitMode.Bytes;
+                string message = SpeedTestMessage.Format(result);
+
+                Assert.Equal("Speed test: 30.0 ↓ / 2.0 ↑ MB/s · 12 ms", message);
+            }
+            finally
+            {
+                TrafficRateFormatter.Mode = RateUnitMode.Both;
+            }
+
         }
 
         [Fact]
@@ -34,6 +68,19 @@ namespace NetworkMonitor.Tests
             string message = SpeedTestMessage.Format(result);
 
             Assert.Equal("Speed test failed: Name resolution failed", message);
+        }
+
+        private static SpeedTestResult BuildSuccessResult()
+        {
+            SpeedTestResult result = new SpeedTestResult
+            {
+                DownloadMbps = 240.0,
+                UploadMbps = 16.0,
+                LatencyMs = 12.4,
+                Success = true
+            };
+
+            return result;
         }
     }
 }

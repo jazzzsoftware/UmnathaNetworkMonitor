@@ -6,6 +6,7 @@ using Microsoft.Graphics.Canvas.Geometry;
 using Microsoft.Graphics.Canvas.Text;
 using Windows.UI;
 using NetworkMonitor.Models;
+using NetworkMonitor.Services.Traffic;
 
 namespace NetworkMonitor.Services.Digest
 {
@@ -98,8 +99,27 @@ namespace NetworkMonitor.Services.Digest
             Color[] seriesColours = new Color[] { DownloadColour, UploadColour };
             Color background = lightBackground ? LightBackground : DarkBackground;
             Color textColour = lightBackground ? LightText : DarkText;
+            RateUnitMode mode = TrafficRateFormatter.Mode;
+            string unit = "Mb/s";
+            string secondaryUnit = "MB/s";
+            double secondaryDivisor = 8.0;
+            double primaryDivisor = 1.0;
+
+            if (mode == RateUnitMode.Bits)
+            {
+                secondaryUnit = string.Empty;
+                secondaryDivisor = 0.0;
+            }
+            else if (mode == RateUnitMode.Bytes)
+            {
+                unit = "MB/s";
+                secondaryUnit = string.Empty;
+                secondaryDivisor = 0.0;
+                primaryDivisor = 8.0;
+            }
+
             byte[] png = RenderToPng(background, SpeedChartHeight, dpi, (session, device) =>
-                DrawLineChart(session, device, SpeedChartHeight, seriesNames, seriesColours, values, timestamps, textColour, "Mb/s", "MB/s", 8.0));
+                DrawLineChart(session, device, SpeedChartHeight, seriesNames, seriesColours, values, timestamps, textColour, unit, secondaryUnit, secondaryDivisor, primaryDivisor));
 
             return png;
         }
@@ -362,7 +382,8 @@ namespace NetworkMonitor.Services.Digest
             Color textColour,
             string unit,
             string secondaryUnit,
-            double secondaryDivisor)
+            double secondaryDivisor,
+            double primaryDivisor = 1.0)
         {
             DrawLegend(session, seriesNames, seriesColours, 8f, 8f, textColour);
 
@@ -411,8 +432,8 @@ namespace NetworkMonitor.Services.Digest
                 session.DrawLine(plotLeft, yMid, plotRight, yMid, gridColour, 1f);
 
                 using CanvasTextFormat axisFormat = new CanvasTextFormat { FontSize = 8f };
-                DrawAxisValue(session, axisFormat, textColour, maxValue, unit, secondaryUnit, secondaryDivisor, yMax);
-                DrawAxisValue(session, axisFormat, textColour, maxValue / 2.0, unit, secondaryUnit, secondaryDivisor, yMid);
+                DrawAxisValue(session, axisFormat, textColour, maxValue, unit, secondaryUnit, secondaryDivisor, yMax, primaryDivisor);
+                DrawAxisValue(session, axisFormat, textColour, maxValue / 2.0, unit, secondaryUnit, secondaryDivisor, yMid, primaryDivisor);
 
                 double minEpoch = double.MaxValue;
                 double maxEpoch = double.MinValue;
@@ -503,9 +524,13 @@ namespace NetworkMonitor.Services.Digest
             string unit,
             string secondaryUnit,
             double secondaryDivisor,
-            float top)
+            float top,
+            double primaryDivisor = 1.0)
         {
-            string primary = string.IsNullOrEmpty(unit) ? $"{value:0}" : $"{value:0} {unit}";
+            double divisor = primaryDivisor > 0 ? primaryDivisor : 1.0;
+            double primaryValue = value / divisor;
+            string primaryFormat = divisor == 1.0 ? "0" : "0.0";
+            string primary = string.IsNullOrEmpty(unit) ? primaryValue.ToString(primaryFormat) : $"{primaryValue.ToString(primaryFormat)} {unit}";
 
             session.DrawText(primary, 8f, top, colour, format);
 

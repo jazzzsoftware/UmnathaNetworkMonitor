@@ -30,6 +30,7 @@
                 HorizontalAlignment="Right" />
 
             <TextBlock
+                x:Name="MaxScaleCaption"
                 Text="Megabits per second peak"
                 FontSize="10"
                 Opacity="0.45"
@@ -45,6 +46,7 @@
                 Margin="0,15,0,0" />
 
             <TextBlock
+                x:Name="MaxScaleMBpsCaption"
                 Text="Megabytes per second peak"
                 FontSize="10"
                 Opacity="0.45"

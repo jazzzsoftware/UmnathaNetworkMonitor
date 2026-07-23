@@ -39,7 +39,7 @@ The Traffic page shows which applications are using the network right now, with 
 - **Internet** — traffic to the wider internet (WAN), per application.
 - **Local** — traffic on your own LAN (this PC to other devices on your network). Toggle **By app** (which apps are talking to the LAN) or **By device** (which devices your PC is talking to, and the apps behind each). The *By device* lens makes a large transfer obvious — for example a NAS backup climbs to the top as a big upload, tagged **SMB**, listed under **System** (Windows performs file-share copies in the kernel, so they're always credited to System rather than the app that started them). Background chatter — the constant device-discovery pings from browsers and antivirus — is folded into a single collapsible **"discovery only"** row so it doesn't drown out real transfers.
 
-**Live rate badge.** While data is actively moving, the busy row shows a green pill with the current throughput in **both** units, e.g. `● 118 Mb/s · 15 MB/s`. It's smoothed over a few seconds, appears only in live mode and only above 0.5 Mb/s, so idle rows stay clean. Both the Internet and Local tabs show it. All sizes and speeds in the app use decimal (SI) units — KB/MB/GB with ÷1000 steps — the same convention as your ISP and speedtest.net.
+**Live rate badge.** While data is actively moving, the busy row shows a green pill with the current throughput, e.g. `● 118 Mb/s · 15 MB/s`. It's smoothed over a few seconds, appears only in live mode and only above 0.5 Mb/s, so idle rows stay clean. Both the Internet and Local tabs show it. All sizes and speeds in the app use decimal (SI) units — KB/MB/GB with ÷1000 steps — the same convention as your ISP and speedtest.net. A **Speed units** setting (Settings → Traffic) chooses whether speeds show as Mb/s, MB/s or both — everywhere they're displayed: rate badges, chart axes, the Speed Test page, digest reports and toasts. CSV exports always include both units.
 
 Pick a time range (last 5 minutes, hour, 6 hours, 24 hours or 7 days) with the range buttons. The chart runs in **Live** mode and scrolls in real time; clicking a point or a grid row switches to **History** mode so you can inspect a past moment — click the mode badge to return to Live. The axis scale rounds to a clean value, and smooth scrolling can be toggled in Settings.
 
@@ -85,26 +85,30 @@ Enable **Start with Windows** in Settings to launch the app automatically at log
 
 ## Settings
 
-| Setting | Description |
-|---|---|
-| Subnet Base | First three octets of your network (e.g. `192.168.1`). |
-| Start / End Host | Host range to scan (default: 1–254). |
-| Scan Interval | How often a full scan runs, in minutes. |
-| Ping Timeout | How long to wait for each ping reply, in milliseconds. |
-| Max Parallel Pings | Concurrency limit for the ping sweep. |
-| Purge history older than | Device events older than this many days are deleted automatically. Set to 0 to disable. |
-| Traffic time range | Default time window shown on the Traffic chart. |
-| Traffic sample interval | How often traffic counters are flushed, in seconds. |
-| Purge traffic older than | Traffic samples, per-minute rollups and speed-test results older than this many days are deleted automatically. |
-| Smooth chart scrolling | Toggle animated scrolling on the Traffic chart. |
-| Run periodic speed tests | Run an hourly Cloudflare download/upload/latency speed test (Speed Test page). |
-| Digest generation hour | Hour of day (0–23) the daily digest is generated. |
-| Purge reports older than | Digest reports older than this many days are deleted automatically. |
-| Notify on new digest | Show a Windows toast when a daily digest is ready. |
-| Show Toast Notifications | Master switch for device toast alerts. |
-| Unknown devices only | When enabled, toasts fire only for unrecognised devices. |
-| Start with Windows | Launch automatically (minimised to tray) at logon. |
-| Enable diagnostic logging | Write a daily diagnostic log (app events + errors, no device/network identifiers) to the Logs folder. Off by default. |
+| Setting                   | Description                                                                                                                                              | Default                    |
+|---------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------|
+| Auto-detect subnet        | Follow the active network connection; a network change re-detects the subnet, triggers a scan and shows a toast. Turn off to scan a fixed subnet.        | On                         |
+| Subnet Base               | First three octets of your network (e.g. `192.168.1`).                                                                                                   | Auto-detected on first run |
+| Start / End Host          | Host range to scan.                                                                                                                                      | 1 – 254                    |
+| Scan Interval             | How often a full scan runs, in minutes.                                                                                                                  | 5                          |
+| Ping Timeout              | How long to wait for each ping reply, in milliseconds.                                                                                                   | 150                        |
+| Max Parallel Pings        | Concurrency limit for the ping sweep.                                                                                                                    | 50                         |
+| Purge history older than  | Device events older than this many days are deleted automatically. Set to 0 to disable.                                                                  | 30                         |
+| Traffic time range        | Default time window shown on the Traffic chart.                                                                                                          | Last 5 minutes             |
+| Traffic sample interval   | How often traffic counters are flushed, in seconds.                                                                                                      | 1                          |
+| Purge traffic older than  | Traffic samples, per-minute rollups and speed-test results older than this many days are deleted automatically.                                          | 7                          |
+| Smooth chart scrolling    | Toggle animated scrolling on the Traffic chart.                                                                                                          | On                         |
+| Speed units               | Show speeds as Mb/s, MB/s or both — applies to rate badges, chart axes, the Speed Test page, digest reports and toasts. CSV exports always include both. | Both                       |
+| Run periodic speed tests  | Run an hourly Cloudflare download/upload/latency speed test (Speed Test page).                                                                           | On                         |
+| Digest generation hour    | Hour of day (0–23) the daily digest is generated.                                                                                                        | 6                          |
+| Purge reports older than  | Digest reports older than this many days are deleted automatically.                                                                                      | 30                         |
+| Notify on new digest      | Show a Windows toast when a daily digest is ready.                                                                                                       | On                         |
+| Show Toast Notifications  | Master switch for device toast alerts.                                                                                                                   | On                         |
+| Unknown devices only      | When enabled, toasts fire only for unrecognised devices.                                                                                                 | Off                        |
+| Start with Windows        | Launch automatically (minimised to tray) at logon.                                                                                                       | Off                        |
+| Enable diagnostic logging | Write a daily diagnostic log (app events + errors, no device/network identifiers) to the Logs folder.                                                    | Off                        |
+
+First-run defaults for the scan settings are seeded from `appsettings.json` (the subnet is then auto-detected from the active network adapter); everything else starts from the built-in defaults above. All values live in `settings.json` thereafter.
 
 ## Data storage
 

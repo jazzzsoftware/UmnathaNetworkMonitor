@@ -157,7 +157,7 @@ namespace NetworkMonitor.Models
 
         public bool HasRate => _rateBytesPerSec >= RateThresholdBytesPerSec;
 
-        public string RateText => $"{TrafficRateFormatter.BitsPerSecond((long)_rateBytesPerSec, 1.0)} · {TrafficRateFormatter.BytesPerSecond((long)_rateBytesPerSec, 1.0)}";
+        public string RateText => TrafficRateFormatter.Composite((long)_rateBytesPerSec, 1.0);
 
         public string DownloadText => ByteSizeFormatter.Format(BytesDownloaded);
 

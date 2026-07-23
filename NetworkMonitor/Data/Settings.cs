@@ -22,6 +22,12 @@ namespace NetworkMonitor.Data
             set;
         } = "192.168.1";
 
+        public bool AutoDetectSubnet
+        {
+            get;
+            set;
+        } = true;
+
         public int StartHost
         {
             get;
@@ -44,7 +50,7 @@ namespace NetworkMonitor.Data
         {
             get;
             set;
-        } = 500;
+        } = 150;
 
         public int MaxParallelPings
         {
@@ -166,6 +172,12 @@ namespace NetworkMonitor.Data
             set;
         } = true;
 
+        public RateUnitMode RateUnitMode
+        {
+            get;
+            set;
+        } = RateUnitMode.Both;
+
         public void Save()
         {
             string json = JsonSerializer.Serialize(this, new JsonSerializerOptions
@@ -178,6 +190,14 @@ namespace NetworkMonitor.Data
 
         public static string DetectSubnetBase()
         {
+            string? detected = TryDetectSubnetBase();
+            string subnetBase = detected ?? "192.168.1";
+
+            return subnetBase;
+        }
+
+        public static string? TryDetectSubnetBase()
+        {
             string? address = GetPrimaryIPv4Address();
 
             if (address is null)
@@ -185,7 +205,7 @@ namespace NetworkMonitor.Data
                 address = GetGatewayIPv4Address();
             }
 
-            string subnetBase = "192.168.1";
+            string? subnetBase = null;
 
             if (address is not null)
             {

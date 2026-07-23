@@ -125,6 +125,92 @@
 
                         </StackPanel>
 
+                        <StackPanel
+                            Spacing="4">
+
+                            <TextBlock
+                                Text="Speed units" />
+
+                            <ComboBox
+                                HorizontalAlignment="Stretch"
+                                SelectedIndex="{x:Bind ViewModel.RateUnitModeIndex, Mode=TwoWay}">
+
+                                <ComboBoxItem>
+
+                                    <TextBlock>
+
+                                        <Run
+                                            Text="Both —" />
+
+                                        <Run
+                                            Text="MegaBits (Mb/s)"
+                                            FontWeight="SemiBold"
+                                            Foreground="{ThemeResource DigestAccentTealBrush}" />
+
+                                        <Run
+                                            Text="·" />
+
+                                        <Run
+                                            Text="MegaBytes (MB/s)"
+                                            FontWeight="SemiBold"
+                                            Foreground="{ThemeResource DigestAccentBlueBrush}" />
+
+                                    </TextBlock>
+
+                                </ComboBoxItem>
+
+                                <ComboBoxItem>
+
+                                    <TextBlock>
+
+                                        <Run
+                                            Text="MegaBits"
+                                            FontWeight="SemiBold"
+                                            Foreground="{ThemeResource DigestAccentTealBrush}" />
+
+                                        <Run
+                                            Text="per second" />
+
+                                        <Run
+                                            Text="(Mb/s)"
+                                            FontWeight="SemiBold"
+                                            Foreground="{ThemeResource DigestAccentTealBrush}" />
+
+                                    </TextBlock>
+
+                                </ComboBoxItem>
+
+                                <ComboBoxItem>
+
+                                    <TextBlock>
+
+                                        <Run
+                                            Text="MegaBytes"
+                                            FontWeight="SemiBold"
+                                            Foreground="{ThemeResource DigestAccentBlueBrush}" />
+
+                                        <Run
+                                            Text="per second" />
+
+                                        <Run
+                                            Text="(MB/s)"
+                                            FontWeight="SemiBold"
+                                            Foreground="{ThemeResource DigestAccentBlueBrush}" />
+
+                                    </TextBlock>
+
+                                </ComboBoxItem>
+
+                            </ComboBox>
+
+                            <TextBlock
+                                Text="How live speeds are shown across the app — traffic rate badges, chart axes, the Speed Test page, digest reports and toasts. CSV exports always include both units."
+                                FontSize="12"
+                                Opacity="0.65"
+                                TextWrapping="Wrap" />
+
+                        </StackPanel>
+
                     </StackPanel>
 
                 </Border>
@@ -243,10 +329,26 @@
                         <StackPanel
                             Spacing="4">
 
+                            <ToggleSwitch
+                                Header="Auto-detect subnet"
+                                IsOn="{x:Bind ViewModel.AutoDetectSubnet, Mode=TwoWay}" />
+
+                            <TextBlock
+                                Text="When on, the subnet follows your active network connection — moving to a different network (e.g. taking a laptop elsewhere) is picked up automatically and triggers a scan. Turn off to scan a fixed subnet of your choice."
+                                FontSize="12"
+                                Opacity="0.65"
+                                TextWrapping="Wrap" />
+
+                        </StackPanel>
+
+                        <StackPanel
+                            Spacing="4">
+
                             <TextBlock
                                 Text="Subnet Base (e.g. 192.168.1)" />
 
                             <TextBox
+                                IsEnabled="{x:Bind ViewModel.SubnetBaseEditable, Mode=OneWay}"
                                 Text="{x:Bind ViewModel.SubnetBase, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
 
                         </StackPanel>

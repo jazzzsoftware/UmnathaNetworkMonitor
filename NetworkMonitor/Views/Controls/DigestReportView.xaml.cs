@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml.Media.Imaging;
 using NetworkMonitor.Models;
 using Windows.Storage.Streams;
 using NetworkMonitor.Services.Digest;
+using NetworkMonitor.Services.Traffic;
 
 namespace NetworkMonitor.Views.Controls
 {
@@ -103,6 +104,7 @@ namespace NetworkMonitor.Views.Controls
             }
             else
             {
+                ApplySpeedColumnVisibility(SpeedHeaderGrid);
                 TopAppsTable.ItemsSource = summary.InternetTopApps;
                 TopLocalAppsTable.ItemsSource = summary.TopLocalApps;
                 AllTable.ItemsSource = summary.AllDevices;
@@ -127,6 +129,44 @@ namespace NetworkMonitor.Views.Controls
 
                 byte[] latencyPng = await Task.Run(() => _chartRenderer.RenderSpeedLatencyChart(summary, lightBackground, screenDpi));
                 LatencyChartImage.Source = await ToBitmapAsync(latencyPng);
+            }
+
+        }
+
+        private void SpeedRowGridLoaded(object sender, RoutedEventArgs args)
+        {
+
+            if (sender is Grid rowGrid)
+            {
+                ApplySpeedColumnVisibility(rowGrid);
+            }
+
+        }
+
+        private static void ApplySpeedColumnVisibility(Grid grid)
+        {
+            RateUnitMode mode = TrafficRateFormatter.Mode;
+            bool showBits = mode != RateUnitMode.Bytes;
+            bool showBytes = mode != RateUnitMode.Bits;
+
+            SetSpeedColumn(grid, 1, showBits);
+            SetSpeedColumn(grid, 2, showBits);
+            SetSpeedColumn(grid, 3, showBytes);
+            SetSpeedColumn(grid, 4, showBytes);
+        }
+
+        private static void SetSpeedColumn(Grid grid, int columnIndex, bool visible)
+        {
+            grid.ColumnDefinitions[columnIndex].Width = visible ? new GridLength(1.2, GridUnitType.Star) : new GridLength(0);
+
+            foreach (UIElement child in grid.Children)
+            {
+
+                if (child is FrameworkElement element && Grid.GetColumn(element) == columnIndex)
+                {
+                    element.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+                }
+
             }
 
         }

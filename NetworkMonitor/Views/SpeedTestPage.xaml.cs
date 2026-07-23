@@ -9,6 +9,7 @@ using Microsoft.UI.Xaml.Navigation;
 using NetworkMonitor.Data;
 using NetworkMonitor.Services.Csv;
 using NetworkMonitor.Services.Platform;
+using NetworkMonitor.Services.Traffic;
 using NetworkMonitor.ViewModels;
 
 namespace NetworkMonitor.Views
@@ -40,6 +41,7 @@ namespace NetworkMonitor.Views
         {
             base.OnNavigatedTo(args);
 
+            ApplyRateUnitMode();
             UpdateRangeButtonStyles(Range24hButton);
             SortPreference? pref = SortPreference.Load("speedtest");
 
@@ -50,6 +52,48 @@ namespace NetworkMonitor.Views
 
             await ViewModel.LoadAsync();
             DeviceGridSort.ApplyIndicator(HistoryGrid, _sortPaths, ViewModel.SortProperty, ViewModel.SortAscending);
+        }
+
+        private void ApplyRateUnitMode()
+        {
+            RateUnitMode mode = TrafficRateFormatter.Mode;
+            Visibility bitsVisibility = mode == RateUnitMode.Bytes ? Visibility.Collapsed : Visibility.Visible;
+            Visibility bytesVisibility = mode == RateUnitMode.Bits ? Visibility.Collapsed : Visibility.Visible;
+
+            DownloadBitsText.Visibility = bitsVisibility;
+            UploadBitsText.Visibility = bitsVisibility;
+            DownloadBytesText.Visibility = bytesVisibility;
+            UploadBytesText.Visibility = bytesVisibility;
+            HistoryGrid.Columns[1].Visibility = bitsVisibility;
+            HistoryGrid.Columns[2].Visibility = bitsVisibility;
+            HistoryGrid.Columns[3].Visibility = bytesVisibility;
+            HistoryGrid.Columns[4].Visibility = bytesVisibility;
+
+            if (mode == RateUnitMode.Bits)
+            {
+                ThroughputTitle.Text = "Throughput (Mb/s)";
+                ThroughputChart.Unit = "Mb/s";
+                ThroughputChart.SecondaryUnit = string.Empty;
+                ThroughputChart.SecondaryDivisor = 0.0;
+                ThroughputChart.PrimaryDivisor = 1.0;
+            }
+            else if (mode == RateUnitMode.Bytes)
+            {
+                ThroughputTitle.Text = "Throughput (MB/s)";
+                ThroughputChart.Unit = "MB/s";
+                ThroughputChart.SecondaryUnit = string.Empty;
+                ThroughputChart.SecondaryDivisor = 0.0;
+                ThroughputChart.PrimaryDivisor = 8.0;
+            }
+            else
+            {
+                ThroughputTitle.Text = "Throughput (Mb/s · MB/s)";
+                ThroughputChart.Unit = "Mb/s";
+                ThroughputChart.SecondaryUnit = "MB/s";
+                ThroughputChart.SecondaryDivisor = 8.0;
+                ThroughputChart.PrimaryDivisor = 1.0;
+            }
+
         }
 
         private void DataGridSorting(object sender, DataGridColumnEventArgs args)

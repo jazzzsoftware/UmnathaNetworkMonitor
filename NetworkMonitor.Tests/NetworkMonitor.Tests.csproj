@@ -33,6 +33,9 @@
     <Compile Include="..\NetworkMonitor\Services\Traffic\TrafficRateFormatter.cs">
       <Link>Linked\TrafficRateFormatter.cs</Link>
     </Compile>
+    <Compile Include="..\NetworkMonitor\Services\Traffic\RateUnitMode.cs">
+      <Link>Linked\RateUnitMode.cs</Link>
+    </Compile>
     <Compile Include="..\NetworkMonitor\Services\Traffic\TrafficWindow.cs">
       <Link>Linked\TrafficWindow.cs</Link>
     </Compile>

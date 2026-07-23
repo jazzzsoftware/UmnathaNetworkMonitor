@@ -149,13 +149,20 @@ Done - Test monitoring NAS transfer.
 Done - In local - discovery row there are entries where there is no device. I think we should remove them
 Done - Check units: shown in both units: × 8 / 1,000,000 for Mb/s and / 1,000,000, decimal or binary
 Done - Why speed test so different to speedtest.net. Notice cloudflare web test runs for longer
-
 Done - Make all units decimal based and not binary based.
-Make a setting to switch Mb/s, MB/s or both 
-Create a Model project with subfolders and refactor.    
-Release on github
+Done - Make a setting to switch Mb/s, MB/s or both
 
+Detect ip had changed. Can this be done outmatically so it always has valid data from the existing connection or if not add a network detect button
+Create a Model project with subfolders similar to services and refactor.    
+
+Release on github:
+Images
+Hobby project to learn Claude Code
+
+Roadmap:
 Auto update
+Chart colour schemes
+Floating mini graph
 
 
 
