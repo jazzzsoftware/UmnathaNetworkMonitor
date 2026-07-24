@@ -160,8 +160,11 @@ Done - Get exception when no internet for speed test in logs.
 Code review.
 
 Release on github:
+Done - Hobby project to learn Claude Code
 Images
-Hobby project to learn Claude Code
+Are maintainer notes in contributing required?
+PII audit
+
 
 Roadmap:
 Auto update

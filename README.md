@@ -11,10 +11,12 @@ This app is a Windows desktop app that watches your local network: it scans cont
 - **Scans the network** on a configurable interval (default: every 5 minutes) using ICMP ping, ARP table parsing, and reverse DNS lookup.
 - **Tracks devices** by MAC address across IP changes and DHCP renewals, and classifies them by type (router, PC, mobile, camera, etc.) with vendor lookup from the IEEE OUI database.
 - **Names devices via mDNS** — a per-scan DNS-SD (Bonjour) discovery pass fills in a friendly name and hardware model for devices that vendor and reverse-DNS lookups can't identify, chiefly randomized-MAC gear; discovered values never overwrite a name you've set.
+- **Maintains a known-devices list** — approve any device to give it a friendly name, type and notes; approved devices stop showing as unknown, and the whole list imports and exports as CSV.
 - **Measures per-application traffic** — captures upload/download bytes per process directly from the Windows kernel (ETW) and charts it live, split into **Internet** (WAN) and **Local** (LAN) views. The Local view pivots **by app or by device**, folds away device-discovery chatter, tags SMB/file-share flows, and shows a live throughput badge (Mb/s · MB/s) on whatever's actively transferring.
 - **Measures internet speed** — an hourly download/upload/latency/jitter test against Cloudflare, no account needed.
 - **Generates a daily digest** summarising device activity and traffic, exportable to PDF or CSV.
 - **Alerts via Windows toast + in-app banner** when a device appears or disappears, optionally limited to unknown devices only.
+- **Keeps a history** of every appearance and disappearance, browsable per device, with automatic purging of old events.
 - **Backs itself up** — a timestamped database snapshot every 24 hours, pruned automatically.
 - **Lives in the system tray**, with an optional start-with-Windows setting.
 
