@@ -156,6 +156,8 @@ Done - Create a Model project with subfolders similar to services and refactor.
 Done - Create a Core\Services project
 Done - Create a Services project
 
+Test exception when no internet.
+Code review.
 Release on github:
 Images
 Hobby project to learn Claude Code

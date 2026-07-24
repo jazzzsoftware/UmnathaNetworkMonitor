@@ -92,6 +92,17 @@ namespace NetworkMonitor.Services.SpeedTest
                     Success = true
                 };
             }
+            catch (HttpRequestException)
+            {
+                AppLog.Info("Speed test skipped: no internet connection.");
+
+                result = new SpeedTestResult
+                {
+                    Timestamp = DateTime.UtcNow,
+                    Success = false,
+                    Error = "No internet connection"
+                };
+            }
             catch (Exception exception)
             {
                 AppLog.Error("SpeedTestService.Run", exception);
