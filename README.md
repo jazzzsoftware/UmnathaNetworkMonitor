@@ -1,6 +1,10 @@
 # Umnatha Network Monitor
 
-A Windows desktop app that watches your local network: it scans continuously, tracks every device it finds, measures per-application bandwidth straight from the kernel, and emails you nothing because it never leaves your machine. Everything — devices, traffic, speed-test history, daily digests — is stored locally in SQLite.
+This project started as a way to learn Agentic Engineering using Claude Code. It started with a need to monitor the activity of my many Home Assistant IoT devices and automations. From there it grew in scope to become a general network monitor.
+
+The name Umnatha comes from isiXhosa, one of South Africa's indigenous languages, where it means 'Net'. (Pronounced oom-NAH-tah.)
+
+This app is a Windows desktop app that watches your local network: it scans continuously, tracks every device it finds, and measures per-application bandwidth straight from the kernel. No data ever leaves your machine. Everything — devices, traffic, speed-test history, daily digests — is stored locally in SQLite.
 
 ## What it does
 

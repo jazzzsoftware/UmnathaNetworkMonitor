@@ -645,7 +645,7 @@
                                 Visibility="{x:Bind ViewModel.LoggingForced, Converter={StaticResource BoolToVisibilityConverter}}" />
 
                             <TextBlock
-                                Text="Writes app events (start/stop, version, scans) and unexpected errors to a daily log file under the app data Logs folder. No device or network details are recorded. If you have any problems, please share these logs with me, jazzzsoftware@outlook.com, to help diagnose problems."
+                                Text="Writes app events (start/stop, version, scans) and unexpected errors to a daily log file under the app data Logs folder. No device or network details are recorded. If you have any problems, please open a GitHub issue and share these logs there."
                                 FontSize="12"
                                 Opacity="0.65"
                                 TextWrapping="Wrap" />

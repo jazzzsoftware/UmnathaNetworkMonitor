@@ -155,9 +155,10 @@ Done - Detect ip had changed. Can this be done outmatically so it always has val
 Done - Create a Model project with subfolders similar to services and refactor.
 Done - Create a Core\Services project
 Done - Create a Services project
+Done - Get exception when no internet for speed test in logs.
 
-Test exception when no internet.
 Code review.
+
 Release on github:
 Images
 Hobby project to learn Claude Code
