@@ -36,25 +36,11 @@ See [`Documents/Overview.md`](Documents/Overview.md) for the full feature tour, 
 
 ## Screenshots
 
-**Devices** — every device on the network, tracked by MAC with type, vendor and live status.
-
-![Devices](Documents/Images/Devices.png)
-
-**Internet traffic** — per-application WAN bandwidth with a live download/upload chart.
-
-![Internet traffic](Documents/Images/Internet.png)
-
-**Local traffic** — LAN traffic pivoted by app or device, with discovery chatter folded away.
-
-![Local traffic](Documents/Images/Local.png)
-
-**Speed test** — hourly Cloudflare download/upload/latency/jitter history.
-
-![Speed test](Documents/Images/Speedtest.png)
-
-**Daily digest** — a summary report of device activity and traffic, exportable to PDF.
-
-![Daily digest](Documents/Images/DigestReport.png)
+- [Devices](Documents/Images/Devices.png) — every device on the network, tracked by MAC with type, vendor and live status.
+- [Internet traffic](Documents/Images/Internet.png) — per-application WAN bandwidth with a live download/upload chart.
+- [Local traffic](Documents/Images/Local.png) — LAN traffic pivoted by app or device, with discovery chatter folded away.
+- [Speed test](Documents/Images/Speedtest.png) — hourly Cloudflare download/upload/latency/jitter history.
+- [Daily digest](Documents/Images/DigestReport.png) — a summary report of device activity and traffic, exportable to PDF.
 
 ## Requirements
 
