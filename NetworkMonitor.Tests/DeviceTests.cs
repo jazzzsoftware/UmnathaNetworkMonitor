@@ -11,14 +11,14 @@ namespace NetworkMonitor.Tests
         {
             Device device = new()
             {
-                FriendlyName = "Mark's Laptop",
+                FriendlyName = "Test Laptop",
                 Hostname = "laptop.local",
                 IpAddress = "192.168.1.50"
             };
 
             string displayName = device.DisplayName;
 
-            Assert.Equal("Mark's Laptop", displayName);
+            Assert.Equal("Test Laptop", displayName);
         }
 
         [Fact]
@@ -56,7 +56,7 @@ namespace NetworkMonitor.Tests
         {
             Device device = new()
             {
-                FriendlyName = "Mark's Laptop",
+                FriendlyName = "Test Laptop",
                 MdnsName = "Kitchen HomePod",
                 Hostname = "laptop.local",
                 IpAddress = "192.168.1.50"
@@ -64,7 +64,7 @@ namespace NetworkMonitor.Tests
 
             string displayName = device.DisplayName;
 
-            Assert.Equal("Mark's Laptop", displayName);
+            Assert.Equal("Test Laptop", displayName);
         }
 
         [Fact]

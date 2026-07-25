@@ -100,7 +100,7 @@ namespace NetworkMonitor.Tests
         {
             List<MdnsAddressRecord> addresses = new()
             {
-                new MdnsAddressRecord("Marks-Dev-iPhone.local", "192.168.1.131")
+                new MdnsAddressRecord("test-iphone.local", "192.168.1.131")
             };
             List<MdnsPointerRecord> pointers = new()
             {
@@ -108,7 +108,7 @@ namespace NetworkMonitor.Tests
             };
             List<MdnsServiceRecord> services = new()
             {
-                new MdnsServiceRecord("E75EB158-8418-439A-9D09-1A5BEAFF973E._remotepairing._tcp.local", "Marks-Dev-iPhone.local")
+                new MdnsServiceRecord("E75EB158-8418-439A-9D09-1A5BEAFF973E._remotepairing._tcp.local", "test-iphone.local")
             };
             List<MdnsTextRecord> texts = new();
 
@@ -122,23 +122,23 @@ namespace NetworkMonitor.Tests
         {
             List<MdnsAddressRecord> addresses = new()
             {
-                new MdnsAddressRecord("Marks-Dev-iPhone.local", "192.168.1.131")
+                new MdnsAddressRecord("test-iphone.local", "192.168.1.131")
             };
             List<MdnsPointerRecord> pointers = new()
             {
                 new MdnsPointerRecord("_remotepairing._tcp.local", "E75EB158-8418-439A-9D09-1A5BEAFF973E._remotepairing._tcp.local"),
-                new MdnsPointerRecord("_airplay._tcp.local", "Mark's iPhone._airplay._tcp.local")
+                new MdnsPointerRecord("_airplay._tcp.local", "Test iPhone._airplay._tcp.local")
             };
             List<MdnsServiceRecord> services = new()
             {
-                new MdnsServiceRecord("E75EB158-8418-439A-9D09-1A5BEAFF973E._remotepairing._tcp.local", "Marks-Dev-iPhone.local"),
-                new MdnsServiceRecord("Mark's iPhone._airplay._tcp.local", "Marks-Dev-iPhone.local")
+                new MdnsServiceRecord("E75EB158-8418-439A-9D09-1A5BEAFF973E._remotepairing._tcp.local", "test-iphone.local"),
+                new MdnsServiceRecord("Test iPhone._airplay._tcp.local", "test-iphone.local")
             };
             List<MdnsTextRecord> texts = new();
 
             IReadOnlyDictionary<string, MdnsInfo> result = MdnsResponseParser.Parse(addresses, pointers, services, texts);
 
-            Assert.Equal("Mark's iPhone", result["192.168.1.131"].Name);
+            Assert.Equal("Test iPhone", result["192.168.1.131"].Name);
         }
 
         [Fact]
