@@ -157,13 +157,13 @@ Done - Create a Core\Services project
 Done - Create a Services project
 Done - Get exception when no internet for speed test in logs.
 
-Code review.
-
 Release on github:
 Done - Hobby project to learn Claude Code
 Done - Are maintainer notes in contributing required?
 Images
 PII audit
+
+Code review.
 
 
 Roadmap:

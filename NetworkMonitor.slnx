@@ -22,6 +22,15 @@
     <File Path="Documents/Project Bin folder description.md" />
     <File Path="Documents/To Do.txt" />
   </Folder>
+  <Folder Name="/Documents/Images/">
+    <File Path="Documents/Images/Devices.png" />
+    <File Path="Documents/Images/DigestReport.png" />
+    <File Path="Documents/Images/Internet.png" />
+    <File Path="Documents/Images/Local.png" />
+    <File Path="Documents/Images/Speedtest.png" />
+    <File Path="Documents/Images/teaser-internet.png" />
+    <File Path="Documents/Images/teaser-speedtest.png" />
+  </Folder>
   <Folder Name="/Documents/Code Review/">
     <File Path="Documents/Code Review/code-review-procedure.md" />
   </Folder>

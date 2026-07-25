@@ -6,6 +6,18 @@ The name Umnatha comes from isiXhosa, one of South Africa's indigenous languages
 
 This app is a Windows desktop app that watches your local network: it scans continuously, tracks every device it finds, and measures per-application bandwidth straight from the kernel. No data ever leaves your machine. Everything — devices, traffic, speed-test history, daily digests — is stored locally in SQLite.
 
+<p align="center">
+  <img src="Documents/Images/teaser-internet.png" alt="Live per-application internet traffic" width="820">
+  <br>
+  <em>Live per-application internet bandwidth</em>
+</p>
+
+<p align="center">
+  <img src="Documents/Images/teaser-speedtest.png" alt="Hourly internet speed test" width="820">
+  <br>
+  <em>Hourly download / upload / latency / jitter speed tests</em>
+</p>
+
 ## What it does
 
 - **Scans the network** on a configurable interval (default: every 5 minutes) using ICMP ping, ARP table parsing, and reverse DNS lookup.
@@ -21,6 +33,28 @@ This app is a Windows desktop app that watches your local network: it scans cont
 - **Lives in the system tray**, with an optional start-with-Windows setting.
 
 See [`Documents/Overview.md`](Documents/Overview.md) for the full feature tour, page-by-page, plus the complete settings reference. [`Documents/Architecture.md`](Documents/Architecture.md) covers the internals.
+
+## Screenshots
+
+**Devices** — every device on the network, tracked by MAC with type, vendor and live status.
+
+![Devices](Documents/Images/Devices.png)
+
+**Internet traffic** — per-application WAN bandwidth with a live download/upload chart.
+
+![Internet traffic](Documents/Images/Internet.png)
+
+**Local traffic** — LAN traffic pivoted by app or device, with discovery chatter folded away.
+
+![Local traffic](Documents/Images/Local.png)
+
+**Speed test** — hourly Cloudflare download/upload/latency/jitter history.
+
+![Speed test](Documents/Images/Speedtest.png)
+
+**Daily digest** — a summary report of device activity and traffic, exportable to PDF.
+
+![Daily digest](Documents/Images/DigestReport.png)
 
 ## Requirements
 
