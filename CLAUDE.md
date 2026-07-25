@@ -101,7 +101,7 @@ New root-level files (docs, config) must be added to `NetworkMonitor.slnx` so th
 - **Every commit ALWAYS pushes to BOTH targets via one remote (`all`)** — the `all` remote fetches from GitHub (public, **source of truth / master**) and has two push URLs: GitHub and Azure DevOps (private mirror). A single `git push all master` reaches both. There is no such thing as a commit that reaches only one target. Always push with `git push all master` — never a bare `git push`.
 - **Report both targets in the commit result** — after pushing, the commit summary must explicitly confirm both were updated (e.g. "✅ Pushed to GitHub (master) + DevOps (mirror)"). Never report a commit as done without stating both are in sync.
 - `master` tracks `all/master`, so `git status` reports against the ref you actually push to. There is no separate `origin` remote — `all` is the only remote and covers both targets.
-- The `all` remote lives in local `.git/config` (not tracked), so it must be set up once per clone; see `CONTRIBUTING.md` § Maintainer notes for the setup commands.
+- The `all` remote lives in local `.git/config` (not tracked), so it must be set up once per clone.
 
 Example format:
 ```

@@ -161,8 +161,8 @@ Code review.
 
 Release on github:
 Done - Hobby project to learn Claude Code
+Done - Are maintainer notes in contributing required?
 Images
-Are maintainer notes in contributing required?
 PII audit
 
 
