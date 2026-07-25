@@ -7,13 +7,13 @@ The name Umnatha comes from isiXhosa, one of South Africa's indigenous languages
 This app is a Windows desktop app that watches your local network: it scans continuously, tracks every device it finds, and measures per-application bandwidth straight from the kernel. No data ever leaves your machine. Everything — devices, traffic, speed-test history, daily digests — is stored locally in SQLite.
 
 <p align="center">
-  <img src="Documents/Images/teaser-internet.png" alt="Live per-application internet traffic" width="820">
+  <img src="Documents/Images/TeaserInternet.png" alt="Live per-application internet traffic" width="820">
   <br>
   <em>Live per-application internet bandwidth</em>
 </p>
 
 <p align="center">
-  <img src="Documents/Images/teaser-speedtest.png" alt="Hourly internet speed test" width="820">
+  <img src="Documents/Images/TeaserSpeedtest.png" alt="Hourly internet speed test" width="820">
   <br>
   <em>Hourly download / upload / latency / jitter speed tests</em>
 </p>

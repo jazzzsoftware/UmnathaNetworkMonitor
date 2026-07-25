@@ -28,8 +28,8 @@
     <File Path="Documents/Images/Internet.png" />
     <File Path="Documents/Images/Local.png" />
     <File Path="Documents/Images/Speedtest.png" />
-    <File Path="Documents/Images/teaser-internet.png" />
-    <File Path="Documents/Images/teaser-speedtest.png" />
+    <File Path="Documents/Images/TeaserInternet.png" />
+    <File Path="Documents/Images/TeaserSpeedtest.png" />
   </Folder>
   <Folder Name="/Documents/Code Review/">
     <File Path="Documents/Code Review/code-review-procedure.md" />
