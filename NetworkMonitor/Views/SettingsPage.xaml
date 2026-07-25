@@ -929,6 +929,28 @@
                         FontSize="16" />
 
                     <TextBlock
+                        Text="• New: Speed units setting. Choose how network speeds are shown — megabits (Mb/s), megabytes (MB/s), or both — from Settings."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• Automatic subnet detection. The app now works out your network's address range on its own and re-checks it whenever your connection changes (with a notification), so scans always cover the right range."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• Updated device-vendor database. Refreshed to the latest IEEE registry, so more devices show the correct manufacturer."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• Minor: renamed the Settings 'Device' tab to 'Devices', plus small fixes."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="Version 0.0.7"
+                        FontWeight="SemiBold"
+                        FontSize="16"
+                        Margin="0,12,0,0" />
+
+                    <TextBlock
                         Text="• New: Local network traffic. The Traffic page now has a Local tab showing which apps on this PC are talking to other devices on your network. Switch between By app and By device — the By device view makes a big transfer obvious, like a NAS backup climbing as a large upload. (Windows performs file-share/SMB copies in the kernel, so they show under System, tagged SMB, rather than the app that started them.)"
                         TextWrapping="Wrap" />
 
