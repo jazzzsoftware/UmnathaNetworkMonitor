@@ -39,6 +39,14 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md) for coding conventions and how to run t
 
 Everything lives locally in `%LOCALAPPDATA%\UmnathaNetworkMonitor\` — there's no cloud sync, telemetry, or account. Optional diagnostic logging (off by default) never records MAC addresses, IP addresses, or hostnames. See the *Data storage* and *Diagnostic logging* sections of [`Documents/Overview.md`](Documents/Overview.md) for exact file layouts.
 
+## Roadmap
+
+Ideas being explored, in no particular order and with no committed timeline:
+
+- **Automatic updates** — in-app update checks and one-click upgrades.
+- **Chart colour schemes** — selectable palettes for the traffic and speed charts.
+- **Floating mini-graph** — a small always-on-top live throughput window.
+
 ## License
 
 [MIT](LICENSE).
