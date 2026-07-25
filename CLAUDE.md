@@ -115,6 +115,6 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
 
 ## Notes
 
-- OUI vendor file (`Assets/oui.txt`) is a placeholder. Download the real file from https://standards-oui.ieee.org/oui/oui.txt and replace it.
+- OUI vendor file (`Assets/oui.txt`) is the real IEEE registry. Refresh it periodically by downloading the latest from https://standards-oui.ieee.org/oui/oui.txt and replacing the file (UTF-8, CRLF, no BOM).
 - Settings are held in the `Settings` singleton (`Data/Settings.cs`), persisted to `settings.json`; on first run they seed from `appsettings.json` (`Scanner` section). SettingsPage persists each change instantly; scan-related changes take effect on the next scan.
 - The `ScanWorker` PeriodicTimer starts after the first interval — use "Scan Network" on the Devices page for an immediate scan.

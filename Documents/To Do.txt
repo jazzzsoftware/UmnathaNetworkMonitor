@@ -156,12 +156,13 @@ Done - Create a Model project with subfolders similar to services and refactor.
 Done - Create a Core\Services project
 Done - Create a Services project
 Done - Get exception when no internet for speed test in logs.
+Done - Github - Hobby project to learn Claude Code
+Done - Github - Are maintainer notes in contributing required?
+Done - Github - Images
+Done - PII audit
+Done - update OUI file
 
-Release on github:
-Done - Hobby project to learn Claude Code
-Done - Are maintainer notes in contributing required?
-Images
-PII audit
+Publish
 
 Code review.
 
