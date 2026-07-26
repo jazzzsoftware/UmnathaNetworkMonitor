@@ -74,6 +74,7 @@
     <File Path="Documents/superpowers/specs/2026-07-07-mdns-enrichment-design.md" />
     <File Path="Documents/superpowers/specs/2026-07-16-local-traffic-app-centric-design.md" />
     <File Path="Documents/superpowers/specs/2026-07-20-local-traffic-redesign.md" />
+    <File Path="Documents/superpowers/specs/2026-07-26-auto-updates-design.md" />
   </Folder>
   <Folder Name="/Installer/">
     <File Path="Installer/build-installer.ps1" />
