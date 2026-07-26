@@ -6,6 +6,46 @@ namespace NetworkMonitor.Core.Update
 {
     public static class ReleaseInfoParser
     {
+        // Separate from Parse so a release can be version-compared before its assets are validated —
+        // a release we are already running must not raise an error just because it lacks a checksum.
+        public static bool TryParseVersionTag(string releaseJson, out string versionTag)
+        {
+            versionTag = string.Empty;
+            bool parsed = false;
+
+            if (!string.IsNullOrWhiteSpace(releaseJson))
+            {
+
+                try
+                {
+                    using JsonDocument document = JsonDocument.Parse(releaseJson);
+                    JsonElement root = document.RootElement;
+
+                    if (root.ValueKind == JsonValueKind.Object
+                        && root.TryGetProperty("tag_name", out JsonElement tagElement)
+                        && tagElement.ValueKind == JsonValueKind.String)
+                    {
+                        string tag = tagElement.GetString() ?? string.Empty;
+
+                        if (SemanticVersion.TryParse(tag, out SemanticVersion parsedVersion))
+                        {
+                            versionTag = tag;
+                            parsed = true;
+                        }
+
+                    }
+
+                }
+                catch (JsonException)
+                {
+                    versionTag = string.Empty;
+                }
+
+            }
+
+            return parsed;
+        }
+
         public static AvailableUpdate? Parse(string releaseJson)
         {
             AvailableUpdate? result = null;

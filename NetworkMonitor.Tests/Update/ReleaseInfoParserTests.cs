@@ -63,5 +63,51 @@ namespace NetworkMonitor.Tests.Update
 
             Assert.Null(update);
         }
+
+        [Fact]
+        public void TryParseVersionTagReadsTagFromCompleteRelease()
+        {
+            bool parsed = ReleaseInfoParser.TryParseVersionTag(ValidJson, out string versionTag);
+
+            Assert.True(parsed);
+            Assert.Equal("v0.0.9", versionTag);
+        }
+
+        [Fact]
+        public void TryParseVersionTagSucceedsWhenChecksumAssetMissing()
+        {
+            string json = """
+            { "tag_name": "v0.0.9", "assets": [ { "name": "app.exe", "browser_download_url": "https://x/app.exe", "size": 10 } ] }
+            """;
+
+            bool parsed = ReleaseInfoParser.TryParseVersionTag(json, out string versionTag);
+
+            Assert.True(parsed);
+            Assert.Equal("v0.0.9", versionTag);
+        }
+
+        [Fact]
+        public void TryParseVersionTagSucceedsWhenAssetsAbsentEntirely()
+        {
+            bool parsed = ReleaseInfoParser.TryParseVersionTag("{ \"tag_name\": \"v0.0.9\" }", out string versionTag);
+
+            Assert.True(parsed);
+            Assert.Equal("v0.0.9", versionTag);
+        }
+
+        [Theory]
+        [InlineData("")]
+        [InlineData("not json")]
+        [InlineData("[]")]
+        [InlineData("{ \"assets\": [] }")]
+        [InlineData("{ \"tag_name\": \"\" }")]
+        [InlineData("{ \"tag_name\": \"garbage\" }")]
+        public void TryParseVersionTagFailsForUnusableInput(string json)
+        {
+            bool parsed = ReleaseInfoParser.TryParseVersionTag(json, out string versionTag);
+
+            Assert.False(parsed);
+            Assert.Equal(string.Empty, versionTag);
+        }
     }
 }

@@ -1842,9 +1842,18 @@ Deviations from the plan as written, and why:
 
 7. **`Apply` is guarded on `IsBusy`** so a background 24h check cannot overwrite the download-progress message mid-download.
 
+8. **Version comparison now happens before asset validation** (fixed after the plan's `CheckAsync` was implemented as written). The plan called `ReleaseInfoParser.Parse` first and treated `null` as `Failed`. Because `Parse` requires **both** a `.exe` and a `.sha256` asset, and the live `v0.0.8` release has only the `.exe`, every user on the current release saw a red *"The latest release could not be read."* banner on startup — a release you are already running is not the user's problem. Added `ReleaseInfoParser.TryParseVersionTag`, which reads `tag_name` independently of the assets, and reordered `CheckAsync` to:
+
+   1. no readable tag → `Failed`
+   2. tag not newer than the installed version → `UpToDate` (silent, regardless of assets)
+   3. tag newer but assets incomplete → `Failed` with a specific message naming the version
+   4. tag newer with both assets → `Available`
+
+   Verified against the live GitHub endpoint with a throwaway probe test (since `NetworkMonitor.Tests` cannot reference Services): the real `v0.0.8` release yields tag `v0.0.8`, a `null` full parse, and `IsNewer == false` — so the app stays silent. The probe was deleted after running; nine permanent unit tests cover `TryParseVersionTag`.
+
 **Verification status:**
 
-- `dotnet test` — 209 passed, 0 failed.
+- `dotnet test` — 218 passed, 0 failed.
 - `dotnet build NetworkMonitor.slnx -p:Platform=x64` — succeeded, 0 warnings.
 - `Installer\build-installer.ps1` — full publish + ISCC compile succeeded (Inno Setup 6.7.3), so the new `CloseApplications` / `RestartApplications` / `skipifnotsilent` directives are valid. Installer: 74,563,944 bytes. The `.sha256` companion is exactly 64 bytes with no trailing newline and matches the installer hash; a second clean rebuild produced an identical hash.
 - **Still outstanding:** Task 16 Step 2, the end-to-end smoke test (banner → download → verify → silent install → relaunch). It needs a GitHub release tagged higher than the installed build, so it must be done manually before the first real auto-update release.

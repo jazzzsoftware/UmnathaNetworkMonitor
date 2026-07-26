@@ -40,19 +40,28 @@ namespace NetworkMonitor.Services.Update
                 response.EnsureSuccessStatusCode();
 
                 string json = await response.Content.ReadAsStringAsync(cancellationToken);
-                AvailableUpdate? update = ReleaseInfoParser.Parse(json);
 
-                if (update is null)
+                if (!ReleaseInfoParser.TryParseVersionTag(json, out string versionTag))
                 {
                     result = UpdateCheckResult.Failed("The latest release could not be read.");
                 }
-                else if (UpdateDecision.IsNewer(AppInfo.GetVersion(), update.NormalizedVersion))
+                else if (!UpdateDecision.IsNewer(AppInfo.GetVersion(), versionTag))
                 {
-                    result = UpdateCheckResult.Available(update);
+                    result = UpdateCheckResult.UpToDate();
                 }
                 else
                 {
-                    result = UpdateCheckResult.UpToDate();
+                    AvailableUpdate? update = ReleaseInfoParser.Parse(json);
+
+                    if (update is null)
+                    {
+                        result = UpdateCheckResult.Failed($"Version {versionTag} is available, but its download is incomplete. Please try again later.");
+                    }
+                    else
+                    {
+                        result = UpdateCheckResult.Available(update);
+                    }
+
                 }
 
             }
