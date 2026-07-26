@@ -163,6 +163,7 @@ Done - PII audit
 Done - update OUI file
 Done - Publish
 Done - Go live on GitHub
+Done - Auto update
 
 Code review.
 

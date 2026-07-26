@@ -959,6 +959,24 @@
                         FontSize="16" />
 
                     <TextBlock
+                        Text="• New: Automatic updates. The app now checks GitHub for a newer version when it starts and once a day after that. When one is available a banner appears at the top of the window — click Update now and the app downloads it, installs it and restarts itself on the new version, or click Later to leave it for another time."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• Every download is checked against a SHA-256 checksum published with the release before anything is installed, so a corrupted or tampered download is never run."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• Update settings. Automatic checking can be switched off in Settings, which also has a Check for updates button for checking on demand — it tells you either that an update is available or that you're already on the latest version."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="Version 0.0.8"
+                        FontWeight="SemiBold"
+                        FontSize="16"
+                        Margin="0,12,0,0" />
+
+                    <TextBlock
                         Text="• New: Speed units setting. Choose how network speeds are shown — megabits (Mb/s), megabytes (MB/s), or both — from Settings."
                         TextWrapping="Wrap" />
 

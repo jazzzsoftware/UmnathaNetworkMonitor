@@ -63,7 +63,7 @@ Everything lives locally in `%LOCALAPPDATA%\UmnathaNetworkMonitor\` — there's 
 
 Ideas being explored, in no particular order and with no committed timeline:
 
-- **Automatic updates** — in-app update checks and one-click upgrades.
+- ~~**Automatic updates** — in-app update checks and one-click upgrades.~~ Shipped in 0.0.9.
 - **Chart colour schemes** — selectable palettes for the traffic and speed charts.
 - **Floating mini-graph** — a small always-on-top live throughput window.
 
