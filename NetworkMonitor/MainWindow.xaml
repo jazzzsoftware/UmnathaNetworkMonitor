@@ -8,51 +8,8 @@
 
     <Grid>
 
-        <Grid.RowDefinitions>
-
-            <RowDefinition
-                Height="Auto" />
-
-            <RowDefinition
-                Height="*" />
-
-        </Grid.RowDefinitions>
-
-        <InfoBar
-            Grid.Row="0"
-            Title="Software update"
-            IsClosable="True"
-            CloseButtonCommand="{x:Bind UpdateViewModel.DismissCommand}"
-            IsOpen="{x:Bind UpdateViewModel.IsBannerOpen, Mode=OneWay}"
-            Severity="{x:Bind UpdateViewModel.Severity, Mode=OneWay}"
-            Message="{x:Bind UpdateViewModel.Message, Mode=OneWay}">
-
-            <InfoBar.Content>
-
-                <ProgressBar
-                    Width="240"
-                    Margin="0,8,0,12"
-                    HorizontalAlignment="Left"
-                    Maximum="100"
-                    Visibility="{x:Bind UpdateViewModel.IsBusy, Mode=OneWay}"
-                    Value="{x:Bind UpdateViewModel.DownloadProgress, Mode=OneWay}" />
-
-            </InfoBar.Content>
-
-            <InfoBar.ActionButton>
-
-                <Button
-                    Content="Update now"
-                    IsEnabled="{x:Bind UpdateViewModel.IsNotBusy, Mode=OneWay}"
-                    Command="{x:Bind UpdateViewModel.UpdateNowCommand}" />
-
-            </InfoBar.ActionButton>
-
-        </InfoBar>
-
     <NavigationView
         x:Name="NavView"
-        Grid.Row="1"
         IsBackButtonVisible="Collapsed"
         IsSettingsVisible="True"
         PaneDisplayMode="Left"
@@ -138,14 +95,89 @@
 
         </NavigationView.PaneFooter>
 
-        <Frame
-            x:Name="ContentFrame" />
+        <Grid>
+
+            <Grid.RowDefinitions>
+
+                <RowDefinition
+                    Height="Auto" />
+
+                <RowDefinition
+                    Height="*" />
+
+            </Grid.RowDefinitions>
+
+            <InfoBar
+                Grid.Row="0"
+                Title="Software update"
+                IsClosable="False"
+                IsOpen="{x:Bind UpdateViewModel.IsBannerOpen, Mode=TwoWay}"
+                Severity="{x:Bind UpdateViewModel.Severity, Mode=OneWay}"
+                Message="{x:Bind UpdateViewModel.Message, Mode=OneWay}">
+
+                <InfoBar.Content>
+
+                    <StackPanel
+                        Margin="0,8,0,12"
+                        Spacing="12">
+
+                        <StackPanel
+                            Orientation="Horizontal"
+                            Spacing="12"
+                            Visibility="{x:Bind UpdateViewModel.IsBusy, Mode=OneWay}">
+
+                            <ProgressBar
+                                Width="240"
+                                VerticalAlignment="Center"
+                                Maximum="100"
+                                Value="{x:Bind UpdateViewModel.DownloadProgress, Mode=OneWay}" />
+
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                Text="{x:Bind UpdateViewModel.DownloadProgressText, Mode=OneWay}" />
+
+                        </StackPanel>
+
+                        <StackPanel
+                            Orientation="Horizontal"
+                            Spacing="8"
+                            Visibility="{x:Bind UpdateViewModel.HasPendingUpdate, Mode=OneWay}">
+
+                            <Button
+                                Content="Update now"
+                                Style="{StaticResource AccentButtonStyle}"
+                                IsEnabled="{x:Bind UpdateViewModel.IsNotBusy, Mode=OneWay}"
+                                Command="{x:Bind UpdateViewModel.UpdateNowCommand}" />
+
+                            <Button
+                                Content="Later"
+                                IsEnabled="{x:Bind UpdateViewModel.IsNotBusy, Mode=OneWay}"
+                                Command="{x:Bind UpdateViewModel.DismissCommand}" />
+
+                        </StackPanel>
+
+                        <Button
+                            Content="Dismiss"
+                            HorizontalAlignment="Left"
+                            Visibility="{x:Bind UpdateViewModel.HasNoPendingUpdate, Mode=OneWay}"
+                            Command="{x:Bind UpdateViewModel.DismissCommand}" />
+
+                    </StackPanel>
+
+                </InfoBar.Content>
+
+            </InfoBar>
+
+            <Frame
+                x:Name="ContentFrame"
+                Grid.Row="1" />
+
+        </Grid>
 
     </NavigationView>
 
     <Border
         x:Name="ToastBorder"
-        Grid.Row="1"
         Margin="0,0,0,48"
         Padding="20,12"
         HorizontalAlignment="Center"

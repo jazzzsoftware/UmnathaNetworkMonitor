@@ -79,6 +79,24 @@ namespace NetworkMonitor.ViewModels
 
         public bool IsNotBusy => !_isBusy;
 
+        private bool _hasPendingUpdate;
+
+        public bool HasPendingUpdate
+        {
+            get => _hasPendingUpdate;
+            set
+            {
+
+                if (SetProperty(ref _hasPendingUpdate, value))
+                {
+                    OnPropertyChanged(nameof(HasNoPendingUpdate));
+                }
+
+            }
+        }
+
+        public bool HasNoPendingUpdate => !_hasPendingUpdate;
+
         private double _downloadProgress;
 
         public double DownloadProgress
@@ -86,7 +104,22 @@ namespace NetworkMonitor.ViewModels
             get => _downloadProgress;
             set
             {
-                SetProperty(ref _downloadProgress, value);
+
+                if (SetProperty(ref _downloadProgress, value))
+                {
+                    OnPropertyChanged(nameof(DownloadProgressText));
+                }
+
+            }
+        }
+
+        public string DownloadProgressText
+        {
+            get
+            {
+                string text = _downloadProgress >= 100.0 ? "Verifying…" : $"{_downloadProgress:F0}%";
+
+                return text;
             }
         }
 
@@ -169,6 +202,7 @@ namespace NetworkMonitor.ViewModels
                 if (result.Availability == UpdateAvailability.UpdateAvailable && result.Update is not null)
                 {
                     _pendingUpdate = result.Update;
+                    HasPendingUpdate = true;
                     Severity = InfoBarSeverity.Informational;
                     Message = $"Version {result.Update.NormalizedVersion} is available.";
                     IsBannerOpen = true;
@@ -176,6 +210,7 @@ namespace NetworkMonitor.ViewModels
                 else if (result.Availability == UpdateAvailability.CheckFailed)
                 {
                     _pendingUpdate = null;
+                    HasPendingUpdate = false;
                     Severity = InfoBarSeverity.Error;
                     Message = result.ErrorMessage ?? "Couldn't check for updates.";
                     IsBannerOpen = true;
@@ -183,6 +218,7 @@ namespace NetworkMonitor.ViewModels
                 else
                 {
                     _pendingUpdate = null;
+                    HasPendingUpdate = false;
                     Severity = InfoBarSeverity.Success;
                     Message = "You're on the latest version.";
                     IsBannerOpen = reportUpToDate;
