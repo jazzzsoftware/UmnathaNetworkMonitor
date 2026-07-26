@@ -47,6 +47,7 @@ namespace NetworkMonitor.ViewModels
             _enableLogging = settings.EnableLogging;
             _speedTestEnabled = settings.SpeedTestEnabled;
             _rateUnitModeIndex = (int)settings.RateUnitMode;
+            _autoCheckForUpdates = settings.AutoCheckForUpdates;
 
             PropertyChanged += OnSettingChanged;
             _ = InitializeRunAtStartupAsync();
@@ -298,6 +299,14 @@ namespace NetworkMonitor.ViewModels
             set => SetProperty(ref _rateUnitModeIndex, value);
         }
 
+        private bool _autoCheckForUpdates;
+
+        public bool AutoCheckForUpdates
+        {
+            get => _autoCheckForUpdates;
+            set => SetProperty(ref _autoCheckForUpdates, value);
+        }
+
         private void PersistAll()
         {
             _settings.SubnetBase = SubnetBase;
@@ -319,6 +328,7 @@ namespace NetworkMonitor.ViewModels
             _settings.EnableLogging = EnableLogging;
             _settings.SpeedTestEnabled = SpeedTestEnabled;
             _settings.RateUnitMode = (RateUnitMode)RateUnitModeIndex;
+            _settings.AutoCheckForUpdates = AutoCheckForUpdates;
             TrafficRateFormatter.Mode = _settings.RateUnitMode;
 
 #if DEBUG

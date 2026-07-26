@@ -1,4 +1,4 @@
-# Auto-Updates Implementation Plan
+﻿# Auto-Updates Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -10,10 +10,10 @@
 
 ## Global Constraints
 
-- **Coding conventions (CLAUDE.md) apply to every code sample verbatim:** no `var`; always curly braces; single exit point (one `return` at method end, value assigned to a local first with a blank line above the `return`); blank lines around every block; class member order Fields → Constructor → Properties → Public methods → Override methods → Private methods; a property's backing field sits directly above it in the Properties section and observable properties are hand-written with `SetProperty(ref _field, value)` (never `[ObservableProperty]`); property `{ get; set; }` each on its own line; `string.Empty` not `""`; no underscores in identifiers except the leading underscore on private fields; no single-character names; no comments unless the WHY is non-obvious.
+- **Coding conventions (CLAUDE.md) apply to every code sample verbatim:** no `var`; always curly braces; single exit point (one `return` at method end, value assigned to a local first with a blank line above the `return`); blank lines around every block; class member order Fields â†’ Constructor â†’ Properties â†’ Public methods â†’ Override methods â†’ Private methods; a property's backing field sits directly above it in the Properties section and observable properties are hand-written with `SetProperty(ref _field, value)` (never `[ObservableProperty]`); property `{ get; set; }` each on its own line; `string.Empty` not `""`; no underscores in identifiers except the leading underscore on private fields; no single-character names; no comments unless the WHY is non-obvious.
 - **XAML conventions (CLAUDE.md) apply to every XAML sample:** blank line after `<?xml?>`; one attribute per line indented 4 spaces; attribute order = simple assignments, then events/`Command`, then value bindings; blank line above/below every element; `DevicesPage.xaml` is the reference.
 - **Test project boundary:** `NetworkMonitor.Tests` references **Models + Core only** (no Services, no App). All unit tests target Models/Core. Services/App/build tasks are verified by `dotnet build` + manual smoke, exactly as the existing workers (`ScanWorker`, `SpeedTestWorker`) are.
-- **Layering:** Models ← Core ← Services ← App. Never make a lower layer reference a higher one.
+- **Layering:** Models â† Core â† Services â† App. Never make a lower layer reference a higher one.
 - **Repository (update feed):** owner/repo = `jazzzsoftware/UmnathaNetworkMonitor`; latest-release endpoint = `https://api.github.com/repos/jazzzsoftware/UmnathaNetworkMonitor/releases/latest`.
 - **Every new doc file created by this plan must be registered in `NetworkMonitor.slnx`** in the same commit.
 - **Build:** x64 platform (WinUI 3 has no Any CPU). Run tests with `dotnet test NetworkMonitor.Tests/NetworkMonitor.Tests.csproj`.
@@ -31,7 +31,7 @@
 **Interfaces:**
 - Produces: `enum UpdateAvailability { UpToDate, UpdateAvailable, CheckFailed }`; `record AvailableUpdate(string VersionTag, string NormalizedVersion, string InstallerUrl, string ChecksumUrl, long SizeBytes)`; `record UpdateCheckResult` with `UpdateAvailability Availability`, `AvailableUpdate? Update`, `string? ErrorMessage`, and static factories `UpToDate()`, `Available(AvailableUpdate update)`, `Failed(string errorMessage)`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `NetworkMonitor.Tests/Update/UpdateCheckResultTests.cs`:
 
@@ -77,12 +77,12 @@ namespace NetworkMonitor.Tests.Update
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `dotnet test NetworkMonitor.Tests/NetworkMonitor.Tests.csproj --filter UpdateCheckResultTests`
-Expected: FAIL — types `UpdateAvailability` / `AvailableUpdate` / `UpdateCheckResult` do not exist (compile error).
+Expected: FAIL â€” types `UpdateAvailability` / `AvailableUpdate` / `UpdateCheckResult` do not exist (compile error).
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 `NetworkMonitor.Models/Update/UpdateAvailability.cs`:
 
@@ -146,12 +146,12 @@ namespace NetworkMonitor.Models.Update
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `dotnet test NetworkMonitor.Tests/NetworkMonitor.Tests.csproj --filter UpdateCheckResultTests`
 Expected: PASS (3 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add NetworkMonitor.Models/Update/ NetworkMonitor.Tests/Update/UpdateCheckResultTests.cs
@@ -169,7 +169,7 @@ git commit -m "Add update DTOs (AvailableUpdate, UpdateCheckResult, UpdateAvaila
 **Interfaces:**
 - Produces: `sealed class SemanticVersion : IComparable<SemanticVersion>` with `int Major/Minor/Patch { get; }`, `static bool TryParse(string text, out SemanticVersion version)` (tolerates a leading `v`/`V` and a `-prerelease` suffix which it drops), and `int CompareTo(SemanticVersion? other)`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `NetworkMonitor.Tests/Update/SemanticVersionTests.cs`:
 
@@ -234,12 +234,12 @@ namespace NetworkMonitor.Tests.Update
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `dotnet test NetworkMonitor.Tests/NetworkMonitor.Tests.csproj --filter SemanticVersionTests`
-Expected: FAIL — `SemanticVersion` does not exist (compile error).
+Expected: FAIL â€” `SemanticVersion` does not exist (compile error).
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 `NetworkMonitor.Core/Update/SemanticVersion.cs`:
 
@@ -367,12 +367,12 @@ namespace NetworkMonitor.Core.Update
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `dotnet test NetworkMonitor.Tests/NetworkMonitor.Tests.csproj --filter SemanticVersionTests`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add NetworkMonitor.Core/Update/SemanticVersion.cs NetworkMonitor.Tests/Update/SemanticVersionTests.cs
@@ -389,9 +389,9 @@ git commit -m "Add SemanticVersion parse/compare for update checks."
 
 **Interfaces:**
 - Consumes: `SemanticVersion` (Task 2).
-- Produces: `static class UpdateDecision` with `static bool IsNewer(string currentVersion, string candidateVersion)` — returns true only when both parse and candidate > current.
+- Produces: `static class UpdateDecision` with `static bool IsNewer(string currentVersion, string candidateVersion)` â€” returns true only when both parse and candidate > current.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `NetworkMonitor.Tests/Update/UpdateDecisionTests.cs`:
 
@@ -429,12 +429,12 @@ namespace NetworkMonitor.Tests.Update
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `dotnet test NetworkMonitor.Tests/NetworkMonitor.Tests.csproj --filter UpdateDecisionTests`
-Expected: FAIL — `UpdateDecision` does not exist.
+Expected: FAIL â€” `UpdateDecision` does not exist.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 `NetworkMonitor.Core/Update/UpdateDecision.cs`:
 
@@ -459,12 +459,12 @@ namespace NetworkMonitor.Core.Update
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `dotnet test NetworkMonitor.Tests/NetworkMonitor.Tests.csproj --filter UpdateDecisionTests`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add NetworkMonitor.Core/Update/UpdateDecision.cs NetworkMonitor.Tests/Update/UpdateDecisionTests.cs
@@ -481,9 +481,9 @@ git commit -m "Add UpdateDecision.IsNewer version gate."
 
 **Interfaces:**
 - Consumes: `SemanticVersion` (Task 2), `AvailableUpdate` (Task 1).
-- Produces: `static class ReleaseInfoParser` with `static AvailableUpdate? Parse(string releaseJson)` — reads `tag_name`, finds the asset whose name ends with `.exe` (installer) and the asset whose name ends with `.sha256` (checksum), and returns an `AvailableUpdate`; returns `null` if the JSON is malformed, has no valid `tag_name`, or is missing either asset.
+- Produces: `static class ReleaseInfoParser` with `static AvailableUpdate? Parse(string releaseJson)` â€” reads `tag_name`, finds the asset whose name ends with `.exe` (installer) and the asset whose name ends with `.sha256` (checksum), and returns an `AvailableUpdate`; returns `null` if the JSON is malformed, has no valid `tag_name`, or is missing either asset.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `NetworkMonitor.Tests/Update/ReleaseInfoParserTests.cs`:
 
@@ -557,12 +557,12 @@ namespace NetworkMonitor.Tests.Update
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `dotnet test NetworkMonitor.Tests/NetworkMonitor.Tests.csproj --filter ReleaseInfoParserTests`
-Expected: FAIL — `ReleaseInfoParser` does not exist.
+Expected: FAIL â€” `ReleaseInfoParser` does not exist.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 `NetworkMonitor.Core/Update/ReleaseInfoParser.cs`:
 
@@ -649,12 +649,12 @@ namespace NetworkMonitor.Core.Update
 
 Note: the `installerSize = ... ? ... : ...` ternary is an assignment expression, not a `return`, so it complies with the "returns stand alone" rule.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `dotnet test NetworkMonitor.Tests/NetworkMonitor.Tests.csproj --filter ReleaseInfoParserTests`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add NetworkMonitor.Core/Update/ReleaseInfoParser.cs NetworkMonitor.Tests/Update/ReleaseInfoParserTests.cs
@@ -672,7 +672,7 @@ git commit -m "Add ReleaseInfoParser for GitHub latest-release JSON."
 **Interfaces:**
 - Produces: `static class ChecksumVerifier` with `static string ParseHashFromChecksumFile(string content)` (returns the leading hex token, lower-cased, or `string.Empty`), `static bool Verify(string expectedHashHex, string actualHashHex)` (case-insensitive, trims, both non-empty), `static Task<string> ComputeSha256Async(string filePath, CancellationToken cancellationToken)` (returns lower-case hex).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `NetworkMonitor.Tests/Update/ChecksumVerifierTests.cs`:
 
@@ -729,12 +729,12 @@ namespace NetworkMonitor.Tests.Update
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `dotnet test NetworkMonitor.Tests/NetworkMonitor.Tests.csproj --filter ChecksumVerifierTests`
-Expected: FAIL — `ChecksumVerifier` does not exist.
+Expected: FAIL â€” `ChecksumVerifier` does not exist.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 `NetworkMonitor.Core/Update/ChecksumVerifier.cs`:
 
@@ -802,12 +802,12 @@ namespace NetworkMonitor.Core.Update
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `dotnet test NetworkMonitor.Tests/NetworkMonitor.Tests.csproj --filter ChecksumVerifierTests`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add NetworkMonitor.Core/Update/ChecksumVerifier.cs NetworkMonitor.Tests/Update/ChecksumVerifierTests.cs
@@ -825,7 +825,7 @@ git commit -m "Add ChecksumVerifier (parse, compare, SHA-256 compute)."
 **Interfaces:**
 - Produces: `Settings.AutoCheckForUpdates` (bool, default `true`), persisted by the existing `Save()`.
 
-- [ ] **Step 1: Add the setting property**
+- [x] **Step 1: Add the setting property**
 
 In `NetworkMonitor.Services/Data/Settings.cs`, immediately after the `RateUnitMode` property (line ~180) and before `public void Save()`:
 
@@ -837,16 +837,16 @@ In `NetworkMonitor.Services/Data/Settings.cs`, immediately after the `RateUnitMo
         } = true;
 ```
 
-- [ ] **Step 2: Add the default to appsettings.json**
+- [x] **Step 2: Add the default to appsettings.json**
 
 In `NetworkMonitor/appsettings.json`, add `"AutoCheckForUpdates": true` inside the `Scanner` object (match existing key style/comma placement).
 
-- [ ] **Step 3: Build to verify**
+- [x] **Step 3: Build to verify**
 
 Run: `dotnet build NetworkMonitor.Services/NetworkMonitor.Services.csproj -p:Platform=x64`
 Expected: Build succeeded.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add NetworkMonitor.Services/Data/Settings.cs NetworkMonitor/appsettings.json
@@ -862,11 +862,11 @@ git commit -m "Add AutoCheckForUpdates setting (default on)."
 - Create: `NetworkMonitor.Services/Update/InstallerLauncher.cs`
 
 **Interfaces:**
-- Produces: `interface IInstallerLauncher { void LaunchAndExit(string installerPath); }`, and `InstallerLauncher` which starts the installer with `/SILENT /SUPPRESSMSGBOXES /NORESTART` via `ShellExecute` (inherits the app's elevation — no extra UAC), then calls `Environment.Exit(0)` so the single-instance mutex releases and files unlock before the installer replaces them.
+- Produces: `interface IInstallerLauncher { void LaunchAndExit(string installerPath); }`, and `InstallerLauncher` which starts the installer with `/SILENT /SUPPRESSMSGBOXES /NORESTART` via `ShellExecute` (inherits the app's elevation â€” no extra UAC), then calls `Environment.Exit(0)` so the single-instance mutex releases and files unlock before the installer replaces them.
 
-Note: no unit test — this launches a process and terminates the app; verified by build + Task 16 smoke.
+Note: no unit test â€” this launches a process and terminates the app; verified by build + Task 16 smoke.
 
-- [ ] **Step 1: Create the interface**
+- [x] **Step 1: Create the interface**
 
 `NetworkMonitor.Services/Update/IInstallerLauncher.cs`:
 
@@ -880,7 +880,7 @@ namespace NetworkMonitor.Services.Update
 }
 ```
 
-- [ ] **Step 2: Create the implementation**
+- [x] **Step 2: Create the implementation**
 
 `NetworkMonitor.Services/Update/InstallerLauncher.cs`:
 
@@ -913,12 +913,12 @@ namespace NetworkMonitor.Services.Update
 
 Note: `/NORESTART` prevents Inno from rebooting; the app relaunch is handled by the `.iss` `[Run]` entry (Task 15), not by `/RESTART`.
 
-- [ ] **Step 3: Build to verify**
+- [x] **Step 3: Build to verify**
 
 Run: `dotnet build NetworkMonitor.Services/NetworkMonitor.Services.csproj -p:Platform=x64`
 Expected: Build succeeded.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add NetworkMonitor.Services/Update/IInstallerLauncher.cs NetworkMonitor.Services/Update/InstallerLauncher.cs
@@ -941,7 +941,7 @@ git commit -m "Add InstallerLauncher (silent launch + app exit)."
 
 Note: no unit test (network/file/process, and Tests can't reference Services); verified by build + Task 16 smoke.
 
-- [ ] **Step 1: Create the interface**
+- [x] **Step 1: Create the interface**
 
 `NetworkMonitor.Services/Update/IUpdateService.cs`:
 
@@ -966,7 +966,7 @@ namespace NetworkMonitor.Services.Update
 }
 ```
 
-- [ ] **Step 2: Create the implementation**
+- [x] **Step 2: Create the implementation**
 
 `NetworkMonitor.Services/Update/UpdateService.cs`:
 
@@ -1037,7 +1037,7 @@ namespace NetworkMonitor.Services.Update
             catch (Exception exception)
             {
                 AppLog.Error("UpdateService.Check", exception);
-                result = UpdateCheckResult.Failed("Couldn't check for updates — check your connection.");
+                result = UpdateCheckResult.Failed("Couldn't check for updates â€” check your connection.");
             }
 
             CheckCompleted?.Invoke(this, result);
@@ -1155,12 +1155,12 @@ namespace NetworkMonitor.Services.Update
 }
 ```
 
-- [ ] **Step 3: Build to verify**
+- [x] **Step 3: Build to verify**
 
 Run: `dotnet build NetworkMonitor.Services/NetworkMonitor.Services.csproj -p:Platform=x64`
-Expected: Build succeeded. (If `AppPaths` is in a different namespace than imported, add the correct `using` — it is the same helper `Settings.cs` references for `AppDataFolder`.)
+Expected: Build succeeded. (If `AppPaths` is in a different namespace than imported, add the correct `using` â€” it is the same helper `Settings.cs` references for `AppDataFolder`.)
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add NetworkMonitor.Services/Update/IUpdateService.cs NetworkMonitor.Services/Update/UpdateService.cs
@@ -1176,11 +1176,11 @@ git commit -m "Add UpdateService (check, download+verify, launch)."
 
 **Interfaces:**
 - Consumes: `IUpdateService` (Task 8), `Settings` (Task 6), `AppLog`.
-- Produces: `UpdateCheckWorker(IUpdateService updateService, Settings settings) : BackgroundService` — waits ~10s after start, then loops every 24h; each iteration calls `updateService.CheckAsync` only when `settings.AutoCheckForUpdates` is true (the UI subscribes to `CheckCompleted`). Mirrors `ScanWorker`'s try/catch/`AppLog` loop shape.
+- Produces: `UpdateCheckWorker(IUpdateService updateService, Settings settings) : BackgroundService` â€” waits ~10s after start, then loops every 24h; each iteration calls `updateService.CheckAsync` only when `settings.AutoCheckForUpdates` is true (the UI subscribes to `CheckCompleted`). Mirrors `ScanWorker`'s try/catch/`AppLog` loop shape.
 
 Note: no unit test; verified by build + Task 16 smoke.
 
-- [ ] **Step 1: Create the worker**
+- [x] **Step 1: Create the worker**
 
 `NetworkMonitor.Services/Update/UpdateCheckWorker.cs`:
 
@@ -1248,12 +1248,12 @@ namespace NetworkMonitor.Services.Update
 }
 ```
 
-- [ ] **Step 2: Build to verify**
+- [x] **Step 2: Build to verify**
 
 Run: `dotnet build NetworkMonitor.Services/NetworkMonitor.Services.csproj -p:Platform=x64`
 Expected: Build succeeded.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add NetworkMonitor.Services/Update/UpdateCheckWorker.cs
@@ -1273,7 +1273,7 @@ git commit -m "Add UpdateCheckWorker periodic update-check loop."
 
 Note: no unit test (UI thread + ObservableObject); verified by build + Task 16 smoke.
 
-- [ ] **Step 1: Create the view model**
+- [x] **Step 1: Create the view model**
 
 `NetworkMonitor/ViewModels/UpdateViewModel.cs`:
 
@@ -1390,7 +1390,7 @@ namespace NetworkMonitor.ViewModels
             {
                 IsBusy = true;
                 DownloadProgress = 0;
-                Message = $"Downloading version {update.NormalizedVersion}…";
+                Message = $"Downloading version {update.NormalizedVersion}â€¦";
                 Severity = InfoBarSeverity.Informational;
 
                 Progress<double> progress = new Progress<double>(fraction =>
@@ -1456,14 +1456,14 @@ namespace NetworkMonitor.ViewModels
 }
 ```
 
-Note: `AsyncRelayCommand`/`RelayCommand` (CommunityToolkit.Mvvm.Input) are used directly — only `[ObservableProperty]` is banned by the conventions, and all observable properties here are hand-written with `SetProperty`.
+Note: `AsyncRelayCommand`/`RelayCommand` (CommunityToolkit.Mvvm.Input) are used directly â€” only `[ObservableProperty]` is banned by the conventions, and all observable properties here are hand-written with `SetProperty`.
 
-- [ ] **Step 2: Build to verify**
+- [x] **Step 2: Build to verify**
 
 Run: `dotnet build NetworkMonitor/NetworkMonitor.csproj -p:Platform=x64`
 Expected: FAIL at DI resolution is not tested here; the project should **compile**. Expected: Build succeeded. (It will not run until Task 11 registers it.)
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add NetworkMonitor/ViewModels/UpdateViewModel.cs
@@ -1479,9 +1479,9 @@ git commit -m "Add UpdateViewModel for the update banner."
 
 **Interfaces:**
 - Consumes: `UpdateService`/`IUpdateService`/`IInstallerLauncher`/`InstallerLauncher`/`UpdateCheckWorker` (Tasks 7-9), `UpdateViewModel` (Task 10).
-- Produces: DI graph — `IInstallerLauncher`→`InstallerLauncher` (singleton), `IUpdateService`→`UpdateService` with a dedicated `HttpClient` (singleton), `UpdateCheckWorker` hosted service, `UpdateViewModel` (singleton).
+- Produces: DI graph â€” `IInstallerLauncher`â†’`InstallerLauncher` (singleton), `IUpdateService`â†’`UpdateService` with a dedicated `HttpClient` (singleton), `UpdateCheckWorker` hosted service, `UpdateViewModel` (singleton).
 
-- [ ] **Step 1: Add the `using`**
+- [x] **Step 1: Add the `using`**
 
 At the top of `NetworkMonitor/App.xaml.cs`, with the other `NetworkMonitor.Services.*` usings:
 
@@ -1489,7 +1489,7 @@ At the top of `NetworkMonitor/App.xaml.cs`, with the other `NetworkMonitor.Servi
 using NetworkMonitor.Services.Update;
 ```
 
-- [ ] **Step 2: Add the registrations**
+- [x] **Step 2: Add the registrations**
 
 In `ConfigureServices`, immediately after the `services.AddHostedService(serviceProvider => serviceProvider.GetRequiredService<SpeedTestWorker>());` line:
 
@@ -1512,12 +1512,12 @@ In `ConfigureServices`, immediately after the `services.AddHostedService(service
                         services.AddSingleton<UpdateViewModel>();
 ```
 
-- [ ] **Step 3: Build to verify**
+- [x] **Step 3: Build to verify**
 
 Run: `dotnet build NetworkMonitor.slnx -p:Platform=x64`
 Expected: Build succeeded.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add NetworkMonitor/App.xaml.cs
@@ -1536,7 +1536,7 @@ git commit -m "Register update services and view model in DI."
 - Consumes: `UpdateViewModel` (Task 10) from DI.
 - Produces: a non-modal `InfoBar` bound to `UpdateViewModel` with **Update now** / **Later** actions and a download `ProgressBar`.
 
-- [ ] **Step 1: Expose the view model from code-behind**
+- [x] **Step 1: Expose the view model from code-behind**
 
 In `NetworkMonitor/MainWindow.xaml.cs`, add a `using Microsoft.Extensions.DependencyInjection;` (if absent) and a property assigned in the constructor **before** `InitializeComponent()`:
 
@@ -1555,7 +1555,7 @@ In the constructor, before `InitializeComponent();`:
 
 (Add `using NetworkMonitor.ViewModels;` if not already present.)
 
-- [ ] **Step 2: Add the InfoBar to the XAML**
+- [x] **Step 2: Add the InfoBar to the XAML**
 
 In `NetworkMonitor/MainWindow.xaml`, replace the opening `<Grid>` (line 9) with a two-row grid, place the existing `NavigationView` in row 1 and the existing `ToastBorder` in row 1, and add the `InfoBar` in row 0. The new top of the `<Grid>` becomes:
 
@@ -1609,12 +1609,12 @@ Then set `Grid.Row="1"` on the existing `NavigationView` (add it as the first at
 
 Note on the converter: if the project has no `InverseBoolConverter` resource in scope for this window, replace the `IsEnabled` line with an equivalent already used in the codebase, or drop the `IsEnabled` attribute entirely (the command still no-ops while `IsBusy` because `UpdateNowAsync` guards on `!IsBusy`). Confirm by grepping `InverseBool` before wiring; prefer removing the attribute if no converter exists.
 
-- [ ] **Step 3: Build to verify**
+- [x] **Step 3: Build to verify**
 
 Run: `dotnet build NetworkMonitor.slnx -p:Platform=x64`
 Expected: Build succeeded.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add NetworkMonitor/MainWindow.xaml NetworkMonitor/MainWindow.xaml.cs
@@ -1623,7 +1623,7 @@ git commit -m "Add non-modal update banner to the main window."
 
 ---
 
-### Task 13: Settings — auto-check toggle, manual check, status (App)
+### Task 13: Settings â€” auto-check toggle, manual check, status (App)
 
 **Files:**
 - Modify: `NetworkMonitor/ViewModels/SettingsViewModel.cs` (add `AutoCheckForUpdates` observable property that persists, and expose the `UpdateViewModel`)
@@ -1634,9 +1634,9 @@ git commit -m "Add non-modal update banner to the main window."
 - Consumes: `Settings` (Task 6), `UpdateViewModel` (Task 10) via DI.
 - Produces: a persisted `SettingsViewModel.AutoCheckForUpdates` toggle and a manual **Check for updates** button bound to `UpdateViewModel.CheckNowCommand`.
 
-- [ ] **Step 1: Add the toggle to SettingsViewModel**
+- [x] **Step 1: Add the toggle to SettingsViewModel**
 
-In `NetworkMonitor/ViewModels/SettingsViewModel.cs`, add a hand-written observable property in the Properties section that writes through to `Settings` and saves (match the existing toggle pattern already in this file — e.g. how `EnableLogging`/`ShowToasts` persist). Concretely:
+In `NetworkMonitor/ViewModels/SettingsViewModel.cs`, add a hand-written observable property in the Properties section that writes through to `Settings` and saves (match the existing toggle pattern already in this file â€” e.g. how `EnableLogging`/`ShowToasts` persist). Concretely:
 
 ```csharp
         public bool AutoCheckForUpdates
@@ -1658,14 +1658,14 @@ In `NetworkMonitor/ViewModels/SettingsViewModel.cs`, add a hand-written observab
 
 (If `SettingsViewModel` holds its injected `Settings` under a different field name than `_settings`, use that name. Confirm by reading the top of the file first.)
 
-- [ ] **Step 2: Expose UpdateViewModel for the manual button**
+- [x] **Step 2: Expose UpdateViewModel for the manual button**
 
-Two options — pick whichever matches how `SettingsPage` already reaches services:
+Two options â€” pick whichever matches how `SettingsPage` already reaches services:
 - If `SettingsPage.xaml.cs` resolves things from `App.AppHost.Services` (it already resolves `SettingsViewModel` there): add `public UpdateViewModel UpdateViewModel { get; }` to `SettingsPage.xaml.cs` and assign `UpdateViewModel = App.AppHost.Services.GetRequiredService<UpdateViewModel>();` in the constructor.
 
-- [ ] **Step 3: Add the UI to SettingsPage.xaml**
+- [x] **Step 3: Add the UI to SettingsPage.xaml**
 
-Near the existing About button (`AboutClick`, ~line 818-820), add — following the XAML conventions and matching the surrounding toggle rows:
+Near the existing About button (`AboutClick`, ~line 818-820), add â€” following the XAML conventions and matching the surrounding toggle rows:
 
 ```xml
                 <ToggleSwitch
@@ -1683,12 +1683,12 @@ Near the existing About button (`AboutClick`, ~line 818-820), add — following 
                     Message="{x:Bind UpdateViewModel.Message, Mode=OneWay}" />
 ```
 
-- [ ] **Step 4: Build to verify**
+- [x] **Step 4: Build to verify**
 
 Run: `dotnet build NetworkMonitor.slnx -p:Platform=x64`
 Expected: Build succeeded.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add NetworkMonitor/ViewModels/SettingsViewModel.cs NetworkMonitor/Views/SettingsPage.xaml NetworkMonitor/Views/SettingsPage.xaml.cs
@@ -1705,7 +1705,7 @@ git commit -m "Add auto-update toggle and manual check to Settings."
 **Interfaces:**
 - Produces: alongside `Output/Umnatha Network Monitor v{Version}.exe`, a `.sha256` file containing the lower-case SHA-256 hash of the installer, named `<installer>.exe.sha256`.
 
-- [ ] **Step 1: Append checksum emission**
+- [x] **Step 1: Append checksum emission**
 
 At the end of `Installer/build-installer.ps1`, after the existing `Write-Host "Installer built: $outFile"` line, add:
 
@@ -1716,12 +1716,12 @@ Set-Content -Path $sha256File -Value $hash -Encoding ascii -NoNewline
 Write-Host "Checksum written: $sha256File ($hash)" -ForegroundColor Green
 ```
 
-- [ ] **Step 2: Verify (dry check without a full publish)**
+- [x] **Step 2: Verify (dry check without a full publish)**
 
 If a prior publish exists, run: `Installer\build-installer.ps1 -SkipPublish`
 Expected: prints `Installer built: ...` then `Checksum written: ...<64-hex>...`; a `.sha256` file appears next to the installer in `Installer/Output`. Confirm the hash matches: `(Get-FileHash -Algorithm SHA256 -Path "<outFile>").Hash.ToLower()`.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add Installer/build-installer.ps1
@@ -1736,9 +1736,9 @@ git commit -m "Emit SHA-256 companion file when building the installer."
 - Modify: `Installer/NetworkMonitor.iss` (`[Setup]` + `[Run]`)
 
 **Interfaces:**
-- Produces: an installer that, when run with `/SILENT`, closes the running app, replaces files, and **relaunches** the app — so the in-app update completes without user clicks.
+- Produces: an installer that, when run with `/SILENT`, closes the running app, replaces files, and **relaunches** the app â€” so the in-app update completes without user clicks.
 
-- [ ] **Step 1: Add close/restart handling to `[Setup]`**
+- [x] **Step 1: Add close/restart handling to `[Setup]`**
 
 In `Installer/NetworkMonitor.iss`, add these two lines to the `[Setup]` section (e.g. after `PrivilegesRequired=admin`):
 
@@ -1747,7 +1747,7 @@ CloseApplications=yes
 RestartApplications=no
 ```
 
-- [ ] **Step 2: Add a silent-safe relaunch `[Run]` entry**
+- [x] **Step 2: Add a silent-safe relaunch `[Run]` entry**
 
 The existing `[Run]` entry uses `skipifsilent`, so it does not relaunch during a silent update. Add a second relaunch entry that runs **only** when silent (so a normal interactive install still uses the existing `postinstall` entry, and a silent update gets exactly one relaunch):
 
@@ -1757,12 +1757,12 @@ Filename: "{app}\{#MyAppExeName}"; Parameters: "--minimized"; Flags: nowait skip
 
 Place it in the `[Run]` section after the existing lines. Result: interactive installs relaunch via the existing `postinstall`+`skipifsilent` line; silent updates relaunch via the new `skipifnotsilent` line, minimized (matching the startup-task launch style).
 
-- [ ] **Step 3: Verify it compiles**
+- [x] **Step 3: Verify it compiles**
 
 Run: `Installer\build-installer.ps1 -SkipPublish` (or invoke ISCC directly per the script). 
 Expected: ISCC compiles with no errors; the installer builds. (Full behaviour is validated in Task 16 smoke.)
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add Installer/NetworkMonitor.iss
@@ -1775,27 +1775,27 @@ git commit -m "Relaunch app after silent update; close running app during instal
 
 **Files:**
 - Modify: `CONTRIBUTING.md` (release section: upload both `.exe` and `.exe.sha256`)
-- Modify: `NetworkMonitor.slnx` only if a **new** doc file is created (none expected here — `CONTRIBUTING.md` is already registered)
+- Modify: `NetworkMonitor.slnx` only if a **new** doc file is created (none expected here â€” `CONTRIBUTING.md` is already registered)
 
 **Interfaces:**
 - Produces: documented release steps and a verified end-to-end update.
 
-- [ ] **Step 1: Document the two-asset release**
+- [x] **Step 1: Document the two-asset release**
 
 In `CONTRIBUTING.md`, in the release/maintainer section, add a short subsection stating: build with `Installer\build-installer.ps1 -Version X.Y.Z`; the GitHub release for tag `vX.Y.Z` must include **both** `Umnatha Network Monitor vX.Y.Z.exe` **and** its `.exe.sha256` companion; the in-app updater reads `tag_name` and both assets from the latest release.
 
-- [ ] **Step 2: End-to-end smoke test (manual)**
+- [ ] **Step 2: End-to-end smoke test (manual)** — NOT RUN: requires a published test release plus an install/uninstall cycle.
 
 Perform against a test release whose version is higher than the installed build:
 1. Temporarily set `<Version>` to a value **lower** than the latest published release (or publish a higher test release), build, install, and run.
 2. Confirm the InfoBar banner appears: *"Version X.Y.Z is available."*
-3. Click **Later** → banner closes; reappears after restart.
-4. Click **Update now** → progress bar advances; app closes; installer runs silently (progress visible); app relaunches minimized on the updated version.
+3. Click **Later** â†’ banner closes; reappears after restart.
+4. Click **Update now** â†’ progress bar advances; app closes; installer runs silently (progress visible); app relaunches minimized on the updated version.
 5. Confirm the About box shows the new version.
-6. Failure path: point the checksum asset at a wrong hash (or disconnect mid-download) → confirm the error InfoBar shows and no installer launches.
-7. Settings: toggle **Automatically check for updates** off → confirm `settings.json` shows `"AutoCheckForUpdates": false` and the startup/24h checks stop; the manual **Check for updates** button still works.
+6. Failure path: point the checksum asset at a wrong hash (or disconnect mid-download) â†’ confirm the error InfoBar shows and no installer launches.
+7. Settings: toggle **Automatically check for updates** off â†’ confirm `settings.json` shows `"AutoCheckForUpdates": false` and the startup/24h checks stop; the manual **Check for updates** button still works.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add CONTRIBUTING.md
@@ -1807,19 +1807,48 @@ git commit -m "Document two-asset release process for auto-updates."
 ## Self-Review
 
 **Spec coverage:**
-- Check triggers (startup / 24h / manual) → Tasks 9 (worker), 13 (manual button). ✓
-- InfoBar notify, mirrored in Settings → Tasks 12, 13. ✓
-- Later/cancel, download only on Update now → Task 10 (`UpdateNowAsync` guard, `Dismiss`). ✓
-- Download with progress → Tasks 8 (`DownloadToFileAsync` + `IProgress`), 10, 12. ✓
-- SHA-256 verify before launch, companion `.sha256` → Tasks 5, 8, 14. ✓
-- Silent `/SILENT` install + auto-relaunch + exit to unlock → Tasks 7, 15. ✓
-- Failures never silent (auto + manual) → Task 10 `Apply`/`UpdateNowAsync` error branches, Task 8 `Failed` results. ✓
-- `AutoCheckForUpdates` setting (default on) → Tasks 6, 9, 13. ✓
-- Layering Models/Core/Services/App → Tasks 1-13 placed accordingly. ✓
-- GitHub Releases feed, no auth → Task 8. ✓
-- Download folder + cleanup → Task 8 (`Updates` folder, `CleanFolder`). ✓
-- Testing on Core/Models → Tasks 1-5. Service/App unit tests are **out** by the Tests-project boundary (Global Constraints); the spec's "fake HttpMessageHandler" service test is replaced by Core coverage + Task 16 smoke — a deliberate, documented deviation, not a gap.
+- Check triggers (startup / 24h / manual) â†’ Tasks 9 (worker), 13 (manual button). âœ“
+- InfoBar notify, mirrored in Settings â†’ Tasks 12, 13. âœ“
+- Later/cancel, download only on Update now â†’ Task 10 (`UpdateNowAsync` guard, `Dismiss`). âœ“
+- Download with progress â†’ Tasks 8 (`DownloadToFileAsync` + `IProgress`), 10, 12. âœ“
+- SHA-256 verify before launch, companion `.sha256` â†’ Tasks 5, 8, 14. âœ“
+- Silent `/SILENT` install + auto-relaunch + exit to unlock â†’ Tasks 7, 15. âœ“
+- Failures never silent (auto + manual) â†’ Task 10 `Apply`/`UpdateNowAsync` error branches, Task 8 `Failed` results. âœ“
+- `AutoCheckForUpdates` setting (default on) â†’ Tasks 6, 9, 13. âœ“
+- Layering Models/Core/Services/App â†’ Tasks 1-13 placed accordingly. âœ“
+- GitHub Releases feed, no auth â†’ Task 8. âœ“
+- Download folder + cleanup â†’ Task 8 (`Updates` folder, `CleanFolder`). âœ“
+- Testing on Core/Models â†’ Tasks 1-5. Service/App unit tests are **out** by the Tests-project boundary (Global Constraints); the spec's "fake HttpMessageHandler" service test is replaced by Core coverage + Task 16 smoke â€” a deliberate, documented deviation, not a gap.
 
 **Placeholder scan:** No TBD/TODO; every code step contains complete code; the two "confirm existing pattern" notes (converter in Task 12, `_settings` field name in Task 13) give an explicit fallback action rather than deferring work.
+
+---
+
+## Implementation Notes (2026-07-26)
+
+Deviations from the plan as written, and why:
+
+1. **`AppLog` namespace.** The plan lists `AppLog` under `NetworkMonitor.Core.Common`; it actually lives in `NetworkMonitor.Services.Platform` (`Core/Common` holds only `CollectionReconciler` and `Watchdog`). `UpdateService`, `InstallerLauncher` and `UpdateCheckWorker` import the real namespace. `AppPaths` is likewise `NetworkMonitor.Services.Data`, not a Core helper.
+
+2. **`InfoBar.ActionButton` cannot hold a `StackPanel`.** That property is typed `ButtonBase`. The progress bar moved into `InfoBar.Content`; `ActionButton` holds only the **Update now** `Button`.
+
+3. **No `{StaticResource}` converter in `MainWindow.xaml`.** x:Bind generates `SetConverterLookupRoot(this)`, which needs a `FrameworkElement`; `MainWindow` is a `Window`, so `Converter={StaticResource InverseBoolConverter}` fails to compile (CS1503). Replaced with a computed `UpdateViewModel.IsNotBusy` property raised alongside `IsBusy` — this keeps the button genuinely disabled during a download rather than dropping the attribute.
+
+4. **`MainWindow` takes `UpdateViewModel` by constructor injection** rather than pulling it from `App.AppHost.Services`, matching how the window already receives `ScanWorker`, `Settings`, etc. `SettingsPage` still uses the service-locator form because that is how it already resolves `SettingsViewModel`.
+
+5. **`SettingsViewModel.AutoCheckForUpdates` follows the file's existing persistence pattern** (backing field + `SetProperty`, seeded in the constructor, written in `PersistAll`, saved by the `OnSettingChanged` handler) instead of the plan's read-through-to-`Settings` property. The plan's version would have bypassed `PersistAll` and the "Settings saved" notification.
+
+6. **Up-to-date results are now reported for manual checks.** The plan closed the banner on `UpToDate`, which left the Settings **Check for updates** button with no feedback. A `_reportUpToDate` flag, set by `CheckNowCommand` only, shows a green *"You're on the latest version."* banner for manual checks while background checks stay silent.
+
+7. **`Apply` is guarded on `IsBusy`** so a background 24h check cannot overwrite the download-progress message mid-download.
+
+**Verification status:**
+
+- `dotnet test` — 209 passed, 0 failed.
+- `dotnet build NetworkMonitor.slnx -p:Platform=x64` — succeeded, 0 warnings.
+- `Installer\build-installer.ps1` — full publish + ISCC compile succeeded (Inno Setup 6.7.3), so the new `CloseApplications` / `RestartApplications` / `skipifnotsilent` directives are valid. Installer: 74,563,944 bytes. The `.sha256` companion is exactly 64 bytes with no trailing newline and matches the installer hash; a second clean rebuild produced an identical hash.
+- **Still outstanding:** Task 16 Step 2, the end-to-end smoke test (banner → download → verify → silent install → relaunch). It needs a GitHub release tagged higher than the installed build, so it must be done manually before the first real auto-update release.
+
+---
 
 **Type consistency:** `AvailableUpdate.NormalizedVersion` used consistently in Tasks 4, 8, 10; `IUpdateService.CheckCompleted`/`CheckAsync`/`DownloadAndVerifyAsync`/`LaunchInstaller` names match across Tasks 8, 9, 10; `ChecksumVerifier.ParseHashFromChecksumFile`/`Verify`/`ComputeSha256Async` match across Tasks 5, 8; `IInstallerLauncher.LaunchAndExit` matches Tasks 7, 8.

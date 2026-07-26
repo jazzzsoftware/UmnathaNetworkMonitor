@@ -75,3 +75,9 @@ if ($LASTEXITCODE -ne 0) {
 
 $outFile = Join-Path $scriptDir ("Output\Umnatha Network Monitor v$Version.exe")
 Write-Host "Installer built: $outFile" -ForegroundColor Green
+
+# The in-app updater downloads this companion file and verifies the installer against it.
+$hash = (Get-FileHash -Algorithm SHA256 -Path $outFile).Hash.ToLower()
+$sha256File = "$outFile.sha256"
+Set-Content -Path $sha256File -Value $hash -Encoding ascii -NoNewline
+Write-Host "Checksum written: $sha256File ($hash)" -ForegroundColor Green

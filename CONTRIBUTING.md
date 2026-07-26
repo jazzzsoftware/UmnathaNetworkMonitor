@@ -27,6 +27,25 @@ Full conventions, including rationale, live in [`CLAUDE.md`](CLAUDE.md) — it w
 - **No single-character variable names** — including lambda parameters and pattern-match variables.
 - **Class member order** — fields → constructor → properties → public methods → overrides → private methods.
 
+## Releasing (maintainers)
+
+The app checks GitHub Releases for updates, so a release must be published in the shape the in-app updater expects.
+
+1. Bump `<Version>` in `NetworkMonitor/NetworkMonitor.csproj` — it is the single source of truth for the About box and the installer name.
+2. Build the installer:
+
+   ```
+   Installer\build-installer.ps1 -Version X.Y.Z
+   ```
+
+   This produces two files in `Installer\Output`:
+
+   - `Umnatha Network Monitor vX.Y.Z.exe` — the installer
+   - `Umnatha Network Monitor vX.Y.Z.exe.sha256` — its SHA-256 checksum
+
+3. Create the GitHub release with tag `vX.Y.Z` and **upload both files as assets**. The updater reads `tag_name` from the latest release, then looks for one asset ending in `.exe` and one ending in `.sha256`; if either is missing, the release is ignored and the update check reports a failure.
+4. The updater downloads the installer, verifies it against the checksum, and only then runs it silently (`/SILENT /SUPPRESSMSGBOXES /NORESTART`). A silent install closes the running app, replaces the files, and relaunches it minimised.
+
 ## Submitting changes
 
 - Open an issue first for anything beyond a small fix, so we can agree on the approach before you invest time.

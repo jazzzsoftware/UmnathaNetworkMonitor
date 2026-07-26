@@ -16,6 +16,7 @@ namespace NetworkMonitor.Views
         public SettingsPage()
         {
             ViewModel = App.AppHost.Services.GetRequiredService<SettingsViewModel>();
+            UpdateViewModel = App.AppHost.Services.GetRequiredService<UpdateViewModel>();
             InitializeComponent();
             TabBar.SelectedItem = TabBar.Items[0];
             VersionText.Text = $"v{AppInfo.GetVersion()}";
@@ -25,6 +26,11 @@ namespace NetworkMonitor.Views
         }
 
         public SettingsViewModel ViewModel
+        {
+            get;
+        }
+
+        public UpdateViewModel UpdateViewModel
         {
             get;
         }

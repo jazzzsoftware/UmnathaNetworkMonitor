@@ -17,6 +17,7 @@ using NetworkMonitor.Services.Digest;
 using NetworkMonitor.Services.Backup;
 using NetworkMonitor.Services.Platform;
 using NetworkMonitor.Services.SpeedTest;
+using NetworkMonitor.Services.Update;
 using NetworkMonitor.ViewModels;
 using NetworkMonitor.Models.Formatting;
 using NetworkMonitor.Core.Data;
@@ -129,6 +130,22 @@ namespace NetworkMonitor
                         });
                         services.AddSingleton<SpeedTestWorker>();
                         services.AddHostedService(serviceProvider => serviceProvider.GetRequiredService<SpeedTestWorker>());
+                        services.AddSingleton<IInstallerLauncher, InstallerLauncher>();
+                        services.AddSingleton<IUpdateService>(serviceProvider =>
+                        {
+                            HttpClient updateHttpClient = new HttpClient
+                            {
+                                Timeout = TimeSpan.FromMinutes(10)
+                            };
+
+                            IInstallerLauncher installerLauncher = serviceProvider.GetRequiredService<IInstallerLauncher>();
+                            UpdateService updateService = new UpdateService(updateHttpClient, installerLauncher);
+
+                            return updateService;
+                        });
+                        services.AddSingleton<UpdateCheckWorker>();
+                        services.AddHostedService(serviceProvider => serviceProvider.GetRequiredService<UpdateCheckWorker>());
+                        services.AddSingleton<UpdateViewModel>();
                         services.AddSingleton<DigestGenerator>();
                         services.AddSingleton<DigestChartRenderer>();
                         services.AddSingleton<DigestPdfExporter>();

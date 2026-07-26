@@ -179,6 +179,12 @@ namespace NetworkMonitor.Services.Data
             set;
         } = RateUnitMode.Both;
 
+        public bool AutoCheckForUpdates
+        {
+            get;
+            set;
+        } = true;
+
         public void Save()
         {
             string json = JsonSerializer.Serialize(this, new JsonSerializerOptions

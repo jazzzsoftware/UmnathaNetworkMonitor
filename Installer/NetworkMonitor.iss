@@ -39,6 +39,8 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.17763
 PrivilegesRequired=admin
+CloseApplications=yes
+RestartApplications=no
 OutputDir=Output
 OutputBaseFilename=Umnatha Network Monitor v{#MyAppVersion}
 VersionInfoVersion={#MyAppVersion}
@@ -65,6 +67,8 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 [Run]
 Filename: "{sys}\schtasks.exe"; Parameters: "/create /tn ""{#MyAppName}"" /tr ""\""{app}\{#MyAppExeName}\"" --minimized"" /sc onlogon /rl highest /f"; Flags: runhidden; Tasks: runstartup
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall skipifsilent
+; Silent runs come from the in-app updater, which exited the app to unlock its files — relaunch it.
+Filename: "{app}\{#MyAppExeName}"; Parameters: "--minimized"; Flags: nowait skipifnotsilent
 
 [UninstallRun]
 Filename: "{sys}\schtasks.exe"; Parameters: "/delete /tn ""{#MyAppName}"" /f"; Flags: runhidden; RunOnceId: "DelUmnathaStartupTask"

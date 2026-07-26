@@ -581,6 +581,36 @@
 
                         <TextBlock
                             Style="{StaticResource SettingsCardHeader}"
+                            Text="Software updates" />
+
+                        <ToggleSwitch
+                            Header="Automatically check for updates"
+                            IsOn="{x:Bind ViewModel.AutoCheckForUpdates, Mode=TwoWay}" />
+
+                        <Button
+                            Content="Check for updates"
+                            HorizontalAlignment="Left"
+                            IsEnabled="{x:Bind UpdateViewModel.IsNotBusy, Mode=OneWay}"
+                            Command="{x:Bind UpdateViewModel.CheckNowCommand}" />
+
+                        <InfoBar
+                            IsClosable="False"
+                            IsOpen="{x:Bind UpdateViewModel.IsBannerOpen, Mode=OneWay}"
+                            Severity="{x:Bind UpdateViewModel.Severity, Mode=OneWay}"
+                            Message="{x:Bind UpdateViewModel.Message, Mode=OneWay}" />
+
+                    </StackPanel>
+
+                </Border>
+
+                <Border
+                    Style="{StaticResource SettingsCard}">
+
+                    <StackPanel
+                        Spacing="12">
+
+                        <TextBlock
+                            Style="{StaticResource SettingsCardHeader}"
                             Text="Daily digest" />
 
                         <StackPanel

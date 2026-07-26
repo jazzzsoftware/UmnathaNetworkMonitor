@@ -8,8 +8,51 @@
 
     <Grid>
 
+        <Grid.RowDefinitions>
+
+            <RowDefinition
+                Height="Auto" />
+
+            <RowDefinition
+                Height="*" />
+
+        </Grid.RowDefinitions>
+
+        <InfoBar
+            Grid.Row="0"
+            Title="Software update"
+            IsClosable="True"
+            CloseButtonCommand="{x:Bind UpdateViewModel.DismissCommand}"
+            IsOpen="{x:Bind UpdateViewModel.IsBannerOpen, Mode=OneWay}"
+            Severity="{x:Bind UpdateViewModel.Severity, Mode=OneWay}"
+            Message="{x:Bind UpdateViewModel.Message, Mode=OneWay}">
+
+            <InfoBar.Content>
+
+                <ProgressBar
+                    Width="240"
+                    Margin="0,8,0,12"
+                    HorizontalAlignment="Left"
+                    Maximum="100"
+                    Visibility="{x:Bind UpdateViewModel.IsBusy, Mode=OneWay}"
+                    Value="{x:Bind UpdateViewModel.DownloadProgress, Mode=OneWay}" />
+
+            </InfoBar.Content>
+
+            <InfoBar.ActionButton>
+
+                <Button
+                    Content="Update now"
+                    IsEnabled="{x:Bind UpdateViewModel.IsNotBusy, Mode=OneWay}"
+                    Command="{x:Bind UpdateViewModel.UpdateNowCommand}" />
+
+            </InfoBar.ActionButton>
+
+        </InfoBar>
+
     <NavigationView
         x:Name="NavView"
+        Grid.Row="1"
         IsBackButtonVisible="Collapsed"
         IsSettingsVisible="True"
         PaneDisplayMode="Left"
@@ -102,6 +145,7 @@
 
     <Border
         x:Name="ToastBorder"
+        Grid.Row="1"
         Margin="0,0,0,48"
         Padding="20,12"
         HorizontalAlignment="Center"

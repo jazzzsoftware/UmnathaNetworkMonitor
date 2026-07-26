@@ -14,6 +14,7 @@ using NetworkMonitor.Services.Scanning;
 using NetworkMonitor.Services.Digest;
 using NetworkMonitor.Services.SpeedTest;
 using NetworkMonitor.Services.Platform;
+using NetworkMonitor.ViewModels;
 using NetworkMonitor.Views;
 using System.Runtime.InteropServices;
 using Windows.Graphics;
@@ -38,7 +39,7 @@ namespace NetworkMonitor
         private const int SwShowMinimized = 2;
         private const int SwShowMaximized = 3;
 
-        public MainWindow(ScanWorker scanWorker, Settings settings, IDbContextFactory<AppDbContext> dbFactory, InAppNotificationService notificationService, SpeedTestWorker speedTestWorker)
+        public MainWindow(ScanWorker scanWorker, Settings settings, IDbContextFactory<AppDbContext> dbFactory, InAppNotificationService notificationService, SpeedTestWorker speedTestWorker, UpdateViewModel updateViewModel)
         {
             Current = this;
             _dispatcherQueue = DispatcherQueue.GetForCurrentThread();
@@ -46,6 +47,7 @@ namespace NetworkMonitor
             _dbFactory = dbFactory;
             _notificationService = notificationService;
             _speedTestWorker = speedTestWorker;
+            UpdateViewModel = updateViewModel;
             InitializeComponent();
 
             _toastTimer = new DispatcherTimer
@@ -86,6 +88,11 @@ namespace NetworkMonitor
         {
             get;
             private set;
+        }
+
+        public UpdateViewModel UpdateViewModel
+        {
+            get;
         }
 
         internal void RestoreWindowPlacement()
