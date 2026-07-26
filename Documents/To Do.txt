@@ -161,8 +161,8 @@ Done - Github - Are maintainer notes in contributing required?
 Done - Github - Images
 Done - PII audit
 Done - update OUI file
-
-Publish
+Done - Publish
+Done - Go live on GitHub
 
 Code review.
 
