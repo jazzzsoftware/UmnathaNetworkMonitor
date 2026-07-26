@@ -172,28 +172,29 @@
                 x:Name="ContentFrame"
                 Grid.Row="1" />
 
+            <Border
+                x:Name="ToastBorder"
+                Grid.Row="1"
+                Margin="0,0,0,48"
+                Padding="20,12"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                CornerRadius="8"
+                Background="{ThemeResource SolidBackgroundFillColorTertiaryBrush}"
+                BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
+                BorderThickness="1"
+                Opacity="0"
+                IsHitTestVisible="False">
+
+                <TextBlock
+                    x:Name="ToastText"
+                    FontSize="14" />
+
+            </Border>
+
         </Grid>
 
     </NavigationView>
-
-    <Border
-        x:Name="ToastBorder"
-        Margin="0,0,0,48"
-        Padding="20,12"
-        HorizontalAlignment="Center"
-        VerticalAlignment="Bottom"
-        CornerRadius="8"
-        Background="{ThemeResource SolidBackgroundFillColorTertiaryBrush}"
-        BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
-        BorderThickness="1"
-        Opacity="0"
-        IsHitTestVisible="False">
-
-        <TextBlock
-            x:Name="ToastText"
-            FontSize="14" />
-
-    </Border>
 
     </Grid>
 
