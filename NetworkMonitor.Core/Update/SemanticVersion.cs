@@ -49,7 +49,10 @@ namespace NetworkMonitor.Core.Update
 
                 string[] parts = candidate.Split('.');
 
-                if (parts.Length >= 1 && parts.Length <= 3)
+                // Four-component versions are accepted and the revision ignored: AppInfo falls back
+                // to Assembly.GetName().Version, which always renders as major.minor.build.revision,
+                // and rejecting it would make every comparison fail — reported as "up to date".
+                if (parts.Length >= 1)
                 {
                     int major = 0;
                     int minor = 0;

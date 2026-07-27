@@ -80,6 +80,19 @@ namespace NetworkMonitor.Tests
         }
 
         [Theory]
+        [InlineData("203.0.113.255")]
+        [InlineData("8.8.8.255")]
+        [InlineData("1.1.1.255")]
+        public void TreatsPublicAddressesEndingIn255AsRegularHosts(string address)
+        {
+            LanClassifier classifier = new LanClassifier();
+
+            bool result = classifier.IsBroadcastOrMulticast(IPAddress.Parse(address));
+
+            Assert.False(result);
+        }
+
+        [Theory]
         [InlineData("192.168.1.50")]
         [InlineData("192.168.1.126")]
         [InlineData("8.8.8.8")]

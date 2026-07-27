@@ -20,10 +20,12 @@ namespace NetworkMonitor.ViewModels
 
         private readonly IDbContextFactory<AppDbContext> _dbFactory;
         private readonly Settings _settings;
+        private readonly SemaphoreSlim _loadGate = new SemaphoreSlim(1, 1);
         private long _windowCutoffEpoch;
         private long _windowBucketSeconds;
         private List<ChartPoint> _windowChartPoints = [];
-        private Dictionary<string, (long Upload, long Download, string? Path)> _windowAppTotals = new();
+        private List<Dictionary<string, InternetAppTotals>> _windowAppBuckets = new();
+        private Dictionary<string, InternetAppTotals> _windowAppTotals = new();
         private readonly Dictionary<string, Queue<long>> _rateWindows = new();
         private bool _ratesActive;
 
@@ -109,6 +111,10 @@ namespace NetworkMonitor.ViewModels
                 IsLoading = true;
             }
 
+            // Serialised: a live tick and an explicit reload overlapping would let the slower one
+            // finish last and re-seed the window from a cutoff that is no longer on screen.
+            await _loadGate.WaitAsync();
+
             try
             {
                 double timeRangeHours = TimeRangeHours;
@@ -139,6 +145,7 @@ namespace NetworkMonitor.ViewModels
             }
             finally
             {
+                _loadGate.Release();
 
                 if (showLoading)
                 {
@@ -154,7 +161,7 @@ namespace NetworkMonitor.ViewModels
 
             AccumulateRateWindows(entries);
 
-            if (_windowChartPoints.Count == 0)
+            if (_windowChartPoints.Count == 0 || _windowBucketSeconds <= 0)
             {
                 await LoadAsync();
             }
@@ -162,14 +169,23 @@ namespace NetworkMonitor.ViewModels
             {
                 long nowEpoch = (long)(DateTime.UtcNow - DateTime.UnixEpoch).TotalSeconds;
                 long cutoffEpoch = TrafficWindow.AlignedCutoffEpoch(nowEpoch, _windowBucketSeconds, _windowChartPoints.Count);
+                long bucketsAdvanced = (cutoffEpoch - _windowCutoffEpoch) / _windowBucketSeconds;
 
-                if (cutoffEpoch != _windowCutoffEpoch)
+                // On the 5-minute range the bucket is one second, so the aligned cutoff moves on
+                // every single flush. Reloading there would mean a full round-trip per second and
+                // the incremental path would never run at all — shift the window instead.
+                if (cutoffEpoch == _windowCutoffEpoch)
                 {
-                    await LoadAsync();
+                    ApplyFlushToWindow(entries);
+                }
+                else if (bucketsAdvanced > 0 && bucketsAdvanced < _windowChartPoints.Count)
+                {
+                    ShiftWindow(cutoffEpoch, (int)bucketsAdvanced);
+                    ApplyFlushToWindow(entries);
                 }
                 else
                 {
-                    ApplyFlushToWindow(entries);
+                    await LoadAsync();
                 }
 
             }
@@ -182,18 +198,60 @@ namespace NetworkMonitor.ViewModels
             _windowCutoffEpoch = result.CutoffEpoch;
             _windowBucketSeconds = result.BucketSeconds;
             _windowChartPoints = new List<ChartPoint>(result.ChartPoints);
-            _windowAppTotals = new Dictionary<string, (long Upload, long Download, string? Path)>();
+            _windowAppBuckets = result.AppBuckets;
+            _windowAppTotals = new Dictionary<string, InternetAppTotals>();
 
             foreach (InternetTrafficAppRow row in result.DisplayRows)
             {
 
                 if (!row.IsAllApps && row.ProcessName is not null)
                 {
-                    _windowAppTotals[row.ProcessName] = (row.BytesUploaded, row.BytesDownloaded, row.ProcessPath);
+                    _windowAppTotals[row.ProcessName] = new InternetAppTotals(row.BytesUploaded, row.BytesDownloaded, row.ProcessPath);
                 }
 
             }
 
+        }
+
+        private void ShiftWindow(long cutoffEpoch, int bucketsAdvanced)
+        {
+            int totalBuckets = _windowChartPoints.Count;
+
+            for (int shift = 0; shift < bucketsAdvanced; shift++)
+            {
+                Dictionary<string, InternetAppTotals> evicted = _windowAppBuckets[0];
+
+                foreach (KeyValuePair<string, InternetAppTotals> app in evicted)
+                {
+
+                    if (_windowAppTotals.TryGetValue(app.Key, out InternetAppTotals current))
+                    {
+                        long upload = current.Upload - app.Value.Upload;
+                        long download = current.Download - app.Value.Download;
+
+                        if (upload > 0 || download > 0)
+                        {
+                            _windowAppTotals[app.Key] = new InternetAppTotals(Math.Max(0, upload), Math.Max(0, download), current.Path);
+                        }
+                        else
+                        {
+                            _windowAppTotals.Remove(app.Key);
+                        }
+
+                    }
+
+                }
+
+                _windowAppBuckets.RemoveAt(0);
+                _windowChartPoints.RemoveAt(0);
+                _windowAppBuckets.Add(new Dictionary<string, InternetAppTotals>());
+
+                int appendedIndex = totalBuckets - bucketsAdvanced + shift;
+                DateTime bucketStart = DateTime.UnixEpoch.AddSeconds(cutoffEpoch + (long)appendedIndex * _windowBucketSeconds);
+                _windowChartPoints.Add(new ChartPoint(bucketStart, 0, 0));
+            }
+
+            _windowCutoffEpoch = cutoffEpoch;
         }
 
         private void ApplyFlushToWindow(IReadOnlyList<TrafficEntry> entries)
@@ -216,10 +274,22 @@ namespace NetworkMonitor.ViewModels
                     chartDeltaDownload += entry.BytesDownloaded;
                 }
 
-                (long Upload, long Download, string? Path) current = _windowAppTotals.TryGetValue(entry.ProcessName, out (long Upload, long Download, string? Path) existing)
-                    ? existing
-                    : (0L, 0L, null);
-                _windowAppTotals[entry.ProcessName] = (current.Upload + entry.BytesUploaded, current.Download + entry.BytesDownloaded, current.Path ?? entry.ProcessPath);
+                _windowAppTotals.TryGetValue(entry.ProcessName, out InternetAppTotals current);
+                _windowAppTotals[entry.ProcessName] = new InternetAppTotals(
+                    current.Upload + entry.BytesUploaded,
+                    current.Download + entry.BytesDownloaded,
+                    current.Path ?? entry.ProcessPath);
+
+                if (_windowAppBuckets.Count > 0)
+                {
+                    Dictionary<string, InternetAppTotals> newest = _windowAppBuckets[_windowAppBuckets.Count - 1];
+                    newest.TryGetValue(entry.ProcessName, out InternetAppTotals bucketTotals);
+                    newest[entry.ProcessName] = new InternetAppTotals(
+                        bucketTotals.Upload + entry.BytesUploaded,
+                        bucketTotals.Download + entry.BytesDownloaded,
+                        bucketTotals.Path ?? entry.ProcessPath);
+                }
+
             }
 
             int lastIndex = _windowChartPoints.Count - 1;
@@ -241,7 +311,7 @@ namespace NetworkMonitor.ViewModels
 
             double intervalSeconds = Math.Max(1.0, _settings.TrafficIntervalSeconds);
 
-            foreach (KeyValuePair<string, (long Upload, long Download, string? Path)> pair in _windowAppTotals)
+            foreach (KeyValuePair<string, InternetAppTotals> pair in _windowAppTotals)
             {
                 double appRate = RateFor(pair.Key, intervalSeconds);
 
@@ -367,7 +437,17 @@ namespace NetworkMonitor.ViewModels
 
             await using AppDbContext db = await _dbFactory.CreateDbContextAsync();
 
-            List<InternetTrafficAppRow> perAppRows = await LoadAppRowsAsync(db, useRollup, cutoff, cutoffEpoch, bucketRangeStart, bucketRangeEnd);
+            List<Dictionary<string, InternetAppTotals>> appBuckets = await LoadAppBucketsAsync(
+                db,
+                useRollup,
+                cutoff,
+                cutoffEpoch,
+                bucketSeconds,
+                totalBuckets,
+                bucketRangeStart,
+                bucketRangeEnd);
+
+            List<InternetTrafficAppRow> perAppRows = AggregateAppRows(appBuckets);
 
             Dictionary<int, (long Upload, long Download)> dataByBucket =
                 await LoadChartBucketsAsync(db, useRollup, cutoff, cutoffEpoch, bucketSeconds, selectedApp);
@@ -396,21 +476,60 @@ namespace NetworkMonitor.ViewModels
                 : "total";
             string statusText = $"{perAppRows.Count} app{(perAppRows.Count == 1 ? string.Empty : "s")} · {ByteSizeFormatter.Format(allAppsRow.TotalBytes)} {scopeText}";
 
-            InternetLoadResult result = new InternetLoadResult(chartPoints, displayRows, statusText, cutoffEpoch, bucketSeconds);
+            InternetLoadResult result = new InternetLoadResult(chartPoints, displayRows, appBuckets, statusText, cutoffEpoch, bucketSeconds);
 
             return result;
         }
 
-        private async Task<List<InternetTrafficAppRow>> LoadAppRowsAsync(
+        private static List<InternetTrafficAppRow> AggregateAppRows(List<Dictionary<string, InternetAppTotals>> appBuckets)
+        {
+            Dictionary<string, InternetAppTotals> totals = new Dictionary<string, InternetAppTotals>();
+
+            foreach (Dictionary<string, InternetAppTotals> bucket in appBuckets)
+            {
+
+                foreach (KeyValuePair<string, InternetAppTotals> app in bucket)
+                {
+                    totals.TryGetValue(app.Key, out InternetAppTotals current);
+                    totals[app.Key] = new InternetAppTotals(
+                        current.Upload + app.Value.Upload,
+                        current.Download + app.Value.Download,
+                        current.Path ?? app.Value.Path);
+                }
+
+            }
+
+            List<InternetTrafficAppRow> rows = new List<InternetTrafficAppRow>(totals.Count);
+
+            foreach (KeyValuePair<string, InternetAppTotals> app in totals)
+            {
+                rows.Add(new InternetTrafficAppRow(app.Key, app.Value.Upload, app.Value.Download, app.Value.Path));
+            }
+
+            rows.Sort((left, right) => (right.BytesUploaded + right.BytesDownloaded).CompareTo(left.BytesUploaded + left.BytesDownloaded));
+
+            return rows;
+        }
+
+        private async Task<List<Dictionary<string, InternetAppTotals>>> LoadAppBucketsAsync(
             AppDbContext db,
             bool useRollup,
             DateTime cutoff,
             long cutoffEpoch,
+            long bucketSeconds,
+            int totalBuckets,
             DateTime? bucketRangeStart,
             DateTime? bucketRangeEnd)
         {
-            List<InternetTrafficAppRow> rows = new List<InternetTrafficAppRow>();
+            List<Dictionary<string, InternetAppTotals>> buckets = new List<Dictionary<string, InternetAppTotals>>(totalBuckets);
+
+            for (int index = 0; index < totalBuckets; index++)
+            {
+                buckets.Add(new Dictionary<string, InternetAppTotals>());
+            }
+
             string sourceTable = useRollup ? "TrafficRollups" : "TrafficEntries";
+            string epochExpr = useRollup ? "MinuteEpoch" : "CAST(strftime('%s', Timestamp) AS INTEGER)";
             string whereClause = useRollup ? "MinuteEpoch >= $cutoffEpoch" : "Timestamp >= $cutoffTime";
 
             whereClause += " AND ProcessName <> 'System'";
@@ -436,15 +555,20 @@ namespace NetworkMonitor.ViewModels
             await using (DbCommand command = connection.CreateCommand())
             {
                 command.CommandText = $"""
-                    SELECT ProcessName,
-                           SUM(BytesUploaded)     AS Upload,
+                    SELECT CAST(({epochExpr} - $cutoffEpoch) / $bucketSeconds AS INTEGER) AS BucketIndex,
+                           ProcessName,
+                           SUM(BytesUploaded)   AS Upload,
                            SUM(BytesDownloaded) AS Download,
-                           MAX(ProcessPath)   AS Path
+                           MAX(ProcessPath)     AS Path
                     FROM {sourceTable}
                     WHERE {whereClause}
-                    GROUP BY ProcessName
-                    ORDER BY SUM(BytesUploaded) + SUM(BytesDownloaded) DESC
+                    GROUP BY BucketIndex, ProcessName
                     """;
+
+                DbParameter bucketSecondsParameter = command.CreateParameter();
+                bucketSecondsParameter.ParameterName = "$bucketSeconds";
+                bucketSecondsParameter.Value = bucketSeconds;
+                command.Parameters.Add(bucketSecondsParameter);
 
                 if (useRollup)
                 {
@@ -459,6 +583,11 @@ namespace NetworkMonitor.ViewModels
                     cutoffParameter.ParameterName = "$cutoffTime";
                     cutoffParameter.Value = cutoff;
                     command.Parameters.Add(cutoffParameter);
+
+                    DbParameter bucketCutoffParameter = command.CreateParameter();
+                    bucketCutoffParameter.ParameterName = "$cutoffEpoch";
+                    bucketCutoffParameter.Value = cutoffEpoch;
+                    command.Parameters.Add(bucketCutoffParameter);
                 }
 
                 if (bucketRangeStart.HasValue && bucketRangeEnd.HasValue)
@@ -499,19 +628,31 @@ namespace NetworkMonitor.ViewModels
 
                     while (await reader.ReadAsync())
                     {
-                        string processName = reader.GetString(0);
-                        long upload = reader.GetInt64(1);
-                        long download = reader.GetInt64(2);
-                        string? processPath = reader.IsDBNull(3) ? null : reader.GetString(3);
-                        InternetTrafficAppRow row = new InternetTrafficAppRow(processName, upload, download, processPath);
-                        rows.Add(row);
+                        int bucketIndex = reader.GetInt32(0);
+                        string processName = reader.GetString(1);
+                        long upload = reader.GetInt64(2);
+                        long download = reader.GetInt64(3);
+                        string? processPath = reader.IsDBNull(4) ? null : reader.GetString(4);
+
+                        // A row written between the cutoff calculation and this query can land one
+                        // bucket past the end; clamp rather than drop, so no bytes go missing.
+                        int slot = Math.Clamp(bucketIndex, 0, totalBuckets - 1);
+                        Dictionary<string, InternetAppTotals> bucket = buckets[slot];
+
+                        bucket.TryGetValue(processName, out InternetAppTotals current);
+                        bucket[processName] = new InternetAppTotals(
+                            current.Upload + upload,
+                            current.Download + download,
+                            current.Path ?? processPath);
                     }
 
                 }
 
             }
 
-            return rows;
+            await db.Database.CloseConnectionAsync();
+
+            return buckets;
         }
 
         private async Task<Dictionary<int, (long Upload, long Download)>> LoadChartBucketsAsync(
@@ -583,6 +724,8 @@ namespace NetworkMonitor.ViewModels
                 }
 
             }
+
+            await db.Database.CloseConnectionAsync();
 
             return dataByBucket;
         }

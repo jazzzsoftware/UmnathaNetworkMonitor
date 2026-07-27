@@ -138,6 +138,8 @@ namespace NetworkMonitor
                                 Timeout = TimeSpan.FromMinutes(10)
                             };
 
+                            updateHttpClient.DefaultRequestHeaders.Add("User-Agent", "UmnathaNetworkMonitor");
+
                             IInstallerLauncher installerLauncher = serviceProvider.GetRequiredService<IInstallerLauncher>();
                             UpdateService updateService = new UpdateService(updateHttpClient, installerLauncher);
 

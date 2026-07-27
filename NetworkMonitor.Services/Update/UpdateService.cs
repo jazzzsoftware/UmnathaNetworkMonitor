@@ -26,26 +26,39 @@ namespace NetworkMonitor.Services.Update
 
         public event EventHandler<UpdateCheckResult>? CheckCompleted;
 
+        public UpdateCheckResult? LastResult
+        {
+            get;
+            private set;
+        }
+
         public async Task<UpdateCheckResult> CheckAsync(CancellationToken cancellationToken)
         {
             UpdateCheckResult result;
+            bool cancelled = false;
 
             try
             {
                 using HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, LatestReleaseUrl);
                 request.Headers.Add("Accept", "application/vnd.github+json");
-                request.Headers.Add("User-Agent", "UmnathaNetworkMonitor");
 
                 using HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken);
                 response.EnsureSuccessStatusCode();
 
                 string json = await response.Content.ReadAsStringAsync(cancellationToken);
+                string currentVersion = AppInfo.GetVersion();
 
                 if (!ReleaseInfoParser.TryParseVersionTag(json, out string versionTag))
                 {
                     result = UpdateCheckResult.Failed("The latest release could not be read.");
                 }
-                else if (!UpdateDecision.IsNewer(AppInfo.GetVersion(), versionTag))
+                else if (!SemanticVersion.TryParse(currentVersion, out SemanticVersion _))
+                {
+                    // Without this the comparison below would silently fail closed and the user
+                    // would be told they are up to date on every check, for good.
+                    result = UpdateCheckResult.Failed($"Couldn't read the installed version ({currentVersion}), so updates can't be compared.");
+                }
+                else if (!UpdateDecision.IsNewer(currentVersion, versionTag))
                 {
                     result = UpdateCheckResult.UpToDate();
                 }
@@ -67,6 +80,7 @@ namespace NetworkMonitor.Services.Update
             }
             catch (OperationCanceledException)
             {
+                cancelled = true;
                 result = UpdateCheckResult.Failed("The update check was cancelled.");
             }
             catch (Exception exception)
@@ -75,9 +89,25 @@ namespace NetworkMonitor.Services.Update
                 result = UpdateCheckResult.Failed("Couldn't check for updates — check your connection.");
             }
 
-            CheckCompleted?.Invoke(this, result);
+            // A check cancelled by host shutdown is not a failure the user needs to see.
+            if (!cancelled)
+            {
+                LastResult = result;
+                CheckCompleted?.Invoke(this, result);
+            }
 
             return result;
+        }
+
+        public void CleanUpDownloads()
+        {
+            string updatesFolder = Path.Combine(AppPaths.AppDataFolder, "Updates");
+
+            if (Directory.Exists(updatesFolder))
+            {
+                CleanFolder(updatesFolder);
+            }
+
         }
 
         public async Task<string> DownloadAndVerifyAsync(AvailableUpdate update, IProgress<double> progress, CancellationToken cancellationToken)
@@ -113,9 +143,9 @@ namespace NetworkMonitor.Services.Update
             return installerPath;
         }
 
-        public void LaunchInstaller(string installerPath)
+        public void LaunchInstaller(string installerPath, Action? beforeExit)
         {
-            _launcher.LaunchAndExit(installerPath);
+            _launcher.LaunchAndExit(installerPath, beforeExit);
         }
 
         private async Task DownloadToFileAsync(string url, string destinationPath, long expectedSize, IProgress<double> progress, CancellationToken cancellationToken)
@@ -133,6 +163,7 @@ namespace NetworkMonitor.Services.Update
 
             byte[] buffer = new byte[81920];
             long receivedBytes = 0;
+            int lastReportedPercent = -1;
             int read;
 
             while ((read = await source.ReadAsync(buffer, cancellationToken)) > 0)
@@ -143,7 +174,16 @@ namespace NetworkMonitor.Services.Update
                 if (totalBytes > 0)
                 {
                     double fraction = (double)receivedBytes / totalBytes;
-                    progress.Report(fraction);
+                    int percent = (int)(fraction * 100.0);
+
+                    // Reporting every 80 KB chunk marshals ~1300 updates to the UI thread for a
+                    // 100 MB installer; the bar only shows whole percent.
+                    if (percent != lastReportedPercent)
+                    {
+                        lastReportedPercent = percent;
+                        progress.Report(fraction);
+                    }
+
                 }
 
             }

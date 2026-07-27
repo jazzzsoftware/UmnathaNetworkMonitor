@@ -41,6 +41,8 @@ The Traffic page shows which applications are using the network right now, with 
 
 **Live rate badge.** While data is actively moving, the busy row shows a green pill with the current throughput, e.g. `● 118 Mb/s · 15 MB/s`. It's smoothed over a few seconds, appears only in live mode and only above 0.5 Mb/s, so idle rows stay clean. Both the Internet and Local tabs show it. All sizes and speeds in the app use decimal (SI) units — KB/MB/GB with ÷1000 steps — the same convention as your ISP and speedtest.net. A **Speed units** setting (Settings → Traffic) chooses whether speeds show as Mb/s, MB/s or both — everywhere they're displayed: rate badges, chart axes, the Speed Test page, digest reports and toasts. CSV exports always include both units.
 
+**What the Local totals include.** Three kinds of traffic are deliberately left out, so the Local figures are a picture of device-to-device transfers rather than a raw byte count: broadcast and multicast packets; discovery chatter from addresses that aren't known devices (the named ones are kept and folded into the "discovery only" row); and traffic to remote private networks reached over a VPN, which is counted as **Local** rather than Internet because a private address range is indistinguishable from your own LAN.
+
 Pick a time range (last 5 minutes, hour, 6 hours, 24 hours or 7 days) with the range buttons. The chart runs in **Live** mode and scrolls in real time; clicking a point or a grid row switches to **History** mode so you can inspect a past moment — click the mode badge to return to Live. The axis scale rounds to a clean value, and smooth scrolling can be toggled in Settings.
 
 ## Internet speed test
@@ -123,6 +125,8 @@ Backups\            Automatic daily database snapshots + approved-device CSV exp
 ```
 
 The in-app **Settings → Data Folder** section lists these files and has a link to open the folder.
+
+Traffic is stored twice: as raw per-interval rows, which feed only the live 5-minute view and are kept for an hour, and as per-minute rollups, which feed every longer range and the daily digest and are kept for the **History retention** period set in Settings.
 
 The database is checkpointed on clean exit (tray → Exit), making the `.db` file safe to copy as a backup without needing the companion WAL files.
 

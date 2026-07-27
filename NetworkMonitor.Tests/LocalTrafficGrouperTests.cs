@@ -14,7 +14,7 @@ namespace NetworkMonitor.Tests
         };
 
         [Fact]
-        public void ByApp_FoldsDiscoveryIntoBackgroundAndKeepsDataUpFront()
+        public void ByAppFoldsDiscoveryIntoBackgroundAndKeepsDataUpFront()
         {
             List<LocalFlowMinute> minutes = new List<LocalFlowMinute>
             {
@@ -33,7 +33,22 @@ namespace NetworkMonitor.Tests
         }
 
         [Fact]
-        public void ByDevice_GroupsOnRemoteIpWithFriendlyName()
+        public void GroupTagComesFromTheChildThatMovedTheMostBytes()
+        {
+            List<LocalFlowMinute> minutes = new List<LocalFlowMinute>
+            {
+                new LocalFlowMinute("explorer", "192.168.1.126", 6, 80, 100, 400),
+                new LocalFlowMinute("explorer", "192.168.1.50", 6, 445, 1000, 4_000_000)
+            };
+
+            IReadOnlyList<LocalTrafficGroupRow> groups = LocalTrafficGrouper.Build(minutes, Names, LocalLens.ByApp);
+
+            Assert.Equal("explorer", groups[1].DisplayName);
+            Assert.Equal("SMB", groups[1].ServiceTag);
+        }
+
+        [Fact]
+        public void ByDeviceGroupsOnRemoteIpWithFriendlyName()
         {
             List<LocalFlowMinute> minutes = new List<LocalFlowMinute>
             {
@@ -65,7 +80,7 @@ namespace NetworkMonitor.Tests
         }
 
         [Fact]
-        public void ByDevice_AllRowIsLabelledAllDevices()
+        public void ByDeviceAllRowIsLabelledAllDevices()
         {
             List<LocalFlowMinute> minutes = new List<LocalFlowMinute>
             {

@@ -86,6 +86,14 @@ namespace NetworkMonitor.Views
         private void OnPageUnloaded(object sender, RoutedEventArgs args)
         {
             _trafficTracker.Flushed -= OnTrafficFlushed;
+
+            // Frame does not cache pages, so a new instance is built on every navigation here.
+            // Leaving this attached would root every one of them for the life of the window.
+            if (MainWindow.Current is not null)
+            {
+                MainWindow.Current.Closed -= OnMainWindowClosed;
+            }
+
         }
 
         private void OnMainWindowClosed(object sender, WindowEventArgs args)
@@ -108,6 +116,7 @@ namespace NetworkMonitor.Views
                         {
                             AreaChart.MarkLiveUpdate();
                             await ViewModel.ApplyLiveFlushAsync(args.Entries);
+                            UpdateTimeLabels();
                             SyncGridSelection();
                         }
                         catch (Exception exception)

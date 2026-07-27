@@ -16,9 +16,11 @@ namespace NetworkMonitor.Core.Traffic
                 if (classification.Category == FlowCategory.Discovery)
                 {
 
-                    if (namesByIp.ContainsKey(minute.RemoteIp))
+                    // Discovery chatter from an address that isn't a known device is dropped
+                    // outright — it is broadcast-adjacent noise from peers we can't name, and
+                    // showing it as a bare IP row buried the real traffic.
+                    if (namesByIp.TryGetValue(minute.RemoteIp, out string? deviceName))
                     {
-                        string deviceName = LocalTrafficNameResolver.Resolve(minute.RemoteIp, namesByIp);
                         background.Add(minute.RemoteIp, deviceName, minute.RemoteIp, minute.BytesUploaded, minute.BytesDownloaded, null);
                     }
 
@@ -129,7 +131,6 @@ namespace NetworkMonitor.Core.Traffic
                 List<LocalTrafficLeafRow> leaves = new List<LocalTrafficLeafRow>();
                 long upload = 0;
                 long download = 0;
-                string? groupTag = null;
 
                 foreach (LeafAccumulator leaf in _children.Values)
                 {
@@ -138,10 +139,25 @@ namespace NetworkMonitor.Core.Traffic
                     leaves.Add(row);
                     upload += row.BytesUploaded;
                     download += row.BytesDownloaded;
-                    groupTag ??= row.ServiceTag;
                 }
 
                 leaves.Sort((left, right) => right.TotalBytes.CompareTo(left.TotalBytes));
+
+                // Taken after the sort so the group is labelled with the service that actually
+                // moved the bytes, not whichever child the dictionary happened to yield first.
+                string? groupTag = null;
+
+                foreach (LocalTrafficLeafRow leaf in leaves)
+                {
+
+                    if (leaf.ServiceTag is not null)
+                    {
+                        groupTag = leaf.ServiceTag;
+
+                        break;
+                    }
+
+                }
 
                 LocalTrafficGroupRow result = new LocalTrafficGroupRow(_key, _name, _sub, upload, download, leaves, kind, groupTag);
 

@@ -8,14 +8,19 @@ using NetworkMonitor.Core.Traffic;
 
 namespace NetworkMonitor.Services.Traffic
 {
-    public class TrafficCollector : BackgroundService
+    public sealed class TrafficCollector : BackgroundService
     {
         private const string SessionName = "NetworkMonitorTraffic";
-        private const int SystemPid = 4;
+        private const int UploadSlot = 0;
+        private const int DownloadSlot = 1;
+        private const int IdleSlot = 2;
+        private const int CounterSlots = 3;
+        private const long MaxIdleDrains = 60;
         private readonly ConcurrentDictionary<int, long[]> _counters = new();
         private readonly ConcurrentDictionary<LocalFlowKey, long[]> _localCounters = new();
         private readonly LanClassifier _lanClassifier;
         private TraceEventSession? _session;
+        private CancellationTokenRegistration _stopRegistration;
 
         public TrafficCollector(LanClassifier lanClassifier)
         {
@@ -30,12 +35,23 @@ namespace NetworkMonitor.Services.Traffic
             {
                 long[] counter = entry.Value;
 
-                long upload = Interlocked.Exchange(ref counter[0], 0);
-                long download = Interlocked.Exchange(ref counter[1], 0);
+                long upload = Interlocked.Exchange(ref counter[UploadSlot], 0);
+                long download = Interlocked.Exchange(ref counter[DownloadSlot], 0);
 
                 if (upload > 0 || download > 0)
                 {
+                    counter[IdleSlot] = 0;
                     snapshot[entry.Key] = (upload, download);
+                }
+                else
+                {
+                    counter[IdleSlot]++;
+
+                    if (counter[IdleSlot] > MaxIdleDrains)
+                    {
+                        DropIdleCounter(_counters, entry.Key, counter, snapshot);
+                    }
+
                 }
 
             }
@@ -51,12 +67,23 @@ namespace NetworkMonitor.Services.Traffic
             {
                 long[] counter = entry.Value;
 
-                long upload = Interlocked.Exchange(ref counter[0], 0);
-                long download = Interlocked.Exchange(ref counter[1], 0);
+                long upload = Interlocked.Exchange(ref counter[UploadSlot], 0);
+                long download = Interlocked.Exchange(ref counter[DownloadSlot], 0);
 
                 if (upload > 0 || download > 0)
                 {
+                    counter[IdleSlot] = 0;
                     snapshot[entry.Key] = (upload, download);
+                }
+                else
+                {
+                    counter[IdleSlot]++;
+
+                    if (counter[IdleSlot] > MaxIdleDrains)
+                    {
+                        DropIdleCounter(_localCounters, entry.Key, counter, snapshot);
+                    }
+
                 }
 
             }
@@ -66,6 +93,10 @@ namespace NetworkMonitor.Services.Traffic
 
         protected override async Task ExecuteAsync(CancellationToken ct)
         {
+            // Everything below runs before the first real await, and StartAsync only returns
+            // when a hosted service reaches one — without this the ETW setup would hold up
+            // AppHost.StartAsync, which OnLaunched awaits behind the splash screen.
+            await Task.Yield();
 
             try
             {
@@ -79,9 +110,10 @@ namespace NetworkMonitor.Services.Traffic
                 _session.Source.Kernel.UdpIpSend += args => AddBytes(args.ProcessID, args.daddr, args.size, upload: true, protocol: 17, remotePort: (ushort)args.dport);
                 _session.Source.Kernel.UdpIpRecv += args => AddBytes(args.ProcessID, args.saddr, args.size, upload: false, protocol: 17, remotePort: (ushort)args.sport);
 
-                ct.Register(() => _session.Stop());
+                TraceEventSession startedSession = _session;
+                _stopRegistration = ct.Register(() => startedSession.Stop());
 
-                await Task.Run(() => _session.Source.Process(), CancellationToken.None);
+                await Task.Run(() => startedSession.Source.Process(), CancellationToken.None);
             }
             catch (OperationCanceledException)
             {
@@ -95,8 +127,35 @@ namespace NetworkMonitor.Services.Traffic
 
         public override void Dispose()
         {
+            _stopRegistration.Dispose();
             _session?.Dispose();
             base.Dispose();
+        }
+
+        private static void DropIdleCounter<TKey>(
+            ConcurrentDictionary<TKey, long[]> counters,
+            TKey key,
+            long[] counter,
+            Dictionary<TKey, (long Upload, long Download)> snapshot)
+            where TKey : notnull
+        {
+            // Remove only if the dictionary still holds the array we just drained, then drain it
+            // once more: a collector thread can have added bytes between the exchange above and
+            // this removal, and those would otherwise be stranded on an orphaned array.
+            bool removed = counters.TryRemove(new KeyValuePair<TKey, long[]>(key, counter));
+
+            if (removed)
+            {
+                long strayUpload = Interlocked.Exchange(ref counter[UploadSlot], 0);
+                long strayDownload = Interlocked.Exchange(ref counter[DownloadSlot], 0);
+
+                if (strayUpload > 0 || strayDownload > 0)
+                {
+                    snapshot[key] = (strayUpload, strayDownload);
+                }
+
+            }
+
         }
 
         private static void StopOrphanedSession()
@@ -123,19 +182,19 @@ namespace NetworkMonitor.Services.Traffic
 
                 if (!_lanClassifier.IsSelfOrLoopback(remote) && !_lanClassifier.IsBroadcastOrMulticast(remote))
                 {
-                    int slot = upload ? 0 : 1;
+                    int slot = upload ? UploadSlot : DownloadSlot;
+                    int keyPid = pid < 0 ? WellKnownPids.System : pid;
 
                     if (_lanClassifier.TryClassifyLocal(remote, out uint packed))
                     {
-                        int keyPid = pid < 0 ? SystemPid : pid;
                         LocalFlowKey key = new LocalFlowKey(keyPid, packed, protocol, remotePort);
-                        long[] localCounter = _localCounters.GetOrAdd(key, static missingKey => new long[2]);
+                        long[] localCounter = _localCounters.GetOrAdd(key, static missingKey => new long[CounterSlots]);
 
                         Interlocked.Add(ref localCounter[slot], bytes);
                     }
-                    else if (pid >= 0)
+                    else
                     {
-                        long[] counter = _counters.GetOrAdd(pid, static missingPid => new long[2]);
+                        long[] counter = _counters.GetOrAdd(keyPid, static missingPid => new long[CounterSlots]);
 
                         Interlocked.Add(ref counter[slot], bytes);
                     }

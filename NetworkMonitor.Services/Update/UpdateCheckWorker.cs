@@ -18,6 +18,11 @@ namespace NetworkMonitor.Services.Update
             try
             {
                 await Task.Delay(InitialDelay, stoppingToken);
+
+                // A previous run's installer is spent once we are running again; nothing else
+                // clears the folder until the next download starts.
+                updateService.CleanUpDownloads();
+
                 await CheckIfEnabledAsync(stoppingToken);
             }
             catch (OperationCanceledException)

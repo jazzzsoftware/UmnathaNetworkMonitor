@@ -65,9 +65,11 @@ namespace NetworkMonitor.Core.Update
                         && assetsElement.ValueKind == JsonValueKind.Array)
                     {
                         string versionTag = tagElement.GetString() ?? string.Empty;
+                        string installerName = string.Empty;
                         string installerUrl = string.Empty;
                         string checksumUrl = string.Empty;
                         long installerSize = 0;
+                        Dictionary<string, string> checksumUrlsByName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
                         foreach (JsonElement asset in assetsElement.EnumerateArray())
                         {
@@ -80,15 +82,39 @@ namespace NetworkMonitor.Core.Update
 
                                 if (name.EndsWith(".sha256", StringComparison.OrdinalIgnoreCase))
                                 {
-                                    checksumUrl = url;
+                                    checksumUrlsByName[name] = url;
                                 }
-                                else if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                                else if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) && installerName.Length == 0)
                                 {
+                                    installerName = name;
                                     installerUrl = url;
                                     installerSize = asset.TryGetProperty("size", out JsonElement sizeElement)
                                         && sizeElement.TryGetInt64(out long parsedSize)
                                         ? parsedSize
                                         : 0;
+                                }
+
+                            }
+
+                        }
+
+                        // The checksum must be the one published for this installer. Taking any
+                        // .sha256 in the release pairs the wrong hash with the wrong file the
+                        // moment a release ships a second executable, and the download then
+                        // always fails verification with no way to tell why.
+                        if (installerName.Length > 0)
+                        {
+
+                            if (checksumUrlsByName.TryGetValue($"{installerName}.sha256", out string? matched))
+                            {
+                                checksumUrl = matched;
+                            }
+                            else if (checksumUrlsByName.Count == 1)
+                            {
+
+                                foreach (KeyValuePair<string, string> only in checksumUrlsByName)
+                                {
+                                    checksumUrl = only.Value;
                                 }
 
                             }

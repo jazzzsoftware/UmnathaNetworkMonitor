@@ -30,6 +30,65 @@ namespace NetworkMonitor.Tests.Update
         }
 
         [Fact]
+        public void ParsePairsTheChecksumPublishedForTheChosenInstaller()
+        {
+            string json = """
+            {
+              "tag_name": "v1.2.3",
+              "assets": [
+                { "name": "Umnatha.Setup.v1.2.3.exe", "browser_download_url": "https://example/setup.exe", "size": 900 },
+                { "name": "Umnatha.Portable.v1.2.3.exe.sha256", "browser_download_url": "https://example/portable.sha256", "size": 64 },
+                { "name": "Umnatha.Setup.v1.2.3.exe.sha256", "browser_download_url": "https://example/setup.sha256", "size": 64 }
+              ]
+            }
+            """;
+
+            AvailableUpdate? update = ReleaseInfoParser.Parse(json);
+
+            Assert.NotNull(update);
+            Assert.Equal("https://example/setup.exe", update!.InstallerUrl);
+            Assert.Equal("https://example/setup.sha256", update.ChecksumUrl);
+        }
+
+        [Fact]
+        public void ParseFallsBackToTheOnlyChecksumWhenNamesDoNotMatch()
+        {
+            string json = """
+            {
+              "tag_name": "v1.2.3",
+              "assets": [
+                { "name": "Setup.exe", "browser_download_url": "https://example/setup.exe", "size": 900 },
+                { "name": "checksums.sha256", "browser_download_url": "https://example/checksums.sha256", "size": 64 }
+              ]
+            }
+            """;
+
+            AvailableUpdate? update = ReleaseInfoParser.Parse(json);
+
+            Assert.NotNull(update);
+            Assert.Equal("https://example/checksums.sha256", update!.ChecksumUrl);
+        }
+
+        [Fact]
+        public void ParseReturnsNullWhenNoChecksumMatchesAmongSeveral()
+        {
+            string json = """
+            {
+              "tag_name": "v1.2.3",
+              "assets": [
+                { "name": "Setup.exe", "browser_download_url": "https://example/setup.exe", "size": 900 },
+                { "name": "Other.exe.sha256", "browser_download_url": "https://example/other.sha256", "size": 64 },
+                { "name": "Third.exe.sha256", "browser_download_url": "https://example/third.sha256", "size": 64 }
+              ]
+            }
+            """;
+
+            AvailableUpdate? update = ReleaseInfoParser.Parse(json);
+
+            Assert.Null(update);
+        }
+
+        [Fact]
         public void ParseReturnsNullWhenExeAssetMissing()
         {
             string json = """

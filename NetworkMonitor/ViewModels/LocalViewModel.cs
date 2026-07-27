@@ -18,15 +18,19 @@ namespace NetworkMonitor.ViewModels
         private const int MinimumSpinnerMs = 500;
         private const int RateSampleCount = 5;
         private const string AllRateKey = "__all";
+        private static readonly TimeSpan NameMapLifetime = TimeSpan.FromSeconds(60);
 
         private readonly IDbContextFactory<AppDbContext> _dbFactory;
         private readonly Settings _settings;
+        private readonly SemaphoreSlim _loadGate = new SemaphoreSlim(1, 1);
         private long _windowCutoffEpoch;
         private long _windowBucketSeconds;
         private List<ChartPoint> _windowChartPoints = [];
-        private Dictionary<(string ProcessName, string RemoteIp, int Protocol, int RemotePort), (long Upload, long Download)> _windowFlows = new();
+        private List<Dictionary<LocalFlowIdentity, LocalFlowTotals>> _windowFlowBuckets = new();
+        private Dictionary<LocalFlowIdentity, LocalFlowTotals> _windowFlows = new();
         private readonly Dictionary<string, Queue<long>> _rateWindows = new();
         private Dictionary<string, string> _namesByIp = new();
+        private DateTime _namesLoadedUtc = DateTime.MinValue;
 
         public LocalViewModel(IDbContextFactory<AppDbContext> dbFactory, Settings settings)
         {
@@ -150,6 +154,10 @@ namespace NetworkMonitor.ViewModels
                 IsLoading = true;
             }
 
+            // Serialised: a live tick and an explicit reload overlapping would let the slower one
+            // finish last and re-seed the window from a cutoff that is no longer on screen.
+            await _loadGate.WaitAsync();
+
             try
             {
                 double timeRangeHours = TimeRangeHours;
@@ -180,6 +188,7 @@ namespace NetworkMonitor.ViewModels
             }
             finally
             {
+                _loadGate.Release();
 
                 if (showLoading)
                 {
@@ -195,7 +204,7 @@ namespace NetworkMonitor.ViewModels
 
             AccumulateRateWindows(deltas);
 
-            if (_windowChartPoints.Count == 0)
+            if (_windowChartPoints.Count == 0 || _windowBucketSeconds <= 0)
             {
                 await LoadAsync();
             }
@@ -203,14 +212,23 @@ namespace NetworkMonitor.ViewModels
             {
                 long nowEpoch = (long)(DateTime.UtcNow - DateTime.UnixEpoch).TotalSeconds;
                 long cutoffEpoch = TrafficWindow.AlignedCutoffEpoch(nowEpoch, _windowBucketSeconds, _windowChartPoints.Count);
+                long bucketsAdvanced = (cutoffEpoch - _windowCutoffEpoch) / _windowBucketSeconds;
 
-                if (cutoffEpoch != _windowCutoffEpoch)
+                // On the 5-minute range the bucket is one second, so the aligned cutoff moves on
+                // every single flush. Reloading there would mean a full round-trip per second and
+                // the incremental path would never run at all — shift the window instead.
+                if (cutoffEpoch == _windowCutoffEpoch)
                 {
-                    await LoadAsync();
+                    ApplyFlushToWindow(deltas);
+                }
+                else if (bucketsAdvanced > 0 && bucketsAdvanced < _windowChartPoints.Count)
+                {
+                    ShiftWindow(cutoffEpoch, (int)bucketsAdvanced);
+                    ApplyFlushToWindow(deltas);
                 }
                 else
                 {
-                    ApplyFlushToWindow(deltas);
+                    await LoadAsync();
                 }
 
             }
@@ -223,15 +241,57 @@ namespace NetworkMonitor.ViewModels
             _windowCutoffEpoch = result.CutoffEpoch;
             _windowBucketSeconds = result.BucketSeconds;
             _windowChartPoints = new List<ChartPoint>(result.ChartPoints);
-            _windowFlows = new Dictionary<(string ProcessName, string RemoteIp, int Protocol, int RemotePort), (long Upload, long Download)>();
+            _windowFlowBuckets = result.FlowBuckets;
+            _windowFlows = new Dictionary<LocalFlowIdentity, LocalFlowTotals>();
 
             foreach (LocalFlowMinute minute in result.Minutes)
             {
-                (string ProcessName, string RemoteIp, int Protocol, int RemotePort) key = (minute.ProcessName, minute.RemoteIp, minute.Protocol, minute.RemotePort);
-                _windowFlows.TryGetValue(key, out (long Upload, long Download) current);
-                _windowFlows[key] = (current.Upload + minute.BytesUploaded, current.Download + minute.BytesDownloaded);
+                LocalFlowIdentity key = new LocalFlowIdentity(minute.ProcessName, minute.RemoteIp, minute.Protocol, minute.RemotePort);
+                _windowFlows.TryGetValue(key, out LocalFlowTotals current);
+                _windowFlows[key] = new LocalFlowTotals(current.Upload + minute.BytesUploaded, current.Download + minute.BytesDownloaded);
             }
 
+        }
+
+        private void ShiftWindow(long cutoffEpoch, int bucketsAdvanced)
+        {
+            int totalBuckets = _windowChartPoints.Count;
+
+            for (int shift = 0; shift < bucketsAdvanced; shift++)
+            {
+                Dictionary<LocalFlowIdentity, LocalFlowTotals> evicted = _windowFlowBuckets[0];
+
+                foreach (KeyValuePair<LocalFlowIdentity, LocalFlowTotals> flow in evicted)
+                {
+
+                    if (_windowFlows.TryGetValue(flow.Key, out LocalFlowTotals current))
+                    {
+                        long upload = current.Upload - flow.Value.Upload;
+                        long download = current.Download - flow.Value.Download;
+
+                        if (upload > 0 || download > 0)
+                        {
+                            _windowFlows[flow.Key] = new LocalFlowTotals(Math.Max(0, upload), Math.Max(0, download));
+                        }
+                        else
+                        {
+                            _windowFlows.Remove(flow.Key);
+                        }
+
+                    }
+
+                }
+
+                _windowFlowBuckets.RemoveAt(0);
+                _windowChartPoints.RemoveAt(0);
+                _windowFlowBuckets.Add(new Dictionary<LocalFlowIdentity, LocalFlowTotals>());
+
+                int appendedIndex = totalBuckets - bucketsAdvanced + shift;
+                DateTime bucketStart = DateTime.UnixEpoch.AddSeconds(cutoffEpoch + (long)appendedIndex * _windowBucketSeconds);
+                _windowChartPoints.Add(new ChartPoint(bucketStart, 0, 0));
+            }
+
+            _windowCutoffEpoch = cutoffEpoch;
         }
 
         private void ApplyFlushToWindow(IReadOnlyList<LocalTrafficDelta> deltas)
@@ -257,9 +317,17 @@ namespace NetworkMonitor.ViewModels
 
                 }
 
-                (string ProcessName, string RemoteIp, int Protocol, int RemotePort) key = (delta.ProcessName, delta.RemoteIp, delta.Protocol, delta.RemotePort);
-                _windowFlows.TryGetValue(key, out (long Upload, long Download) current);
-                _windowFlows[key] = (current.Upload + delta.BytesUploaded, current.Download + delta.BytesDownloaded);
+                LocalFlowIdentity key = new LocalFlowIdentity(delta.ProcessName, delta.RemoteIp, delta.Protocol, delta.RemotePort);
+                _windowFlows.TryGetValue(key, out LocalFlowTotals current);
+                _windowFlows[key] = new LocalFlowTotals(current.Upload + delta.BytesUploaded, current.Download + delta.BytesDownloaded);
+
+                if (_windowFlowBuckets.Count > 0)
+                {
+                    Dictionary<LocalFlowIdentity, LocalFlowTotals> newest = _windowFlowBuckets[_windowFlowBuckets.Count - 1];
+                    newest.TryGetValue(key, out LocalFlowTotals bucketTotals);
+                    newest[key] = new LocalFlowTotals(bucketTotals.Upload + delta.BytesUploaded, bucketTotals.Download + delta.BytesDownloaded);
+                }
+
             }
 
             int lastIndex = _windowChartPoints.Count - 1;
@@ -279,7 +347,7 @@ namespace NetworkMonitor.ViewModels
         {
             List<LocalFlowMinute> minutes = new List<LocalFlowMinute>(_windowFlows.Count);
 
-            foreach (KeyValuePair<(string ProcessName, string RemoteIp, int Protocol, int RemotePort), (long Upload, long Download)> flow in _windowFlows)
+            foreach (KeyValuePair<LocalFlowIdentity, LocalFlowTotals> flow in _windowFlows)
             {
                 minutes.Add(new LocalFlowMinute(flow.Key.ProcessName, flow.Key.RemoteIp, flow.Key.Protocol, flow.Key.RemotePort, flow.Value.Upload, flow.Value.Download));
             }
@@ -297,12 +365,22 @@ namespace NetworkMonitor.ViewModels
 
             }
 
-            long totalBytes = groups.Count > 0 ? groups[0].TotalBytes : 0;
-            string unit = Lens == LocalLens.ByApp ? "app" : "device";
-            string statusText = $"{normalCount} {unit}{(normalCount == 1 ? string.Empty : "s")} · {ByteSizeFormatter.Format(totalBytes)} total";
+            string statusText = StatusTextFor(groups, normalCount, null);
 
             ApplyGroups(groups, false);
             StatusText = statusText;
+        }
+
+        private string StatusTextFor(IReadOnlyList<LocalTrafficGroupRow> groups, int normalCount, DateTime? selectedBucketStart)
+        {
+            long totalBytes = groups.Count > 0 ? groups[0].TotalBytes : 0;
+            string unit = Lens == LocalLens.ByApp ? "app" : "device";
+            string scopeText = selectedBucketStart.HasValue
+                ? $"at {selectedBucketStart.Value.ToLocalTime():dd MMM HH:mm:ss}"
+                : "total";
+            string statusText = $"{normalCount} {unit}{(normalCount == 1 ? string.Empty : "s")} · {ByteSizeFormatter.Format(totalBytes)} {scopeText}";
+
+            return statusText;
         }
 
         private void AccumulateRateWindows(IReadOnlyList<LocalTrafficDelta> deltas)
@@ -459,11 +537,39 @@ namespace NetworkMonitor.ViewModels
                 }
                 else
                 {
-                    _groups.Add(incomingRow);
+
+                    // A live refresh must not re-sort the grid under an open drill-down, but it
+                    // still has to show apps and devices that only started talking just now:
+                    // append them in place, ahead of the trailing discovery row.
+                    _groups.Insert(InsertPositionFor(incomingRow), incomingRow);
                 }
 
             }
 
+        }
+
+        private int InsertPositionFor(LocalTrafficGroupRow incomingRow)
+        {
+            int position = _groups.Count;
+
+            if (incomingRow.Kind != GroupKind.Background)
+            {
+
+                for (int index = 0; index < _groups.Count; index++)
+                {
+
+                    if (_groups[index].Kind == GroupKind.Background)
+                    {
+                        position = index;
+
+                        break;
+                    }
+
+                }
+
+            }
+
+            return position;
         }
 
         private static string GroupIdentity(LocalTrafficGroupRow row)
@@ -491,7 +597,17 @@ namespace NetworkMonitor.ViewModels
             Dictionary<string, string> namesByIp = await BuildNameMapAsync(db);
             _namesByIp = namesByIp;
 
-            List<LocalFlowMinute> minutes = await LoadFlowMinutesAsync(db, useRollup, cutoff, cutoffEpoch, bucketRangeStart, bucketRangeEnd);
+            List<Dictionary<LocalFlowIdentity, LocalFlowTotals>> flowBuckets = await LoadFlowBucketsAsync(
+                db,
+                useRollup,
+                cutoff,
+                cutoffEpoch,
+                bucketSeconds,
+                totalBuckets,
+                bucketRangeStart,
+                bucketRangeEnd);
+
+            List<LocalFlowMinute> minutes = AggregateFlows(flowBuckets);
             IReadOnlyList<LocalTrafficGroupRow> groups = LocalTrafficGrouper.Build(minutes, namesByIp, Lens);
 
             Dictionary<int, (long Upload, long Download)> dataByBucket =
@@ -521,46 +637,86 @@ namespace NetworkMonitor.ViewModels
 
             }
 
-            long totalBytes = groups.Count > 0 ? groups[0].TotalBytes : 0;
-            string unit = Lens == LocalLens.ByApp ? "app" : "device";
-            string scopeText = selectedBucketStart.HasValue
-                ? $"at {selectedBucketStart.Value.ToLocalTime():dd MMM HH:mm:ss}"
-                : "total";
-            string statusText = $"{normalCount} {unit}{(normalCount == 1 ? string.Empty : "s")} · {ByteSizeFormatter.Format(totalBytes)} {scopeText}";
+            string statusText = StatusTextFor(groups, normalCount, selectedBucketStart);
 
-            LocalLoadResult result = new LocalLoadResult(chartPoints, groups.ToList(), minutes, statusText, cutoffEpoch, bucketSeconds);
+            LocalLoadResult result = new LocalLoadResult(chartPoints, groups.ToList(), minutes, flowBuckets, statusText, cutoffEpoch, bucketSeconds);
 
             return result;
         }
 
-        private async Task<Dictionary<string, string>> BuildNameMapAsync(AppDbContext db)
+        private static List<LocalFlowMinute> AggregateFlows(List<Dictionary<LocalFlowIdentity, LocalFlowTotals>> flowBuckets)
         {
-            Dictionary<string, string> namesByIp = new Dictionary<string, string>();
-            List<Device> devices = await db.Devices.AsNoTracking().ToListAsync();
+            Dictionary<LocalFlowIdentity, LocalFlowTotals> totals = new Dictionary<LocalFlowIdentity, LocalFlowTotals>();
 
-            foreach (Device device in devices)
+            foreach (Dictionary<LocalFlowIdentity, LocalFlowTotals> bucket in flowBuckets)
             {
 
-                if (!string.IsNullOrWhiteSpace(device.IpAddress))
+                foreach (KeyValuePair<LocalFlowIdentity, LocalFlowTotals> flow in bucket)
                 {
-                    namesByIp[device.IpAddress] = device.DisplayName;
+                    totals.TryGetValue(flow.Key, out LocalFlowTotals current);
+                    totals[flow.Key] = new LocalFlowTotals(current.Upload + flow.Value.Upload, current.Download + flow.Value.Download);
                 }
 
+            }
+
+            List<LocalFlowMinute> minutes = new List<LocalFlowMinute>(totals.Count);
+
+            foreach (KeyValuePair<LocalFlowIdentity, LocalFlowTotals> flow in totals)
+            {
+                minutes.Add(new LocalFlowMinute(flow.Key.ProcessName, flow.Key.RemoteIp, flow.Key.Protocol, flow.Key.RemotePort, flow.Value.Upload, flow.Value.Download));
+            }
+
+            return minutes;
+        }
+
+        private async Task<Dictionary<string, string>> BuildNameMapAsync(AppDbContext db)
+        {
+            DateTime nowUtc = DateTime.UtcNow;
+            Dictionary<string, string> namesByIp = _namesByIp;
+
+            // The map only changes when a scan finishes (every few minutes); re-reading the whole
+            // device table on each live tick was the most expensive part of a refresh.
+            if (namesByIp.Count == 0 || nowUtc - _namesLoadedUtc >= NameMapLifetime)
+            {
+                namesByIp = new Dictionary<string, string>();
+
+                List<Device> devices = await db.Devices.AsNoTracking().ToListAsync();
+
+                foreach (Device device in devices)
+                {
+
+                    if (!string.IsNullOrWhiteSpace(device.IpAddress))
+                    {
+                        namesByIp[device.IpAddress] = device.DisplayName;
+                    }
+
+                }
+
+                _namesLoadedUtc = nowUtc;
             }
 
             return namesByIp;
         }
 
-        private async Task<List<LocalFlowMinute>> LoadFlowMinutesAsync(
+        private async Task<List<Dictionary<LocalFlowIdentity, LocalFlowTotals>>> LoadFlowBucketsAsync(
             AppDbContext db,
             bool useRollup,
             DateTime cutoff,
             long cutoffEpoch,
+            long bucketSeconds,
+            int totalBuckets,
             DateTime? bucketRangeStart,
             DateTime? bucketRangeEnd)
         {
-            List<LocalFlowMinute> minutes = new List<LocalFlowMinute>();
+            List<Dictionary<LocalFlowIdentity, LocalFlowTotals>> buckets = new List<Dictionary<LocalFlowIdentity, LocalFlowTotals>>(totalBuckets);
+
+            for (int index = 0; index < totalBuckets; index++)
+            {
+                buckets.Add(new Dictionary<LocalFlowIdentity, LocalFlowTotals>());
+            }
+
             string sourceTable = useRollup ? "LocalTrafficRollups" : "LocalTrafficEntries";
+            string epochExpr = useRollup ? "MinuteEpoch" : "CAST(strftime('%s', Timestamp) AS INTEGER)";
             string whereClause = useRollup ? "MinuteEpoch >= $cutoffEpoch" : "Timestamp >= $cutoffTime";
 
             if (bucketRangeStart.HasValue && bucketRangeEnd.HasValue)
@@ -584,13 +740,27 @@ namespace NetworkMonitor.ViewModels
             await using (DbCommand command = connection.CreateCommand())
             {
                 command.CommandText = $"""
-                    SELECT ProcessName, RemoteIp, Protocol, RemotePort,
+                    SELECT CAST(({epochExpr} - $cutoffEpoch) / $bucketSeconds AS INTEGER) AS BucketIndex,
+                           ProcessName, RemoteIp, Protocol, RemotePort,
                            SUM(BytesUploaded)   AS Upload,
                            SUM(BytesDownloaded) AS Download
                     FROM {sourceTable}
                     WHERE {whereClause}
-                    GROUP BY ProcessName, RemoteIp, Protocol, RemotePort
+                    GROUP BY BucketIndex, ProcessName, RemoteIp, Protocol, RemotePort
                     """;
+
+                DbParameter bucketSecondsParameter = command.CreateParameter();
+                bucketSecondsParameter.ParameterName = "$bucketSeconds";
+                bucketSecondsParameter.Value = bucketSeconds;
+                command.Parameters.Add(bucketSecondsParameter);
+
+                if (!useRollup)
+                {
+                    DbParameter bucketCutoffParameter = command.CreateParameter();
+                    bucketCutoffParameter.ParameterName = "$cutoffEpoch";
+                    bucketCutoffParameter.Value = cutoffEpoch;
+                    command.Parameters.Add(bucketCutoffParameter);
+                }
 
                 if (useRollup)
                 {
@@ -645,21 +815,31 @@ namespace NetworkMonitor.ViewModels
 
                     while (await reader.ReadAsync())
                     {
-                        string processName = reader.GetString(0);
-                        string remoteIp = reader.GetString(1);
-                        int protocol = reader.GetInt32(2);
-                        int remotePort = reader.GetInt32(3);
-                        long upload = reader.GetInt64(4);
-                        long download = reader.GetInt64(5);
-                        LocalFlowMinute minute = new LocalFlowMinute(processName, remoteIp, protocol, remotePort, upload, download);
-                        minutes.Add(minute);
+                        int bucketIndex = reader.GetInt32(0);
+                        string processName = reader.GetString(1);
+                        string remoteIp = reader.GetString(2);
+                        int protocol = reader.GetInt32(3);
+                        int remotePort = reader.GetInt32(4);
+                        long upload = reader.GetInt64(5);
+                        long download = reader.GetInt64(6);
+
+                        // A row written between the cutoff calculation and this query can land one
+                        // bucket past the end; clamp rather than drop, so no bytes go missing.
+                        int slot = Math.Clamp(bucketIndex, 0, totalBuckets - 1);
+                        LocalFlowIdentity key = new LocalFlowIdentity(processName, remoteIp, protocol, remotePort);
+                        Dictionary<LocalFlowIdentity, LocalFlowTotals> bucket = buckets[slot];
+
+                        bucket.TryGetValue(key, out LocalFlowTotals current);
+                        bucket[key] = new LocalFlowTotals(current.Upload + upload, current.Download + download);
                     }
 
                 }
 
             }
 
-            return minutes;
+            await db.Database.CloseConnectionAsync();
+
+            return buckets;
         }
 
         private async Task<Dictionary<int, (long Upload, long Download)>> LoadChartBucketsAsync(
@@ -732,6 +912,8 @@ namespace NetworkMonitor.ViewModels
                 }
 
             }
+
+            await db.Database.CloseConnectionAsync();
 
             return dataByBucket;
         }

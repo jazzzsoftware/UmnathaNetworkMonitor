@@ -35,6 +35,7 @@ namespace NetworkMonitor
         private readonly IntPtr _hwnd;
         private bool _exitRequested;
         private bool _placementRestored;
+        private bool _shutdownCompleted;
         private const int SwShowNormal = 1;
         private const int SwShowMinimized = 2;
         private const int SwShowMaximized = 3;
@@ -247,16 +248,38 @@ namespace NetworkMonitor
 
         }
 
+        internal void ShutdownForUpdate()
+        {
+
+            if (!_shutdownCompleted)
+            {
+                AppLog.Info("Shutting down to install an update.");
+                ShutdownGracefully();
+            }
+
+        }
+
+        private void ShutdownGracefully()
+        {
+            _shutdownCompleted = true;
+            _savePlacementTimer.Stop();
+            SaveWindowPlacement();
+            StopHost();
+            CheckpointDatabase();
+            _trayIcon.Dispose();
+        }
+
         private void OnAppWindowClosing(AppWindow sender, AppWindowClosingEventArgs args)
         {
 
             if (_exitRequested)
             {
-                _savePlacementTimer.Stop();
-                SaveWindowPlacement();
-                StopHost();
-                CheckpointDatabase();
-                _trayIcon.Dispose();
+
+                if (!_shutdownCompleted)
+                {
+                    ShutdownGracefully();
+                }
+
             }
             else
             {
@@ -287,6 +310,7 @@ namespace NetworkMonitor
             AppLog.Info("Application stopping.");
 
             _exitRequested = true;
+            UpdateViewModel.CancelPendingWork();
             Close();
         }
 

@@ -4,17 +4,25 @@ using System.Net.Sockets;
 
 namespace NetworkMonitor.Core.Traffic
 {
-    public class LanClassifier
+    public sealed class LanClassifier : IDisposable
     {
+        private const uint LastOctetMask = 0x000000FFu;
+        private const uint LimitedBroadcast = 0xFFFFFFFFu;
+        private static readonly TimeSpan RefreshDebounce = TimeSpan.FromSeconds(2);
         private static readonly (uint Start, uint End)[] FixedRanges = BuildFixedRanges();
 
         private volatile (uint Start, uint End)[] _ranges;
 
+        private volatile (uint Start, uint End)[] _adapterRanges = Array.Empty<(uint Start, uint End)>();
+
         private volatile HashSet<uint> _selfAddresses = new HashSet<uint>();
+
+        private readonly Timer _refreshTimer;
 
         public LanClassifier()
         {
             _ranges = FixedRanges;
+            _refreshTimer = new Timer(OnRefreshDue, null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
 
             Refresh();
 
@@ -105,16 +113,31 @@ namespace NetworkMonitor.Core.Traffic
             if (TryPackIpv4(address, out uint packed))
             {
                 bool multicast = (packed & 0xF0000000u) == 0xE0000000u;
-                bool broadcast = (packed & 0x000000FFu) == 0x000000FFu;
-                result = multicast || broadcast;
+
+                if (multicast || packed == LimitedBroadcast)
+                {
+                    result = true;
+                }
+                else
+                {
+                    result = IsSubnetBroadcast(packed);
+                }
+
             }
 
             return result;
         }
 
+        public void Dispose()
+        {
+            NetworkChange.NetworkAddressChanged -= OnNetworkAddressChanged;
+            _refreshTimer.Dispose();
+        }
+
         public void Refresh()
         {
             List<(uint Start, uint End)> ranges = new List<(uint Start, uint End)>(FixedRanges);
+            List<(uint Start, uint End)> adapterRanges = new List<(uint Start, uint End)>();
             HashSet<uint> selfAddresses = new HashSet<uint>();
 
             foreach (NetworkInterface adapter in NetworkInterface.GetAllNetworkInterfaces())
@@ -156,12 +179,64 @@ namespace NetworkMonitor.Core.Traffic
                     uint end = start | ~mask;
 
                     ranges.Add((start, end));
+                    adapterRanges.Add((start, end));
                 }
 
             }
 
             _ranges = ranges.ToArray();
+            _adapterRanges = adapterRanges.ToArray();
             _selfAddresses = selfAddresses;
+        }
+
+        private bool IsSubnetBroadcast(uint packed)
+        {
+            bool result = false;
+            bool covered = false;
+            (uint Start, uint End)[] adapterRanges = _adapterRanges;
+
+            foreach ((uint Start, uint End) range in adapterRanges)
+            {
+
+                if (packed >= range.Start && packed <= range.End)
+                {
+                    covered = true;
+                    result = packed == range.End;
+
+                    break;
+                }
+
+            }
+
+            // No adapter owns this address, so its prefix length is unknown. Assume /24 inside
+            // private space (near-universal there) and leave everything else alone: a public
+            // host whose address ends in .255 is an ordinary unicast address, and on a /23 or
+            // wider LAN so is x.y.even.255 — dropping either would silently lose real traffic.
+            if (!covered && (packed & LastOctetMask) == LastOctetMask && IsPrivate(packed))
+            {
+                result = true;
+            }
+
+            return result;
+        }
+
+        private static bool IsPrivate(uint packed)
+        {
+            bool result = false;
+
+            foreach ((uint Start, uint End) range in FixedRanges)
+            {
+
+                if (packed >= range.Start && packed <= range.End)
+                {
+                    result = true;
+
+                    break;
+                }
+
+            }
+
+            return result;
         }
 
         private static (uint Start, uint End)[] BuildFixedRanges()
@@ -179,7 +254,22 @@ namespace NetworkMonitor.Core.Traffic
 
         private void OnNetworkAddressChanged(object? sender, EventArgs eventArgs)
         {
-            Refresh();
+            // Adapter up/down, DHCP renew and VPN connect all fire several of these in a burst;
+            // rebuilding the range table once after the burst is enough.
+            _refreshTimer.Change(RefreshDebounce, Timeout.InfiniteTimeSpan);
+        }
+
+        private void OnRefreshDue(object? state)
+        {
+
+            try
+            {
+                Refresh();
+            }
+            catch (NetworkInformationException)
+            {
+            }
+
         }
     }
 }

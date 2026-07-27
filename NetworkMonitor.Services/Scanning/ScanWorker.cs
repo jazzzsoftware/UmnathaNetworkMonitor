@@ -138,10 +138,9 @@ namespace NetworkMonitor.Services.Scanning
             {
                 DateTime trafficCutoff = DateTime.UtcNow.AddDays(-settings.TrafficPurgeDays);
 
-                await db.TrafficEntries
-                    .Where(entry => entry.Timestamp < trafficCutoff)
-                    .ExecuteDeleteAsync(ct);
-
+                // Only the rollups are retained for this long. The raw TrafficEntries and
+                // LocalTrafficEntries feed the 5-minute live view alone and are purged hourly by
+                // TrafficTracker, so deleting them here would only ever match nothing.
                 long rollupCutoffEpoch = (long)(trafficCutoff - DateTime.UnixEpoch).TotalSeconds;
 
                 await db.Database.ExecuteSqlRawAsync(
@@ -153,10 +152,6 @@ namespace NetworkMonitor.Services.Scanning
                     "DELETE FROM LocalTrafficRollups WHERE MinuteEpoch < {0}",
                     new object[] { rollupCutoffEpoch },
                     ct);
-
-                await db.LocalTrafficEntries
-                    .Where(entry => entry.Timestamp < trafficCutoff)
-                    .ExecuteDeleteAsync(ct);
 
                 await db.SpeedTestResults
                     .Where(result => result.Timestamp < trafficCutoff)

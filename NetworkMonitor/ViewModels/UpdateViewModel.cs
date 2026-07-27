@@ -15,7 +15,7 @@ namespace NetworkMonitor.ViewModels
         private readonly IUpdateService _updateService;
         private readonly DispatcherQueue _dispatcher;
         private AvailableUpdate? _pendingUpdate;
-        private bool _reportUpToDate;
+        private CancellationTokenSource? _downloadCancellation;
 
         public UpdateViewModel(IUpdateService updateService)
         {
@@ -24,8 +24,19 @@ namespace NetworkMonitor.ViewModels
             CheckNowCommand = new AsyncRelayCommand(CheckNowAsync);
             UpdateNowCommand = new AsyncRelayCommand(UpdateNowAsync);
             DismissCommand = new RelayCommand(Dismiss);
+            CancelDownloadCommand = new RelayCommand(CancelDownload);
 
             _updateService.CheckCompleted += OnCheckCompleted;
+
+            // The first check fires ten seconds after the host starts, which can be before this
+            // view model exists (it is built with MainWindow). Replay whatever it found.
+            UpdateCheckResult? missed = _updateService.LastResult;
+
+            if (missed is not null)
+            {
+                Apply(missed, false);
+            }
+
         }
 
         private bool _isBannerOpen;
@@ -138,11 +149,23 @@ namespace NetworkMonitor.ViewModels
             get;
         }
 
+        public IRelayCommand CancelDownloadCommand
+        {
+            get;
+        }
+
+        public void CancelPendingWork()
+        {
+            _downloadCancellation?.Cancel();
+        }
+
         private async Task CheckNowAsync()
         {
-            _reportUpToDate = true;
+            // Applied from the returned result rather than the shared event, so a background check
+            // completing at the same moment can't consume this check's "tell me either way" intent.
+            UpdateCheckResult result = await _updateService.CheckAsync(CancellationToken.None);
 
-            await _updateService.CheckAsync(CancellationToken.None);
+            Apply(result, true);
         }
 
         private async Task UpdateNowAsync()
@@ -161,21 +184,51 @@ namespace NetworkMonitor.ViewModels
                     DownloadProgress = fraction * 100.0;
                 });
 
+                CancellationTokenSource cancellation = new CancellationTokenSource();
+                _downloadCancellation = cancellation;
+
                 try
                 {
-                    string installerPath = await _updateService.DownloadAndVerifyAsync(update, progress, CancellationToken.None);
-                    _updateService.LaunchInstaller(installerPath);
+                    string installerPath = await _updateService.DownloadAndVerifyAsync(update, progress, cancellation.Token);
+                    MainWindow? window = MainWindow.Current;
+                    Action? beforeExit = null;
+
+                    if (window is not null)
+                    {
+                        beforeExit = window.ShutdownForUpdate;
+                    }
+
+                    _updateService.LaunchInstaller(installerPath, beforeExit);
+                }
+                catch (OperationCanceledException)
+                {
+                    IsBusy = false;
+                    DownloadProgress = 0;
+                    Severity = InfoBarSeverity.Informational;
+                    Message = $"Version {update.NormalizedVersion} is available.";
+                    IsBannerOpen = true;
                 }
                 catch (Exception)
                 {
                     IsBusy = false;
+                    DownloadProgress = 0;
                     Severity = InfoBarSeverity.Error;
                     Message = "The update could not be downloaded or verified. Please try again later.";
                     IsBannerOpen = true;
                 }
+                finally
+                {
+                    _downloadCancellation = null;
+                    cancellation.Dispose();
+                }
 
             }
 
+        }
+
+        private void CancelDownload()
+        {
+            _downloadCancellation?.Cancel();
         }
 
         private void Dismiss()
@@ -187,14 +240,12 @@ namespace NetworkMonitor.ViewModels
         {
             _dispatcher.TryEnqueue(() =>
             {
-                Apply(result);
+                Apply(result, false);
             });
         }
 
-        private void Apply(UpdateCheckResult result)
+        private void Apply(UpdateCheckResult result, bool reportUpToDate)
         {
-            bool reportUpToDate = _reportUpToDate;
-            _reportUpToDate = false;
 
             if (!IsBusy)
             {

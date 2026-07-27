@@ -590,14 +590,14 @@
                         <Button
                             Content="Check for updates"
                             HorizontalAlignment="Left"
-                            IsEnabled="{x:Bind UpdateViewModel.IsNotBusy, Mode=OneWay}"
-                            Command="{x:Bind UpdateViewModel.CheckNowCommand}" />
+                            Command="{x:Bind UpdateViewModel.CheckNowCommand}"
+                            IsEnabled="{x:Bind UpdateViewModel.IsNotBusy, Mode=OneWay}" />
 
-                        <InfoBar
-                            IsClosable="False"
-                            IsOpen="{x:Bind UpdateViewModel.IsBannerOpen, Mode=OneWay}"
-                            Severity="{x:Bind UpdateViewModel.Severity, Mode=OneWay}"
-                            Message="{x:Bind UpdateViewModel.Message, Mode=OneWay}" />
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            TextWrapping="Wrap"
+                            Text="{x:Bind UpdateViewModel.Message, Mode=OneWay}"
+                            Visibility="{x:Bind UpdateViewModel.IsBannerOpen, Mode=OneWay}" />
 
                     </StackPanel>
 

@@ -12,6 +12,8 @@ namespace NetworkMonitor.Tests.Update
         [InlineData("1.2", 1, 2, 0)]
         [InlineData("2", 2, 0, 0)]
         [InlineData("1.2.3-beta.1", 1, 2, 3)]
+        [InlineData("0.0.9.0", 0, 0, 9)]
+        [InlineData("v1.2.3.4", 1, 2, 3)]
         public void TryParseParsesValidVersions(string text, int major, int minor, int patch)
         {
             bool parsed = SemanticVersion.TryParse(text, out SemanticVersion version);

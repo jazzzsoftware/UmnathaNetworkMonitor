@@ -7,7 +7,10 @@ namespace NetworkMonitor.Models.Traffic
 {
     public class LocalTrafficGroupRow : ObservableObject
     {
-        private const double RateThresholdBytesPerSec = 62_500.0;
+        // Below half a megabit the chip would flicker on and off for background chatter, so the
+        // rate is only worth showing above it. Bit-based because that is how link speed is read.
+        private const double ShowRateAboveBitsPerSecond = 500_000.0;
+        private const double RateThresholdBytesPerSec = ShowRateAboveBitsPerSecond / 8.0;
 
         public LocalTrafficGroupRow(string? key, string displayName, string? subLabel, long bytesUploaded, long bytesDownloaded, IReadOnlyList<LocalTrafficLeafRow> children, GroupKind kind, string? serviceTag)
         {

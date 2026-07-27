@@ -136,6 +136,10 @@
                                 VerticalAlignment="Center"
                                 Text="{x:Bind UpdateViewModel.DownloadProgressText, Mode=OneWay}" />
 
+                            <Button
+                                Content="Cancel"
+                                Command="{x:Bind UpdateViewModel.CancelDownloadCommand}" />
+
                         </StackPanel>
 
                         <StackPanel
@@ -146,21 +150,21 @@
                             <Button
                                 Content="Update now"
                                 Style="{StaticResource AccentButtonStyle}"
-                                IsEnabled="{x:Bind UpdateViewModel.IsNotBusy, Mode=OneWay}"
-                                Command="{x:Bind UpdateViewModel.UpdateNowCommand}" />
+                                Command="{x:Bind UpdateViewModel.UpdateNowCommand}"
+                                IsEnabled="{x:Bind UpdateViewModel.IsNotBusy, Mode=OneWay}" />
 
                             <Button
                                 Content="Later"
-                                IsEnabled="{x:Bind UpdateViewModel.IsNotBusy, Mode=OneWay}"
-                                Command="{x:Bind UpdateViewModel.DismissCommand}" />
+                                Command="{x:Bind UpdateViewModel.DismissCommand}"
+                                IsEnabled="{x:Bind UpdateViewModel.IsNotBusy, Mode=OneWay}" />
 
                         </StackPanel>
 
                         <Button
                             Content="Dismiss"
                             HorizontalAlignment="Left"
-                            Visibility="{x:Bind UpdateViewModel.HasNoPendingUpdate, Mode=OneWay}"
-                            Command="{x:Bind UpdateViewModel.DismissCommand}" />
+                            Command="{x:Bind UpdateViewModel.DismissCommand}"
+                            Visibility="{x:Bind UpdateViewModel.HasNoPendingUpdate, Mode=OneWay}" />
 
                     </StackPanel>
 

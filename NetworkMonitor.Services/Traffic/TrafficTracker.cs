@@ -1,8 +1,10 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Hosting;
 using NetworkMonitor.Services.Data;
 using NetworkMonitor.Models.Traffic;
 using NetworkMonitor.Services.Platform;
+using System.ComponentModel;
 using System.Data.Common;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -12,16 +14,45 @@ using NetworkMonitor.Core.Traffic;
 
 namespace NetworkMonitor.Services.Traffic
 {
-    public class TrafficTracker(
+    public sealed class TrafficTracker(
         TrafficCollector collector,
         Settings settings,
         IDbContextFactory<AppDbContext> dbFactory) : BackgroundService
     {
         private const uint ProcessQueryLimitedInformation = 0x1000;
         private const int MaxCacheEntries = 512;
-        private const int SystemPid = 4;
+
+        private const string WanRollupSql = """
+            INSERT INTO TrafficRollups (MinuteEpoch, ProcessName, BytesUploaded, BytesDownloaded, ProcessPath)
+            VALUES ($minute, $name, $upload, $download, $path)
+            ON CONFLICT(MinuteEpoch, ProcessName) DO UPDATE SET
+                BytesUploaded = BytesUploaded + excluded.BytesUploaded,
+                BytesDownloaded = BytesDownloaded + excluded.BytesDownloaded,
+                ProcessPath = COALESCE(ProcessPath, excluded.ProcessPath)
+            """;
+
+        private const string LocalRollupSql = """
+            INSERT INTO LocalTrafficRollups (MinuteEpoch, ProcessName, ProcessPath, RemoteIp, Protocol, RemotePort, BytesUploaded, BytesDownloaded)
+            VALUES ($minute, $name, $path, $ip, $protocol, $port, $upload, $download)
+            ON CONFLICT(MinuteEpoch, ProcessName, RemoteIp, Protocol, RemotePort) DO UPDATE SET
+                BytesUploaded = BytesUploaded + excluded.BytesUploaded,
+                BytesDownloaded = BytesDownloaded + excluded.BytesDownloaded,
+                ProcessPath = COALESCE(ProcessPath, excluded.ProcessPath)
+            """;
+
+        private static readonly string[] WanRollupParameters = { "$minute", "$name", "$upload", "$download", "$path" };
+        private static readonly string[] LocalRollupParameters = { "$minute", "$name", "$path", "$ip", "$protocol", "$port", "$upload", "$download" };
         private static readonly TimeSpan FlushTimeout = TimeSpan.FromSeconds(30);
+        private static readonly TimeSpan PurgeTimeout = TimeSpan.FromMinutes(2);
+
+        // The raw tables are only ever read by the 5-minute live view; every longer range and the
+        // daily digest read the rollups, so keeping per-second rows for TrafficPurgeDays would
+        // grow the database, the WAL and the nightly backup for data nothing queries.
+        private static readonly TimeSpan RawEntryRetention = TimeSpan.FromHours(1);
+        private static readonly TimeSpan RawPurgeInterval = TimeSpan.FromMinutes(5);
+
         private readonly Dictionary<int, ProcessInfo> _infoCache = new();
+        private DateTime _lastRawPurgeUtc = DateTime.MinValue;
 
         [DllImport("kernel32.dll", SetLastError = true)]
         private static extern IntPtr OpenProcess(uint dwDesiredAccess, bool bInheritHandle, int dwProcessId);
@@ -44,6 +75,7 @@ namespace NetworkMonitor.Services.Traffic
                 {
                     await Task.Delay(TimeSpan.FromSeconds(settings.TrafficIntervalSeconds), ct);
                     await Watchdog.RunAsync(FlushAsync, FlushTimeout, ct);
+                    await Watchdog.RunAsync(PurgeRawEntriesAsync, PurgeTimeout, ct);
                 }
                 catch (OperationCanceledException)
                 {
@@ -71,25 +103,16 @@ namespace NetworkMonitor.Services.Traffic
 
             foreach (KeyValuePair<int, (long Upload, long Download)> kvp in snapshot)
             {
+                (string processName, string? processPath) = ResolveProcess(kvp.Key);
 
-                try
+                entries.Add(new TrafficEntry
                 {
-                    using Process process = Process.GetProcessById(kvp.Key);
-                    (string processName, string? processPath) = ResolveProcessInfo(kvp.Key, process);
-
-                    entries.Add(new TrafficEntry
-                    {
-                        Timestamp = timestamp,
-                        ProcessName = processName,
-                        ProcessPath = processPath,
-                        BytesUploaded = kvp.Value.Upload,
-                        BytesDownloaded = kvp.Value.Download
-                    });
-                }
-                catch (ArgumentException)
-                {
-                }
-
+                    Timestamp = timestamp,
+                    ProcessName = processName,
+                    ProcessPath = processPath,
+                    BytesUploaded = kvp.Value.Upload,
+                    BytesDownloaded = kvp.Value.Download
+                });
             }
 
             List<LocalTrafficEntry> localEntries = new();
@@ -97,7 +120,7 @@ namespace NetworkMonitor.Services.Traffic
 
             foreach (KeyValuePair<LocalFlowKey, (long Upload, long Download)> pair in localSnapshot)
             {
-                (string processName, string? processPath) = ResolveLocalProcess(pair.Key.Pid);
+                (string processName, string? processPath) = ResolveProcess(pair.Key.Pid);
                 string remoteIp = LanClassifier.Format(pair.Key.RemoteIp);
                 int protocol = pair.Key.Protocol;
                 int remotePort = pair.Key.RemotePort;
@@ -119,42 +142,157 @@ namespace NetworkMonitor.Services.Traffic
 
             if (entries.Count > 0 || localEntries.Count > 0)
             {
-                await using AppDbContext db = await dbFactory.CreateDbContextAsync(ct);
-
-                if (entries.Count > 0)
-                {
-                    db.TrafficEntries.AddRange(entries);
-                    await db.SaveChangesAsync(ct);
-
-                    await UpsertRollupsAsync(db, timestamp, entries, ct);
-                }
-
-                if (localEntries.Count > 0)
-                {
-                    db.LocalTrafficEntries.AddRange(localEntries);
-                    await db.SaveChangesAsync(ct);
-
-                    await UpsertLocalRollupsAsync(db, timestamp, localDeltas, ct);
-                }
-
-                Flushed?.Invoke(this, new TrafficFlushedEventArgs(entries, localDeltas));
+                await WriteFlushAsync(timestamp, entries, localEntries, localDeltas, ct);
             }
 
-            if (snapshot.Count > 0 && _infoCache.Count > MaxCacheEntries)
+            // Raised even for an empty flush: the view models age their live rate windows from
+            // this event, so skipping idle intervals would leave stale rates on screen.
+            Flushed?.Invoke(this, new TrafficFlushedEventArgs(entries, localDeltas));
+
+            if (_infoCache.Count > MaxCacheEntries)
             {
-                PruneInfoCache(snapshot);
+                PruneInfoCache(snapshot, localSnapshot);
             }
 
         }
 
-        private void PruneInfoCache(Dictionary<int, (long Upload, long Download)> snapshot)
+        private async Task WriteFlushAsync(
+            DateTime timestamp,
+            List<TrafficEntry> entries,
+            List<LocalTrafficEntry> localEntries,
+            List<LocalTrafficDelta> localDeltas,
+            CancellationToken ct)
         {
+            long minuteEpoch = MinuteEpochFor(timestamp);
+
+            await using AppDbContext db = await dbFactory.CreateDbContextAsync(ct);
+            await using IDbContextTransaction transaction = await db.Database.BeginTransactionAsync(ct);
+
+            DbConnection connection = db.Database.GetDbConnection();
+            DbTransaction dbTransaction = transaction.GetDbTransaction();
+
+            if (entries.Count > 0)
+            {
+                db.TrafficEntries.AddRange(entries);
+            }
+
+            if (localEntries.Count > 0)
+            {
+                db.LocalTrafficEntries.AddRange(localEntries);
+            }
+
+            await db.SaveChangesAsync(ct);
+
+            if (entries.Count > 0)
+            {
+                List<object?[]> rows = new List<object?[]>(entries.Count);
+
+                foreach (TrafficEntry entry in entries)
+                {
+                    rows.Add(new object?[] { minuteEpoch, entry.ProcessName, entry.BytesUploaded, entry.BytesDownloaded, entry.ProcessPath });
+                }
+
+                await ExecuteUpsertAsync(connection, dbTransaction, WanRollupSql, WanRollupParameters, rows, ct);
+            }
+
+            if (localDeltas.Count > 0)
+            {
+                List<object?[]> rows = new List<object?[]>(localDeltas.Count);
+
+                foreach (LocalTrafficDelta delta in localDeltas)
+                {
+                    rows.Add(new object?[] { minuteEpoch, delta.ProcessName, delta.ProcessPath, delta.RemoteIp, delta.Protocol, delta.RemotePort, delta.BytesUploaded, delta.BytesDownloaded });
+                }
+
+                await ExecuteUpsertAsync(connection, dbTransaction, LocalRollupSql, LocalRollupParameters, rows, ct);
+            }
+
+            await transaction.CommitAsync(ct);
+        }
+
+        private async Task PurgeRawEntriesAsync(CancellationToken ct)
+        {
+            DateTime nowUtc = DateTime.UtcNow;
+
+            if (nowUtc - _lastRawPurgeUtc >= RawPurgeInterval)
+            {
+                _lastRawPurgeUtc = nowUtc;
+
+                DateTime cutoff = nowUtc - RawEntryRetention;
+
+                await using AppDbContext db = await dbFactory.CreateDbContextAsync(ct);
+
+                await db.TrafficEntries
+                    .Where(entry => entry.Timestamp < cutoff)
+                    .ExecuteDeleteAsync(ct);
+
+                await db.LocalTrafficEntries
+                    .Where(entry => entry.Timestamp < cutoff)
+                    .ExecuteDeleteAsync(ct);
+            }
+
+        }
+
+        private static async Task ExecuteUpsertAsync(
+            DbConnection connection,
+            DbTransaction transaction,
+            string sql,
+            string[] parameterNames,
+            List<object?[]> rows,
+            CancellationToken ct)
+        {
+            await using DbCommand command = connection.CreateCommand();
+
+            command.Transaction = transaction;
+            command.CommandText = sql;
+
+            List<DbParameter> parameters = new List<DbParameter>(parameterNames.Length);
+
+            foreach (string parameterName in parameterNames)
+            {
+                DbParameter parameter = command.CreateParameter();
+                parameter.ParameterName = parameterName;
+                command.Parameters.Add(parameter);
+                parameters.Add(parameter);
+            }
+
+            foreach (object?[] row in rows)
+            {
+
+                for (int index = 0; index < parameters.Count; index++)
+                {
+                    parameters[index].Value = row[index] ?? DBNull.Value;
+                }
+
+                await command.ExecuteNonQueryAsync(ct);
+            }
+
+        }
+
+        private static long MinuteEpochFor(DateTime timestamp)
+        {
+            long minuteEpoch = ((long)(timestamp - DateTime.UnixEpoch).TotalSeconds / 60) * 60;
+
+            return minuteEpoch;
+        }
+
+        private void PruneInfoCache(
+            Dictionary<int, (long Upload, long Download)> snapshot,
+            Dictionary<LocalFlowKey, (long Upload, long Download)> localSnapshot)
+        {
+            HashSet<int> active = new HashSet<int>(snapshot.Keys);
+
+            foreach (LocalFlowKey key in localSnapshot.Keys)
+            {
+                active.Add(key.Pid);
+            }
+
             List<int> stale = new();
 
             foreach (int pid in _infoCache.Keys)
             {
 
-                if (!snapshot.ContainsKey(pid))
+                if (!active.Contains(pid))
                 {
                     stale.Add(pid);
                 }
@@ -164,135 +302,6 @@ namespace NetworkMonitor.Services.Traffic
             foreach (int pid in stale)
             {
                 _infoCache.Remove(pid);
-            }
-
-        }
-
-        private static async Task UpsertRollupsAsync(AppDbContext db, DateTime timestamp, List<TrafficEntry> entries, CancellationToken ct)
-        {
-            long minuteEpoch = ((long)(timestamp - DateTime.UnixEpoch).TotalSeconds / 60) * 60;
-
-            await db.Database.OpenConnectionAsync(ct);
-
-            DbConnection connection = db.Database.GetDbConnection();
-
-            await using (DbTransaction transaction = await connection.BeginTransactionAsync(ct))
-            await using (DbCommand command = connection.CreateCommand())
-            {
-                command.Transaction = transaction;
-                command.CommandText = """
-                    INSERT INTO TrafficRollups (MinuteEpoch, ProcessName, BytesUploaded, BytesDownloaded, ProcessPath)
-                    VALUES ($minute, $name, $upload, $download, $path)
-                    ON CONFLICT(MinuteEpoch, ProcessName) DO UPDATE SET
-                        BytesUploaded = BytesUploaded + excluded.BytesUploaded,
-                        BytesDownloaded = BytesDownloaded + excluded.BytesDownloaded,
-                        ProcessPath = COALESCE(ProcessPath, excluded.ProcessPath)
-                    """;
-
-                DbParameter minuteParameter = command.CreateParameter();
-                minuteParameter.ParameterName = "$minute";
-                minuteParameter.Value = minuteEpoch;
-                command.Parameters.Add(minuteParameter);
-
-                DbParameter nameParameter = command.CreateParameter();
-                nameParameter.ParameterName = "$name";
-                command.Parameters.Add(nameParameter);
-
-                DbParameter uploadParameter = command.CreateParameter();
-                uploadParameter.ParameterName = "$upload";
-                command.Parameters.Add(uploadParameter);
-
-                DbParameter downloadParameter = command.CreateParameter();
-                downloadParameter.ParameterName = "$download";
-                command.Parameters.Add(downloadParameter);
-
-                DbParameter pathParameter = command.CreateParameter();
-                pathParameter.ParameterName = "$path";
-                command.Parameters.Add(pathParameter);
-
-                foreach (TrafficEntry entry in entries)
-                {
-                    nameParameter.Value = entry.ProcessName;
-                    uploadParameter.Value = entry.BytesUploaded;
-                    downloadParameter.Value = entry.BytesDownloaded;
-                    pathParameter.Value = entry.ProcessPath is null ? (object)DBNull.Value : entry.ProcessPath;
-
-                    await command.ExecuteNonQueryAsync(ct);
-                }
-
-                await transaction.CommitAsync(ct);
-            }
-
-        }
-
-        private static async Task UpsertLocalRollupsAsync(AppDbContext db, DateTime timestamp, List<LocalTrafficDelta> localDeltas, CancellationToken ct)
-        {
-            long minuteEpoch = ((long)(timestamp - DateTime.UnixEpoch).TotalSeconds / 60) * 60;
-
-            await db.Database.OpenConnectionAsync(ct);
-
-            DbConnection connection = db.Database.GetDbConnection();
-
-            await using (DbTransaction transaction = await connection.BeginTransactionAsync(ct))
-            await using (DbCommand command = connection.CreateCommand())
-            {
-                command.Transaction = transaction;
-                command.CommandText = """
-                    INSERT INTO LocalTrafficRollups (MinuteEpoch, ProcessName, ProcessPath, RemoteIp, Protocol, RemotePort, BytesUploaded, BytesDownloaded)
-                    VALUES ($minute, $name, $path, $ip, $protocol, $port, $upload, $download)
-                    ON CONFLICT(MinuteEpoch, ProcessName, RemoteIp, Protocol, RemotePort) DO UPDATE SET
-                        BytesUploaded = BytesUploaded + excluded.BytesUploaded,
-                        BytesDownloaded = BytesDownloaded + excluded.BytesDownloaded,
-                        ProcessPath = COALESCE(ProcessPath, excluded.ProcessPath)
-                    """;
-
-                DbParameter minuteParameter = command.CreateParameter();
-                minuteParameter.ParameterName = "$minute";
-                minuteParameter.Value = minuteEpoch;
-                command.Parameters.Add(minuteParameter);
-
-                DbParameter nameParameter = command.CreateParameter();
-                nameParameter.ParameterName = "$name";
-                command.Parameters.Add(nameParameter);
-
-                DbParameter pathParameter = command.CreateParameter();
-                pathParameter.ParameterName = "$path";
-                command.Parameters.Add(pathParameter);
-
-                DbParameter ipParameter = command.CreateParameter();
-                ipParameter.ParameterName = "$ip";
-                command.Parameters.Add(ipParameter);
-
-                DbParameter protocolParameter = command.CreateParameter();
-                protocolParameter.ParameterName = "$protocol";
-                command.Parameters.Add(protocolParameter);
-
-                DbParameter portParameter = command.CreateParameter();
-                portParameter.ParameterName = "$port";
-                command.Parameters.Add(portParameter);
-
-                DbParameter uploadParameter = command.CreateParameter();
-                uploadParameter.ParameterName = "$upload";
-                command.Parameters.Add(uploadParameter);
-
-                DbParameter downloadParameter = command.CreateParameter();
-                downloadParameter.ParameterName = "$download";
-                command.Parameters.Add(downloadParameter);
-
-                foreach (LocalTrafficDelta delta in localDeltas)
-                {
-                    nameParameter.Value = delta.ProcessName;
-                    pathParameter.Value = delta.ProcessPath is null ? (object)DBNull.Value : delta.ProcessPath;
-                    ipParameter.Value = delta.RemoteIp;
-                    protocolParameter.Value = delta.Protocol;
-                    portParameter.Value = delta.RemotePort;
-                    uploadParameter.Value = delta.BytesUploaded;
-                    downloadParameter.Value = delta.BytesDownloaded;
-
-                    await command.ExecuteNonQueryAsync(ct);
-                }
-
-                await transaction.CommitAsync(ct);
             }
 
         }
@@ -307,35 +316,43 @@ namespace NetworkMonitor.Services.Traffic
                 startTime = process.StartTime;
                 haveStartTime = true;
             }
-            catch (Exception)
+            catch (Win32Exception)
             {
             }
+            catch (InvalidOperationException)
+            {
+            }
+            catch (NotSupportedException)
+            {
+            }
+
+            (string Name, string? Path) resolved;
 
             if (_infoCache.TryGetValue(pid, out ProcessInfo cached)
                 && cached.HaveStartTime == haveStartTime
                 && (!haveStartTime || cached.StartTime == startTime))
             {
-                (string Name, string? Path) hit = (cached.Name, cached.Path);
-
-                return hit;
+                resolved = (cached.Name, cached.Path);
             }
+            else
+            {
+                string name = process.ProcessName;
+                string? path = GetProcessPath(pid);
+                _infoCache[pid] = new ProcessInfo(startTime, haveStartTime, name, path);
 
-            string name = process.ProcessName;
-            string? path = GetProcessPath(pid);
-            _infoCache[pid] = new ProcessInfo(startTime, haveStartTime, name, path);
-
-            (string Name, string? Path) resolved = (name, path);
+                resolved = (name, path);
+            }
 
             return resolved;
         }
 
-        private (string Name, string? Path) ResolveLocalProcess(int pid)
+        private (string Name, string? Path) ResolveProcess(int pid)
         {
             (string Name, string? Path) resolved;
 
-            if (pid == SystemPid)
+            if (pid == WellKnownPids.System)
             {
-                resolved = ("System", null);
+                resolved = (WellKnownPids.SystemName, null);
             }
             else
             {
@@ -347,7 +364,18 @@ namespace NetworkMonitor.Services.Traffic
                 }
                 catch (ArgumentException)
                 {
-                    resolved = ("System", null);
+
+                    // The process exited during the interval. Its bytes are real, so fall back to
+                    // the name last cached for that pid instead of discarding the counter.
+                    if (_infoCache.TryGetValue(pid, out ProcessInfo cached))
+                    {
+                        resolved = (cached.Name, cached.Path);
+                    }
+                    else
+                    {
+                        resolved = (WellKnownPids.SystemName, null);
+                    }
+
                 }
 
             }

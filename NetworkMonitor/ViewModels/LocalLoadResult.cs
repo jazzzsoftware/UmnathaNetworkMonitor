@@ -9,6 +9,7 @@ namespace NetworkMonitor.ViewModels
         List<ChartPoint> ChartPoints,
         List<LocalTrafficGroupRow> Groups,
         List<LocalFlowMinute> Minutes,
+        List<Dictionary<LocalFlowIdentity, LocalFlowTotals>> FlowBuckets,
         string StatusText,
         long CutoffEpoch,
         long BucketSeconds);
