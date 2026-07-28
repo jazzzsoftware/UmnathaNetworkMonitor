@@ -167,7 +167,7 @@ Done - Auto update
 Done - Code review.
 Done - Software updates from button does nothing.
 
-If skipped report generate on startup
+On startup if dont have a report in last 24hrs then create one report generate on startup
 Laptop chart scale problem
 Blurry report images
 

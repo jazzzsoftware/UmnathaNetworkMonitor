@@ -104,19 +104,46 @@ namespace NetworkMonitor.Services.Digest
                     }
 
                 }
+                else
+                {
+                    // The app can be closed across a generation boundary, which the timed loop alone
+                    // would not notice until the next one comes round — a whole day late.
+                    await GenerateMissedWindowsAsync(ct);
+                }
 
             }
             else
             {
-                DateTime? lastEndUtc = await GetLastPeriodEndUtcAsync(ct);
-                List<(DateTime StartUtc, DateTime EndUtc)> windows = DigestSchedule.MissedWindows(
-                    lastEndUtc, DateTime.Now, settings.DigestGenerationHour, settings.DigestPurgeDays);
+                await GenerateMissedWindowsAsync(ct);
+            }
 
-                foreach ((DateTime StartUtc, DateTime EndUtc) window in windows)
+        }
+
+        private async Task GenerateMissedWindowsAsync(CancellationToken ct)
+        {
+            DateTime? lastEndUtc = await GetLastPeriodEndUtcAsync(ct);
+            List<(DateTime StartUtc, DateTime EndUtc)> windows = DigestSchedule.MissedWindows(
+                lastEndUtc, DateTime.Now, settings.DigestGenerationHour, settings.DigestPurgeDays);
+
+            int generated = 0;
+
+            foreach ((DateTime StartUtc, DateTime EndUtc) window in windows)
+            {
+                // A window the app slept through has nothing to report on; generating it would file
+                // an empty digest and raise a notification for a day nothing was captured.
+                bool hasData = await HasDataAsync(window.StartUtc, window.EndUtc, ct);
+
+                if (hasData)
                 {
                     await generator.GenerateAsync(window.StartUtc, window.EndUtc, isScheduled: true, ct);
+                    generated++;
                 }
 
+            }
+
+            if (windows.Count > 0)
+            {
+                AppLog.Info($"Digest catch-up: {windows.Count} window(s) due, {generated} generated ({windows.Count - generated} skipped for having no data).");
             }
 
         }

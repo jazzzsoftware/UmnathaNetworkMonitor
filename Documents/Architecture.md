@@ -287,7 +287,9 @@ CatchUpAsync(isStartup)
     │     (no empty "nothing happened" digest on a brand-new database)
     └─ otherwise (scheduled loop, or startup when reports already exist):
           DigestSchedule.MissedWindows(lastScheduledEnd, now, hour, retention)
-          → generates one report per missed daily window (covers downtime)
+          → generates one report per missed daily window (covers downtime), each
+            gated on the same HasDataAsync check — a window the app slept through
+            has nothing to report, so it is skipped rather than filed empty
 
 DigestGenerator.GenerateAsync(startUtc, endUtc, isScheduled)
     ├─ load DeviceEvents in period + all Devices
