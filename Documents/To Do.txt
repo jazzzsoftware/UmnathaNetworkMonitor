@@ -166,10 +166,13 @@ Done - Go live on GitHub
 Done - Auto update
 Done - Code review.
 Done - Software updates from button does nothing.
+Done - On startup if dont have a report in last 24hrs then create one report generate on startup
+Blurry report images in digest page
 
-On startup if dont have a report in last 24hrs then create one report generate on startup
 Laptop chart scale problem
-Blurry report images
+
+Smoke items 46-48 still need a release newer than 0.0.9 (update download / cancel mid-download / install + relaunch visible). Test these at the next installer build - see Documents/Code Review/2026-07-27/smoke-checklist.md
+
 
 
 
@@ -177,22 +180,3 @@ Roadmap:
 Done - Auto update
 Chart colour schemes
 Floating mini graph
-
-
-
-
-
-
-	
-
-
-
-
-New name 
-"Ulwembu"  is a real isiZulu word, and it fits the web idea well. It means web / cobweb (and by extension the spider itself, and even a thin film). English meanings for ulwembu include web, spider and film. Pronounced roughly ool-WEM-boo.
-or 
-Umnatha in Xhosa
-That's a strong find — possibly the most on-the-nose of everything we've looked at. In isiXhosa, "net" translates to "umnatha." It's the literal word for a net, and it's also the root used in modern isiXhosa for networks and 
-the internet (you'll see umnatha used for "the Web" / online network in tech contexts). 
-Translate.com
-Pronounced roughly oom-NAH-tah. Clean, no clicks, easy for anyone to say, and genuinely Xhosa — which fits the Cape perfectly.

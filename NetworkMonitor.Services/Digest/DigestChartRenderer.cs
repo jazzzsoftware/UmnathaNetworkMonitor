@@ -14,7 +14,9 @@ namespace NetworkMonitor.Services.Digest
 {
     public class DigestChartRenderer
     {
-        private const float ChartWidth = 840f;
+        // Public so a caller sizing a preview can work out how many pixels the on-screen area needs.
+        public const float ChartWidth = 840f;
+
         private const float ChartHeight = 360f;
         private const float SpeedChartHeight = 180f;
         private const float RenderDpi = 288f;

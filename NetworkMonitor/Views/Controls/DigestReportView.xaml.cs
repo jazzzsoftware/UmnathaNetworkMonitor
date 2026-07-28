@@ -25,12 +25,27 @@ namespace NetworkMonitor.Views.Controls
             typeof(DigestReportView),
             new PropertyMetadata(null, OnReportChanged));
 
+        private const float MinimumPreviewDpi = 96f;
+        private const float MaximumPreviewDpi = 384f;
+        private const float DpiChangeThreshold = 4f;
+
         private readonly DigestChartRenderer _chartRenderer;
+        private readonly DispatcherTimer _resizeTimer;
+        private float _renderedDpi;
 
         public DigestReportView()
         {
             _chartRenderer = App.AppHost.Services.GetRequiredService<DigestChartRenderer>();
             InitializeComponent();
+
+            _resizeTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(250)
+            };
+            _resizeTimer.Tick += OnResizeSettled;
+
+            Loaded += OnLoaded;
+            SizeChanged += OnSizeChanged;
         }
 
         public DigestSummary? Summary
@@ -112,8 +127,8 @@ namespace NetworkMonitor.Views.Controls
                 SpeedTable.ItemsSource = summary.SpeedTests.OrderByDescending(test => test.Timestamp).ToList();
 
                 bool lightBackground = ActualTheme != ElementTheme.Dark;
-                double rasterizationScale = XamlRoot?.RasterizationScale ?? 1.0;
-                float screenDpi = (float)(96.0 * rasterizationScale);
+                float screenDpi = PreviewDpi();
+                _renderedDpi = screenDpi;
 
                 byte[] trafficPng = await Task.Run(() => _chartRenderer.RenderInternetTrafficChart(summary, lightBackground, screenDpi));
                 TrafficChartImage.Source = await ToBitmapAsync(trafficPng);
@@ -129,6 +144,64 @@ namespace NetworkMonitor.Views.Controls
 
                 byte[] latencyPng = await Task.Run(() => _chartRenderer.RenderSpeedLatencyChart(summary, lightBackground, screenDpi));
                 LatencyChartImage.Source = await ToBitmapAsync(latencyPng);
+            }
+
+        }
+
+        private float PreviewDpi()
+        {
+            // The charts are authored at DigestChartRenderer.ChartWidth logical units but are shown
+            // stretched to whatever width the page offers. WinUI maps one bitmap pixel to one DIP and
+            // ignores PNG DPI metadata, so raising the DPI alone just makes the bitmap bigger in DIPs
+            // — it never gets denser. Scaling the DPI by (displayed width / authored width) gives the
+            // bitmap exactly as many pixels as the on-screen area has device pixels: a 1:1 mapping.
+            // XamlRoot is null until the control is attached, in which case this render is provisional
+            // and Loaded will redo it.
+            double rasterizationScale = XamlRoot?.RasterizationScale ?? 1.0;
+            double displayedWidth = TrafficSplitImage.ActualWidth;
+
+            if (displayedWidth <= 0.0)
+            {
+                displayedWidth = ActualWidth;
+            }
+
+            if (displayedWidth <= 0.0)
+            {
+                displayedWidth = DigestChartRenderer.ChartWidth;
+            }
+
+            double dpi = 96.0 * (displayedWidth / DigestChartRenderer.ChartWidth) * rasterizationScale;
+            float clamped = (float)Math.Clamp(dpi, MinimumPreviewDpi, MaximumPreviewDpi);
+
+            return clamped;
+        }
+
+        private void OnLoaded(object sender, RoutedEventArgs args)
+        {
+            RerenderIfScaleChanged();
+        }
+
+        private void OnSizeChanged(object sender, SizeChangedEventArgs args)
+        {
+            // Resizing raises this continuously; coalesce so a drag re-renders once at the end.
+            _resizeTimer.Stop();
+            _resizeTimer.Start();
+        }
+
+        private void OnResizeSettled(object? sender, object args)
+        {
+            _resizeTimer.Stop();
+            RerenderIfScaleChanged();
+        }
+
+        private void RerenderIfScaleChanged()
+        {
+            float dpi = PreviewDpi();
+
+            // A redraw costs five Win2D renders, so ignore drift too small to be visible.
+            if (Summary is not null && Math.Abs(dpi - _renderedDpi) > DpiChangeThreshold)
+            {
+                _ = RenderAsync();
             }
 
         }

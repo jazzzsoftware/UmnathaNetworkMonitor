@@ -304,7 +304,21 @@ Reports are read back on the Reports page via `ReportsViewModel`, which deserial
 - **PDF** — `DigestPdfExporter` (QuestPDF) embeds Win2D-rendered chart PNGs and device/traffic tables.
 - **CSV** — `DigestCsvExporter` exports the selected report or all reports.
 
-Digest charts are rasterised by `DigestChartRenderer`. The **on-screen preview** renders at the display scale (`96 × XamlRoot.RasterizationScale`) so it stays crisp without decoding needlessly large bitmaps, while the **PDF export** keeps **288 DPI** so charts stay sharp when printed or zoomed (the DPI is a parameter on the render methods; the PDF path uses the default).
+Digest charts are rasterised by `DigestChartRenderer` at a logical **840 × 360** (speed charts 840 × 180). The **on-screen preview** renders at the display scale (`96 × XamlRoot.RasterizationScale`), while the **PDF export** keeps **288 DPI** so charts stay sharp when printed or zoomed (the DPI is a parameter on the render methods; the PDF path uses the default).
+
+Scaling the preview DPI by the display scale alone is **not** enough to stay crisp. WinUI maps one bitmap pixel to one DIP and ignores PNG DPI metadata, so a higher-DPI render makes the bitmap *larger in DIPs* rather than denser. The preview images are `Stretch="Uniform"` with no width constraint, so they fill the page width — which means the bitmap is scaled to an area whose device-pixel count is `displayedWidth × rasterizationScale`, and a bitmap rendered only at `96 × rasterizationScale` never has enough pixels for it.
+
+`DigestReportView.PreviewDpi()` therefore folds the displayed width into the DPI:
+
+```
+dpi = 96 × (displayedWidth / DigestChartRenderer.ChartWidth) × rasterizationScale
+```
+
+The chart geometry still draws at the authored `ChartWidth` logical units — only the pixel count changes — so the bitmap ends up with exactly as many pixels as the on-screen area has device pixels, a 1:1 mapping at any window width or scale factor. `ChartWidth` is public for this reason. The result is clamped to 96–384 DPI so a very wide window cannot push five Win2D renders into absurd bitmap sizes.
+
+Two re-render triggers keep that mapping true: `Loaded` (because `XamlRoot` is null — and the scale therefore 1.0 — when the `Summary` binding fires before the control is attached, and `ActualWidth` is still 0 before layout), and a 250 ms-debounced `SizeChanged` so resizing the window re-sharpens once when the drag settles rather than on every frame. A 4 DPI threshold suppresses re-renders for drift too small to see.
+
+The **PDF export never had this problem**: QuestPDF places the PNG into a fixed physical area on the page, where extra pixels always become density.
 
 `GenerateNowAsync` produces an immediate (unscheduled, `IsScheduled = false`) report covering the last 24 hours without disturbing the scheduled cadence. Because catch-up anchors on the last **scheduled** report only, a manual report never advances the cursor.
 
