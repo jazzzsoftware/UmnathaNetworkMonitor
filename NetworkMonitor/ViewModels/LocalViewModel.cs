@@ -107,6 +107,7 @@ namespace NetworkMonitor.ViewModels
         private long _windowBucketSeconds;
         private List<ChartPoint> _windowChartPoints = [];
         private List<Dictionary<LocalFlowIdentity, LocalFlowTotals>> _windowFlowBuckets = new();
+        private DateTime _lastFlushUtc = DateTime.MinValue;
         private Dictionary<LocalFlowIdentity, LocalFlowTotals> _windowFlows = new();
         private readonly Dictionary<string, RateWindow> _rateWindows = new();
         private Dictionary<string, string> _namesByIp = new();
@@ -290,7 +291,16 @@ namespace NetworkMonitor.ViewModels
             }
             else
             {
-                long nowEpoch = (long)(DateTime.UtcNow - DateTime.UnixEpoch).TotalSeconds;
+                DateTime nowUtc = DateTime.UtcNow;
+
+                // The collector accumulated these bytes since the previous drain, so they belong to
+                // that whole interval rather than to this instant.
+                DateTime intervalStartUtc = _lastFlushUtc == DateTime.MinValue
+                    ? nowUtc.AddSeconds(-_windowBucketSeconds)
+                    : _lastFlushUtc;
+                _lastFlushUtc = nowUtc;
+
+                long nowEpoch = (long)(nowUtc - DateTime.UnixEpoch).TotalSeconds;
                 long cutoffEpoch = TrafficWindow.AlignedCutoffEpoch(nowEpoch, _windowBucketSeconds, _windowChartPoints.Count);
                 long bucketsAdvanced = (cutoffEpoch - _windowCutoffEpoch) / _windowBucketSeconds;
 
@@ -299,12 +309,12 @@ namespace NetworkMonitor.ViewModels
                 // the incremental path would never run at all — shift the window instead.
                 if (cutoffEpoch == _windowCutoffEpoch)
                 {
-                    ApplyFlushToWindow(deltas);
+                    ApplyFlushToWindow(deltas, intervalStartUtc, nowUtc);
                 }
                 else if (bucketsAdvanced > 0 && bucketsAdvanced < _windowChartPoints.Count)
                 {
                     ShiftWindow(cutoffEpoch, (int)bucketsAdvanced);
-                    ApplyFlushToWindow(deltas);
+                    ApplyFlushToWindow(deltas, intervalStartUtc, nowUtc);
                 }
                 else
                 {
@@ -374,7 +384,36 @@ namespace NetworkMonitor.ViewModels
             _windowCutoffEpoch = cutoffEpoch;
         }
 
-        private void ApplyFlushToWindow(IReadOnlyList<LocalTrafficDelta> deltas)
+        private void SpreadAcrossBuckets(long upload, long download, DateTime intervalStartUtc, DateTime intervalEndUtc)
+        {
+            List<DateTime> bucketStarts = new List<DateTime>(_windowChartPoints.Count);
+
+            foreach (ChartPoint point in _windowChartPoints)
+            {
+                bucketStarts.Add(point.BucketStart);
+            }
+
+            long[] uploadShares = FlushSpread.Distribute(upload, bucketStarts, _windowBucketSeconds, intervalStartUtc, intervalEndUtc);
+            long[] downloadShares = FlushSpread.Distribute(download, bucketStarts, _windowBucketSeconds, intervalStartUtc, intervalEndUtc);
+
+            for (int index = 0; index < _windowChartPoints.Count; index++)
+            {
+
+                if (uploadShares[index] != 0 || downloadShares[index] != 0)
+                {
+                    ChartPoint point = _windowChartPoints[index];
+                    _windowChartPoints[index] = point with
+                    {
+                        BytesUploaded = point.BytesUploaded + uploadShares[index],
+                        BytesDownloaded = point.BytesDownloaded + downloadShares[index]
+                    };
+                }
+
+            }
+
+        }
+
+        private void ApplyFlushToWindow(IReadOnlyList<LocalTrafficDelta> deltas, DateTime intervalStartUtc, DateTime intervalEndUtc)
         {
             string? selectedKey = SelectedGroupKey;
             LocalLens lens = Lens;
@@ -410,13 +449,7 @@ namespace NetworkMonitor.ViewModels
 
             }
 
-            int lastIndex = _windowChartPoints.Count - 1;
-            ChartPoint last = _windowChartPoints[lastIndex];
-            _windowChartPoints[lastIndex] = last with
-            {
-                BytesUploaded = last.BytesUploaded + chartDeltaUpload,
-                BytesDownloaded = last.BytesDownloaded + chartDeltaDownload
-            };
+            SpreadAcrossBuckets(chartDeltaUpload, chartDeltaDownload, intervalStartUtc, intervalEndUtc);
 
             ChartPoints = new ObservableCollection<ChartPoint>(_windowChartPoints);
 
@@ -447,7 +480,13 @@ namespace NetworkMonitor.ViewModels
 
             string statusText = StatusTextFor(groups, normalCount, null);
 
-            ApplyGroups(groups, false);
+            // Freezing the order on every live tick kept the grid steady under an open drill-down,
+            // but it also stripped the ordering of meaning: a row that starts talking later stays
+            // wherever it was first inserted, so a NAS pulling gigabytes sits below an idle phone.
+            // Re-sort while the user is just watching the list; hold the order once they drill in.
+            bool reorder = SelectedGroupKey is null;
+
+            ApplyGroups(groups, reorder);
             StatusText = statusText;
         }
 

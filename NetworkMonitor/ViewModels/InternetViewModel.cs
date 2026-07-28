@@ -78,6 +78,7 @@ namespace NetworkMonitor.ViewModels
         private readonly SemaphoreSlim _loadGate = new SemaphoreSlim(1, 1);
         private long _windowCutoffEpoch;
         private long _windowBucketSeconds;
+        private DateTime _lastFlushUtc = DateTime.MinValue;
         private List<ChartPoint> _windowChartPoints = [];
         private List<Dictionary<string, InternetAppTotals>> _windowAppBuckets = new();
         private Dictionary<string, InternetAppTotals> _windowAppTotals = new();
@@ -222,7 +223,16 @@ namespace NetworkMonitor.ViewModels
             }
             else
             {
-                long nowEpoch = (long)(DateTime.UtcNow - DateTime.UnixEpoch).TotalSeconds;
+                DateTime nowUtc = DateTime.UtcNow;
+
+                // The collector accumulated these bytes since the previous drain, so they belong to
+                // that whole interval rather than to this instant.
+                DateTime intervalStartUtc = _lastFlushUtc == DateTime.MinValue
+                    ? nowUtc.AddSeconds(-_windowBucketSeconds)
+                    : _lastFlushUtc;
+                _lastFlushUtc = nowUtc;
+
+                long nowEpoch = (long)(nowUtc - DateTime.UnixEpoch).TotalSeconds;
                 long cutoffEpoch = TrafficWindow.AlignedCutoffEpoch(nowEpoch, _windowBucketSeconds, _windowChartPoints.Count);
                 long bucketsAdvanced = (cutoffEpoch - _windowCutoffEpoch) / _windowBucketSeconds;
 
@@ -231,12 +241,12 @@ namespace NetworkMonitor.ViewModels
                 // the incremental path would never run at all — shift the window instead.
                 if (cutoffEpoch == _windowCutoffEpoch)
                 {
-                    ApplyFlushToWindow(entries);
+                    ApplyFlushToWindow(entries, intervalStartUtc, nowUtc);
                 }
                 else if (bucketsAdvanced > 0 && bucketsAdvanced < _windowChartPoints.Count)
                 {
                     ShiftWindow(cutoffEpoch, (int)bucketsAdvanced);
-                    ApplyFlushToWindow(entries);
+                    ApplyFlushToWindow(entries, intervalStartUtc, nowUtc);
                 }
                 else
                 {
@@ -309,7 +319,7 @@ namespace NetworkMonitor.ViewModels
             _windowCutoffEpoch = cutoffEpoch;
         }
 
-        private void ApplyFlushToWindow(IReadOnlyList<TrafficEntry> entries)
+        private void ApplyFlushToWindow(IReadOnlyList<TrafficEntry> entries, DateTime intervalStartUtc, DateTime intervalEndUtc)
         {
             string? selectedApp = SelectedApp;
             long chartDeltaUpload = 0;
@@ -347,15 +357,38 @@ namespace NetworkMonitor.ViewModels
 
             }
 
-            int lastIndex = _windowChartPoints.Count - 1;
-            ChartPoint last = _windowChartPoints[lastIndex];
-            _windowChartPoints[lastIndex] = last with
-            {
-                BytesUploaded = last.BytesUploaded + chartDeltaUpload,
-                BytesDownloaded = last.BytesDownloaded + chartDeltaDownload
-            };
+            SpreadAcrossBuckets(chartDeltaUpload, chartDeltaDownload, intervalStartUtc, intervalEndUtc);
 
             ChartPoints = new ObservableCollection<ChartPoint>(_windowChartPoints);
+        }
+
+        private void SpreadAcrossBuckets(long upload, long download, DateTime intervalStartUtc, DateTime intervalEndUtc)
+        {
+            List<DateTime> bucketStarts = new List<DateTime>(_windowChartPoints.Count);
+
+            foreach (ChartPoint point in _windowChartPoints)
+            {
+                bucketStarts.Add(point.BucketStart);
+            }
+
+            long[] uploadShares = FlushSpread.Distribute(upload, bucketStarts, _windowBucketSeconds, intervalStartUtc, intervalEndUtc);
+            long[] downloadShares = FlushSpread.Distribute(download, bucketStarts, _windowBucketSeconds, intervalStartUtc, intervalEndUtc);
+
+            for (int index = 0; index < _windowChartPoints.Count; index++)
+            {
+
+                if (uploadShares[index] != 0 || downloadShares[index] != 0)
+                {
+                    ChartPoint point = _windowChartPoints[index];
+                    _windowChartPoints[index] = point with
+                    {
+                        BytesUploaded = point.BytesUploaded + uploadShares[index],
+                        BytesDownloaded = point.BytesDownloaded + downloadShares[index]
+                    };
+                }
+
+            }
+
         }
 
         private void RebuildAppRows()

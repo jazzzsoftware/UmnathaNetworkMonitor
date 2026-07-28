@@ -249,6 +249,31 @@ the same effect just above every other unit boundary. It only looked reasonable 
 
 Note the axis is only ever as good as the peak fed to it: an inflated peak still wastes chart
 height, so a trace that sits low despite this scaling points at the peak calculation, not the axis.
+See **Live bucket attribution** below for the defect that used to do exactly that.
+
+### Live bucket attribution
+
+A flush drains everything `TrafficCollector` accumulated since the *previous* drain, so its bytes
+belong to that whole interval — not to the instant the drain happened. The live window used to add
+each flush to whichever bucket was newest at the time, which meant a drain that slipped past a
+one-second boundary left the previous bucket empty and made the next one read roughly double.
+
+`FlushSpread.Distribute` (Core, unit-tested) allocates a flush across the buckets its interval
+overlaps, in proportion to that overlap, with the remainder given to the largest share so the total
+is preserved to the byte. Both `LocalViewModel` and `InternetViewModel` track `_lastFlushUtc` and
+pass the real interval into `ApplyFlushToWindow`.
+
+Measured on a gigabit LAN against Windows' own NIC byte counters (2026-07-28): the sustained rate
+and the totals were always correct — the rate chip read 559 Mb/s against the adapter's 560 Mb/s
+framed, and cumulative bytes came to 88% of framed, which is what Ethernet/IP/TCP overhead predicts.
+Only the per-second buckets were wrong, swinging 260–839 Mb/s around a wire that never left ~560,
+and producing "peaks" above the physical line rate. Spreading flattened the trace to a plateau and
+brought the peak back under line rate.
+
+The lesson worth keeping: **1-second buckets resolve finer than the capture pipeline's timing
+accuracy.** Anything at that granularity has to spread bytes over the interval they were collected
+in, not stamp them at the drain. Ranges of 1 h and above bucket by the minute, so they were never
+affected.
 
 ### Local page — app/device lenses & noise folding
 
@@ -261,6 +286,11 @@ The Local page shows LAN traffic for *this* PC (the only scope any host tool can
   - **By app** (default) — top-level = process, expand → peer devices.
   - **By device** — top-level = LAN device (friendly name + IP), expand → the apps that talked to it. This is the lens that makes a **NAS backup obvious**: the NAS rises to the top on a big **upload**, tagged **SMB**, under **System**.
   - All **Discovery** flows fold into one collapsed **"N devices — discovery only"** group so real transfers stay up front; grid, chart and digest all exclude discovery from their totals.
+- **Live ordering** — `ApplyGroups(groups, reorder)` re-sorts on each live tick only while
+  `SelectedGroupKey` is null. Freezing the order unconditionally (the original C4-2 behaviour) kept
+  the grid steady under an open drill-down, but it also meant a row that started talking later stayed
+  wherever it was first inserted: a NAS pulling gigabytes sat below an idle phone. Sorting while the
+  user is scanning and holding the order once they drill in keeps both properties.
 
 **Non-device noise is filtered out.** Two things otherwise pollute the LAN peer list with addresses nothing lives at: (1) **broadcast/multicast** — `LanClassifier.IsBroadcastOrMulticast` drops directed/limited broadcast (last octet `.255`) and `224–239.x` multicast at capture, alongside self/loopback; (2) **subnet sweeps** — a scanner (AV, another host) probing all 256 addresses of a /24 would otherwise create 256 phantom peers, so the grouper folds a **discovery** flow into the background group **only when its `RemoteIp` is a known device** (present in `namesByIp`, i.e. one the scanner actually found). Real **data** flows are never filtered — a transfer to an as-yet-unscanned device still shows.
 
