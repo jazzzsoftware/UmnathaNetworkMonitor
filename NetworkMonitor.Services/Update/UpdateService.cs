@@ -18,6 +18,8 @@ namespace NetworkMonitor.Services.Update
         private const string LatestReleaseUrl =
             "https://api.github.com/repos/jazzzsoftware/UmnathaNetworkMonitor/releases/latest";
 
+        private static readonly TimeSpan CheckTimeout = TimeSpan.FromSeconds(20);
+
         private readonly IInstallerLauncher _launcher;
         private readonly UpdateChecker _checker;
         private readonly UpdateDownloader _downloader;
@@ -27,7 +29,8 @@ namespace NetworkMonitor.Services.Update
             _launcher = launcher;
             _checker = new UpdateChecker(
                 (url, cancellationToken) => FetchReleaseJsonAsync(httpClient, url, cancellationToken),
-                AppLog.Error);
+                AppLog.Error,
+                AppLog.Info);
             _downloader = new UpdateDownloader(
                 (url, cancellationToken) => httpClient.GetStringAsync(url, cancellationToken),
                 (url, cancellationToken) => OpenStreamAsync(httpClient, url, cancellationToken),
@@ -80,13 +83,31 @@ namespace NetworkMonitor.Services.Update
 
         private static async Task<string> FetchReleaseJsonAsync(HttpClient httpClient, string url, CancellationToken cancellationToken)
         {
-            using HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, url);
-            request.Headers.Add("Accept", "application/vnd.github+json");
+            // The shared client carries a long timeout for downloads. A check is one small JSON GET,
+            // so bound it separately — otherwise an unreachable server that hangs rather than
+            // refusing leaves the user waiting on the client's full download budget.
+            using CancellationTokenSource attempt = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            attempt.CancelAfter(CheckTimeout);
 
-            using HttpResponseMessage response = await httpClient.SendAsync(request, cancellationToken);
-            response.EnsureSuccessStatusCode();
+            string releaseJson;
 
-            string releaseJson = await response.Content.ReadAsStringAsync(cancellationToken);
+            try
+            {
+                using HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, url);
+                request.Headers.Add("Accept", "application/vnd.github+json");
+
+                using HttpResponseMessage response = await httpClient.SendAsync(request, attempt.Token);
+                response.EnsureSuccessStatusCode();
+
+                releaseJson = await response.Content.ReadAsStringAsync(attempt.Token);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                // Our own deadline, not the caller's. Surfacing this as a cancellation would make
+                // UpdateChecker mark the outcome cancelled and the caller suppress it entirely,
+                // leaving the user with no message at all.
+                throw new TimeoutException($"The update check did not respond within {CheckTimeout.TotalSeconds:0} seconds.");
+            }
 
             return releaseJson;
         }

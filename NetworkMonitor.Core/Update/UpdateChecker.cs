@@ -9,23 +9,66 @@ namespace NetworkMonitor.Core.Update
     {
         private readonly Func<string, CancellationToken, Task<string>> _fetchText;
         private readonly Action<string, Exception>? _logError;
+        private readonly Action<string>? _logInfo;
 
         public UpdateChecker(
             Func<string, CancellationToken, Task<string>> fetchText,
-            Action<string, Exception>? logError = null)
+            Action<string, Exception>? logError = null,
+            Action<string>? logInfo = null)
         {
             _fetchText = fetchText;
             _logError = logError;
+            _logInfo = logInfo;
         }
 
         public async Task<UpdateCheckOutcome> CheckAsync(string releaseUrl, string currentVersion, CancellationToken cancellationToken)
         {
             UpdateCheckResult result;
             bool cancelled = false;
+            string? releaseJson = null;
 
             try
             {
-                string releaseJson = await _fetchText(releaseUrl, cancellationToken);
+                releaseJson = await _fetchText(releaseUrl, cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                // Only a cancellation we actually asked for. An HttpClient timeout also surfaces as
+                // TaskCanceledException, and treating that as "cancelled" would make the caller
+                // suppress the result entirely, leaving the user staring at a dead button.
+                cancelled = true;
+            }
+            catch (Exception exception)
+            {
+                // The fetch delegate is pure transport, so anything it throws is a connectivity
+                // problem — an ordinary condition when offline, not a fault worth a stack trace.
+                _logInfo?.Invoke($"Update check could not reach the release server: {exception.Message}");
+            }
+
+            if (cancelled)
+            {
+                result = UpdateCheckResult.Failed("The update check was cancelled.");
+            }
+            else if (releaseJson is null)
+            {
+                result = UpdateCheckResult.Failed("Couldn't check for updates — check your connection.");
+            }
+            else
+            {
+                result = Evaluate(releaseJson, currentVersion);
+            }
+
+            UpdateCheckOutcome outcome = new UpdateCheckOutcome(result, cancelled);
+
+            return outcome;
+        }
+
+        private UpdateCheckResult Evaluate(string releaseJson, string currentVersion)
+        {
+            UpdateCheckResult result;
+
+            try
+            {
 
                 if (!ReleaseInfoParser.TryParseVersionTag(releaseJson, out string versionTag))
                 {
@@ -57,20 +100,14 @@ namespace NetworkMonitor.Core.Update
                 }
 
             }
-            catch (OperationCanceledException)
-            {
-                cancelled = true;
-                result = UpdateCheckResult.Failed("The update check was cancelled.");
-            }
             catch (Exception exception)
             {
-                _logError?.Invoke("UpdateChecker.Check", exception);
-                result = UpdateCheckResult.Failed("Couldn't check for updates — check your connection.");
+                // A genuine fault: the server answered but we could not make sense of it.
+                _logError?.Invoke("UpdateChecker.Evaluate", exception);
+                result = UpdateCheckResult.Failed("The latest release could not be read.");
             }
 
-            UpdateCheckOutcome outcome = new UpdateCheckOutcome(result, cancelled);
-
-            return outcome;
+            return result;
         }
     }
 }

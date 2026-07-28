@@ -93,26 +93,62 @@ namespace NetworkMonitor.Tests.Update
         [Fact]
         public async Task CheckFailsWithoutCancellingWhenTheFetchThrows()
         {
-            string loggedSource = string.Empty;
+            string loggedError = string.Empty;
+            string loggedInfo = string.Empty;
             UpdateChecker checker = new UpdateChecker(
                 (url, token) => throw new InvalidOperationException("no network"),
-                (source, exception) => loggedSource = source);
+                (source, exception) => loggedError = source,
+                message => loggedInfo = message);
 
             UpdateCheckOutcome outcome = await checker.CheckAsync("https://example/latest", "0.0.8", TestContext.Current.CancellationToken);
 
             Assert.False(outcome.Cancelled);
             Assert.Equal(UpdateAvailability.CheckFailed, outcome.Result.Availability);
-            Assert.NotEmpty(loggedSource);
+
+            // Being unable to reach the server is an ordinary condition — it must not be filed as an
+            // error with a stack trace, which is what filled the log during an offline check.
+            Assert.Empty(loggedError);
+            Assert.NotEmpty(loggedInfo);
         }
 
         [Fact]
-        public async Task CheckReportsCancellationWhenTheFetchIsCancelled()
+        public async Task CheckReportsCancellationOnlyWhenTheCallerCancelled()
         {
+            using CancellationTokenSource cancellation = new CancellationTokenSource();
+            cancellation.Cancel();
+
             UpdateChecker checker = new UpdateChecker((url, token) => throw new OperationCanceledException());
+
+            UpdateCheckOutcome outcome = await checker.CheckAsync("https://example/latest", "0.0.8", cancellation.Token);
+
+            Assert.True(outcome.Cancelled);
+            Assert.Equal(UpdateAvailability.CheckFailed, outcome.Result.Availability);
+        }
+
+        [Fact]
+        public async Task ATimeoutIsNotMistakenForCancellation()
+        {
+            // HttpClient reports its own timeout as TaskCanceledException. Treating that as a
+            // cancellation makes UpdateService suppress the result, so the user sees nothing at all.
+            UpdateChecker checker = new UpdateChecker((url, token) => throw new TaskCanceledException());
 
             UpdateCheckOutcome outcome = await checker.CheckAsync("https://example/latest", "0.0.8", TestContext.Current.CancellationToken);
 
-            Assert.True(outcome.Cancelled);
+            Assert.False(outcome.Cancelled);
+            Assert.Equal(UpdateAvailability.CheckFailed, outcome.Result.Availability);
+        }
+
+        [Fact]
+        public async Task AnUnreadableResponseIsStillLoggedAsAnError()
+        {
+            string loggedError = string.Empty;
+            UpdateChecker checker = new UpdateChecker(
+                (url, token) => Task.FromResult("{ \"tag_name\": "),
+                (source, exception) => loggedError = source);
+
+            UpdateCheckOutcome outcome = await checker.CheckAsync("https://example/latest", "0.0.8", TestContext.Current.CancellationToken);
+
+            Assert.False(outcome.Cancelled);
             Assert.Equal(UpdateAvailability.CheckFailed, outcome.Result.Availability);
         }
     }

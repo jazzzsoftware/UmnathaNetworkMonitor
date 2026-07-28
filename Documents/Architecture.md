@@ -437,7 +437,11 @@ Logging is **off by default** and toggled by `Settings.EnableLogging` (Settings 
 - **Info** entries — app start (with version) and stop, scan start / scan completed (device counts only), speed-test completed (throughput/latency figures only), and **watchdog timeout notices** when a worker abandons a stuck cycle.
 - **Error** entries — the global `App.UnhandledException` handler plus the previously-silent `catch` blocks in the background services (`ScanWorker`, `TrafficTracker`, `TrafficCollector`, `SpeedTestWorker`, `DigestWorker`, `DatabaseBackupWorker`), `AtomicFile`, and `MainWindow` shutdown.
 
-No device or network identifiers (MAC, IP, hostname) are ever written — only counts and operation names — so logs are safe for an end user to share. Normal shutdown cancellation is not recorded as an error. `AppLog` is a dependency-free static logger (no Serilog/Sentry); the App SDK / Sentry route was rejected because the app runs elevated.
+No device or network identifiers (MAC, IP, hostname) are ever written — only counts and operation names — so logs are safe for an end user to share. Normal shutdown cancellation is not recorded as an error.
+
+**Expected conditions are Info, not Error.** An update check made with no connection is the worked example: `UpdateChecker` wraps only the transport call, so anything the fetch delegate throws is a connectivity problem and is recorded as a single Info line rather than an `HttpRequestException` with a stack trace. Errors are reserved for faults the user can neither cause nor fix — a response that arrives but cannot be parsed still logs as one. The same split explains why `UpdateChecker` treats cancellation as cancellation *only when the caller's token was actually cancelled*: `HttpClient` reports its own timeout as `TaskCanceledException`, and misreading that as a user cancellation makes `UpdateService` suppress the result, leaving the UI showing nothing at all.
+
+The check also carries its own **20-second deadline** (`UpdateService.CheckTimeout`), separate from the shared client's 10-minute timeout — that budget exists for downloads, and applying it to a one-request JSON check meant an unreachable server that hangs rather than refusing could leave the banner pending for minutes. The deadline is applied with a linked token and then rethrown as `TimeoutException`, deliberately *not* as a cancellation, for the reason above. `AppLog` is a dependency-free static logger (no Serilog/Sentry); the App SDK / Sentry route was rejected because the app runs elevated.
 
 ## Settings persistence
 
