@@ -170,8 +170,8 @@ Done - On startup if dont have a report in last 24hrs then create one report gen
 Done - Blurry report images in digest page
 Done - Laptop chart scale problem
 Done - Rate numbers for Lan not correct
+Done - Test for ex when do manual update for new ver stoppedin logs. Should just be a msg.
 
-Test for ex when do manual update for new ver stoppedin logs. Should just be a msg.
 
 Smoke items 46-48 still need a release newer than 0.0.9 (update download / cancel mid-download / install + relaunch visible). Test these at the next installer build - see Documents/Code Review/2026-07-27/smoke-checklist.md
 

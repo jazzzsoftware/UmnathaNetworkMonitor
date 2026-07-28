@@ -107,15 +107,27 @@ Solution-folder layout: the five projects are grouped under `/App/` (NetworkMoni
 - `master` tracks `all/master`, so `git status` reports against the ref you actually push to. There is no separate `origin` remote — `all` is the only remote and covers both targets.
 - The `all` remote lives in local `.git/config` (not tracked), so it must be set up once per clone.
 
-Example format:
+- **Always state the problem before the fix.** The body opens with a section explaining what was wrong and why, then a second section listing what changed. A reader six months out needs the reasoning, not just the diff — the diff is already in git. Include the concrete evidence that identified the cause (measured figures, log lines, the observation that gave it away) and, where it matters, what was ruled out.
+
+Example format — for a defect:
 ```
 <user's subject line>
 
-- <what changed and where>
+Problem
+
+- <what was wrong, from the user's point of view>
+- <the cause, and the evidence that established it>
+- <what was NOT wrong, if theories were ruled out along the way>
+
+Fix
+
+- <what changed and where — file, method, behaviour>
 - <what changed and where>
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
 ```
+
+For work that isn't fixing a defect (a refactor, a doc update, a new feature), keep the same shape but title the first section **Context** — the motivation, what was awkward before — and the second **Change**. The rule is constant: say why before what.
 
 ## Notes
 
