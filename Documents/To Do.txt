@@ -166,6 +166,8 @@ Done - Go live on GitHub
 Done - Auto update
 
 Code review.
+If skipped report generate on startup
+Laptop chart scale problem
 
 
 Roadmap:

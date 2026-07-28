@@ -18,6 +18,61 @@ namespace NetworkMonitor.ViewModels
         private const int RateSampleCount = 5;
         private const string AllRateKey = "__all";
 
+        // Fixed query shapes selected by an if, rather than a command string assembled per call —
+        // see the matching block in LocalViewModel. The optional bucket-range predicates are
+        // expressed as nullable parameters, the same idiom the selected-app filter already uses.
+        private const string AppBucketsRollupSql = """
+            SELECT CAST((MinuteEpoch - $cutoffEpoch) / $bucketSeconds AS INTEGER) AS BucketIndex,
+                   ProcessName,
+                   SUM(BytesUploaded)   AS Upload,
+                   SUM(BytesDownloaded) AS Download,
+                   MAX(ProcessPath)     AS Path
+            FROM TrafficRollups
+            WHERE MinuteEpoch >= $cutoffEpoch
+              AND ProcessName <> 'System'
+              AND ($bucketStartEpoch IS NULL OR MinuteEpoch >= $bucketStartEpoch)
+              AND ($bucketEndEpoch IS NULL OR MinuteEpoch < $bucketEndEpoch)
+            GROUP BY BucketIndex, ProcessName
+            """;
+
+        private const string AppBucketsEntriesSql = """
+            SELECT CAST((CAST(strftime('%s', Timestamp) AS INTEGER) - $cutoffEpoch) / $bucketSeconds AS INTEGER) AS BucketIndex,
+                   ProcessName,
+                   SUM(BytesUploaded)   AS Upload,
+                   SUM(BytesDownloaded) AS Download,
+                   MAX(ProcessPath)     AS Path
+            FROM TrafficEntries
+            WHERE Timestamp >= $cutoffTime
+              AND ProcessName <> 'System'
+              AND ($bucketStartTime IS NULL OR Timestamp >= $bucketStartTime)
+              AND ($bucketEndTime IS NULL OR Timestamp < $bucketEndTime)
+            GROUP BY BucketIndex, ProcessName
+            """;
+
+        private const string ChartBucketsRollupSql = """
+            SELECT
+                CAST((MinuteEpoch - $cutoffEpoch) / $bucketSeconds AS INTEGER) AS BucketIndex,
+                SUM(BytesUploaded)   AS Upload,
+                SUM(BytesDownloaded) AS Download
+            FROM TrafficRollups
+            WHERE MinuteEpoch >= $cutoffEpoch
+              AND ProcessName <> 'System'
+              AND ($app IS NULL OR ProcessName = $app)
+            GROUP BY BucketIndex
+            """;
+
+        private const string ChartBucketsEntriesSql = """
+            SELECT
+                CAST((CAST(strftime('%s', Timestamp) AS INTEGER) - $cutoffEpoch) / $bucketSeconds AS INTEGER) AS BucketIndex,
+                SUM(BytesUploaded)   AS Upload,
+                SUM(BytesDownloaded) AS Download
+            FROM TrafficEntries
+            WHERE Timestamp >= $cutoffTime
+              AND ProcessName <> 'System'
+              AND ($app IS NULL OR ProcessName = $app)
+            GROUP BY BucketIndex
+            """;
+
         private readonly IDbContextFactory<AppDbContext> _dbFactory;
         private readonly Settings _settings;
         private readonly SemaphoreSlim _loadGate = new SemaphoreSlim(1, 1);
@@ -26,7 +81,7 @@ namespace NetworkMonitor.ViewModels
         private List<ChartPoint> _windowChartPoints = [];
         private List<Dictionary<string, InternetAppTotals>> _windowAppBuckets = new();
         private Dictionary<string, InternetAppTotals> _windowAppTotals = new();
-        private readonly Dictionary<string, Queue<long>> _rateWindows = new();
+        private readonly Dictionary<string, RateWindow> _rateWindows = new();
         private bool _ratesActive;
 
         public InternetViewModel(IDbContextFactory<AppDbContext> dbFactory, Settings settings)
@@ -366,20 +421,15 @@ namespace NetworkMonitor.ViewModels
             {
                 flushByApp.TryGetValue(key, out long bytes);
 
-                if (!_rateWindows.TryGetValue(key, out Queue<long>? window))
+                if (!_rateWindows.TryGetValue(key, out RateWindow? window))
                 {
-                    window = new Queue<long>();
+                    window = new RateWindow();
                     _rateWindows[key] = window;
                 }
 
-                window.Enqueue(bytes);
+                window.Add(bytes, RateSampleCount);
 
-                while (window.Count > RateSampleCount)
-                {
-                    window.Dequeue();
-                }
-
-                if (window.Count == RateSampleCount && window.Sum() == 0)
+                if (window.Count == RateSampleCount && window.Total == 0)
                 {
                     _rateWindows.Remove(key);
                 }
@@ -392,9 +442,9 @@ namespace NetworkMonitor.ViewModels
         {
             double rate = 0.0;
 
-            if (_ratesActive && _rateWindows.TryGetValue(key, out Queue<long>? window) && window.Count > 0)
+            if (_ratesActive && _rateWindows.TryGetValue(key, out RateWindow? window) && window.Count > 0)
             {
-                rate = window.Average() / intervalSeconds;
+                rate = window.Average / intervalSeconds;
             }
 
             return rate;
@@ -528,99 +578,37 @@ namespace NetworkMonitor.ViewModels
                 buckets.Add(new Dictionary<string, InternetAppTotals>());
             }
 
-            string sourceTable = useRollup ? "TrafficRollups" : "TrafficEntries";
-            string epochExpr = useRollup ? "MinuteEpoch" : "CAST(strftime('%s', Timestamp) AS INTEGER)";
-            string whereClause = useRollup ? "MinuteEpoch >= $cutoffEpoch" : "Timestamp >= $cutoffTime";
-
-            whereClause += " AND ProcessName <> 'System'";
-
-            if (bucketRangeStart.HasValue && bucketRangeEnd.HasValue)
-            {
-
-                if (useRollup)
-                {
-                    whereClause += " AND MinuteEpoch >= $bucketStartEpoch AND MinuteEpoch < $bucketEndEpoch";
-                }
-                else
-                {
-                    whereClause += " AND Timestamp >= $bucketStartTime AND Timestamp < $bucketEndTime";
-                }
-
-            }
-
             await db.Database.OpenConnectionAsync();
 
             DbConnection connection = db.Database.GetDbConnection();
 
             await using (DbCommand command = connection.CreateCommand())
             {
-                command.CommandText = $"""
-                    SELECT CAST(({epochExpr} - $cutoffEpoch) / $bucketSeconds AS INTEGER) AS BucketIndex,
-                           ProcessName,
-                           SUM(BytesUploaded)   AS Upload,
-                           SUM(BytesDownloaded) AS Download,
-                           MAX(ProcessPath)     AS Path
-                    FROM {sourceTable}
-                    WHERE {whereClause}
-                    GROUP BY BucketIndex, ProcessName
-                    """;
+                command.CommandText = useRollup ? AppBucketsRollupSql : AppBucketsEntriesSql;
 
-                DbParameter bucketSecondsParameter = command.CreateParameter();
-                bucketSecondsParameter.ParameterName = "$bucketSeconds";
-                bucketSecondsParameter.Value = bucketSeconds;
-                command.Parameters.Add(bucketSecondsParameter);
+                AddParameter(command, "$bucketSeconds", bucketSeconds);
+                AddParameter(command, "$cutoffEpoch", cutoffEpoch);
 
                 if (useRollup)
                 {
-                    DbParameter cutoffParameter = command.CreateParameter();
-                    cutoffParameter.ParameterName = "$cutoffEpoch";
-                    cutoffParameter.Value = cutoffEpoch;
-                    command.Parameters.Add(cutoffParameter);
+                    object bucketStartEpoch = bucketRangeStart.HasValue
+                        ? (object)(long)(bucketRangeStart.Value - DateTime.UnixEpoch).TotalSeconds
+                        : DBNull.Value;
+                    object bucketEndEpoch = bucketRangeEnd.HasValue
+                        ? (object)(long)(bucketRangeEnd.Value - DateTime.UnixEpoch).TotalSeconds
+                        : DBNull.Value;
+
+                    AddParameter(command, "$bucketStartEpoch", bucketStartEpoch);
+                    AddParameter(command, "$bucketEndEpoch", bucketEndEpoch);
                 }
                 else
                 {
-                    DbParameter cutoffParameter = command.CreateParameter();
-                    cutoffParameter.ParameterName = "$cutoffTime";
-                    cutoffParameter.Value = cutoff;
-                    command.Parameters.Add(cutoffParameter);
+                    object bucketStartTime = bucketRangeStart.HasValue ? bucketRangeStart.Value : (object)DBNull.Value;
+                    object bucketEndTime = bucketRangeEnd.HasValue ? bucketRangeEnd.Value : (object)DBNull.Value;
 
-                    DbParameter bucketCutoffParameter = command.CreateParameter();
-                    bucketCutoffParameter.ParameterName = "$cutoffEpoch";
-                    bucketCutoffParameter.Value = cutoffEpoch;
-                    command.Parameters.Add(bucketCutoffParameter);
-                }
-
-                if (bucketRangeStart.HasValue && bucketRangeEnd.HasValue)
-                {
-
-                    if (useRollup)
-                    {
-                        long bucketStartEpoch = (long)(bucketRangeStart.Value - DateTime.UnixEpoch).TotalSeconds;
-                        long bucketEndEpoch = (long)(bucketRangeEnd.Value - DateTime.UnixEpoch).TotalSeconds;
-
-                        DbParameter bucketStartParameter = command.CreateParameter();
-                        bucketStartParameter.ParameterName = "$bucketStartEpoch";
-                        bucketStartParameter.Value = bucketStartEpoch;
-                        command.Parameters.Add(bucketStartParameter);
-
-                        DbParameter bucketEndParameter = command.CreateParameter();
-                        bucketEndParameter.ParameterName = "$bucketEndEpoch";
-                        bucketEndParameter.Value = bucketEndEpoch;
-                        command.Parameters.Add(bucketEndParameter);
-                    }
-                    else
-                    {
-                        DbParameter bucketStartParameter = command.CreateParameter();
-                        bucketStartParameter.ParameterName = "$bucketStartTime";
-                        bucketStartParameter.Value = bucketRangeStart.Value;
-                        command.Parameters.Add(bucketStartParameter);
-
-                        DbParameter bucketEndParameter = command.CreateParameter();
-                        bucketEndParameter.ParameterName = "$bucketEndTime";
-                        bucketEndParameter.Value = bucketRangeEnd.Value;
-                        command.Parameters.Add(bucketEndParameter);
-                    }
-
+                    AddParameter(command, "$cutoffTime", cutoff);
+                    AddParameter(command, "$bucketStartTime", bucketStartTime);
+                    AddParameter(command, "$bucketEndTime", bucketEndTime);
                 }
 
                 await using (DbDataReader reader = await command.ExecuteReaderAsync())
@@ -664,11 +652,6 @@ namespace NetworkMonitor.ViewModels
             string? selectedApp)
         {
             Dictionary<int, (long Upload, long Download)> dataByBucket = new Dictionary<int, (long Upload, long Download)>();
-            string sourceTable = useRollup ? "TrafficRollups" : "TrafficEntries";
-            string epochExpr = useRollup ? "MinuteEpoch" : "CAST(strftime('%s', Timestamp) AS INTEGER)";
-            string whereClause = useRollup ? "MinuteEpoch >= $cutoffEpoch" : "Timestamp >= $cutoffTime";
-
-            whereClause += " AND ProcessName <> 'System'";
 
             await db.Database.OpenConnectionAsync();
 
@@ -676,38 +659,15 @@ namespace NetworkMonitor.ViewModels
 
             await using (DbCommand command = connection.CreateCommand())
             {
-                command.CommandText = $"""
-                    SELECT
-                        CAST(({epochExpr} - $cutoffEpoch) / $bucketSeconds AS INTEGER) AS BucketIndex,
-                        SUM(BytesUploaded)     AS Upload,
-                        SUM(BytesDownloaded) AS Download
-                    FROM {sourceTable}
-                    WHERE {whereClause}
-                        AND ($app IS NULL OR ProcessName = $app)
-                    GROUP BY BucketIndex
-                    """;
+                command.CommandText = useRollup ? ChartBucketsRollupSql : ChartBucketsEntriesSql;
 
-                DbParameter cutoffParameter = command.CreateParameter();
-                cutoffParameter.ParameterName = "$cutoffEpoch";
-                cutoffParameter.Value = cutoffEpoch;
-                command.Parameters.Add(cutoffParameter);
-
-                DbParameter bucketParameter = command.CreateParameter();
-                bucketParameter.ParameterName = "$bucketSeconds";
-                bucketParameter.Value = bucketSeconds;
-                command.Parameters.Add(bucketParameter);
-
-                DbParameter appParameter = command.CreateParameter();
-                appParameter.ParameterName = "$app";
-                appParameter.Value = selectedApp is null ? (object)DBNull.Value : selectedApp;
-                command.Parameters.Add(appParameter);
+                AddParameter(command, "$cutoffEpoch", cutoffEpoch);
+                AddParameter(command, "$bucketSeconds", bucketSeconds);
+                AddParameter(command, "$app", selectedApp is null ? (object)DBNull.Value : selectedApp);
 
                 if (!useRollup)
                 {
-                    DbParameter cutoffTimeParameter = command.CreateParameter();
-                    cutoffTimeParameter.ParameterName = "$cutoffTime";
-                    cutoffTimeParameter.Value = cutoff;
-                    command.Parameters.Add(cutoffTimeParameter);
+                    AddParameter(command, "$cutoffTime", cutoff);
                 }
 
                 await using (DbDataReader reader = await command.ExecuteReaderAsync())
@@ -760,6 +720,15 @@ namespace NetworkMonitor.ViewModels
             }
 
             return result;
+        }
+
+        private static void AddParameter(DbCommand command, string name, object value)
+        {
+            DbParameter parameter = command.CreateParameter();
+            parameter.ParameterName = name;
+            parameter.Value = value;
+
+            command.Parameters.Add(parameter);
         }
 
     }

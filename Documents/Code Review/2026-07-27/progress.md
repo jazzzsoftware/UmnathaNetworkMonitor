@@ -4,21 +4,27 @@
 
 ---
 
-## ⏸ PAUSED 2026-07-27 — resume here
+## ✅ REVIEW COMPLETE — 2026-07-28
 
-All review and fix work is **done, built and tested** (0 errors / 0 warnings, 227 tests green) and committed to the branch **`review/2026-07-27-fixes`**. Nothing is on `master` yet.
+Every finding is `fixed`, `won't-fix` or explicitly accepted; all four chunks are co-reviewed. Build **0 errors / 0 warnings** (x64), **248 tests green**. Branch: **`review/2026-07-27-fixes`**.
 
-### Open questions for the user — none of these are blocked on code
+**46 findings (44 reviewer + 2 user) — 44 fixed, 2 won't-fix, 0 deferred.**
 
-1. **Merge to master?** The branch is complete and green. Decide whether to merge/fast-forward into `master` and push, or keep iterating on the branch.
-2. **C1-15 — how to cover `UpdateService` with tests.** It is the one untested layer (checksum-mismatch delete, `CleanFolder` sweep, missing `Content-Length` progress, exception → `Failed(...)` mapping). Both routes change project layering, so it needs a decision:
-   - **(a)** add a `NetworkMonitor.Services` ProjectReference to the test project — simplest, but pulls `net10.0-windows`, EF, ETW and Win2D into the test project and invites Windows-only tests;
-   - **(b)** move the download/verify orchestration into Core behind a stream-provider delegate, leaving Services a thin adapter — preserves the CLAUDE.md layering rule (tests reference Models + Core only); **this is the recommended one**, but it is a real refactor of working code.
-3. **Version bump + release notes?** 0.0.9 is shipped and these are user-visible fixes to the update path itself. The established pattern is a separate "Bump to 0.0.x and add release notes" commit. Nothing in this branch touches `<Version>`.
-4. **`summary.md` + `smoke-checklist.md` for this review?** The 2026-06-23 folder has both; the procedure doesn't require them. Not written yet.
-5. **Co-review of chunks 2, 3 and 4.** Only chunk 1 was co-reviewed (produced `U1-1`, fixed). The `## User findings` sections in chunks 2–4 are still placeholders — anything added there becomes `U2-`/`U3-`/`U4-`.
-6. **`Documents/To Do.txt`** was already modified before this review began and was deliberately **left out of the commit**; it is still uncommitted in the working tree. Decide whether it belongs in this branch or elsewhere.
-7. **C1-6** stays `won't-fix` until the installer is code-signed — worth a reminder when signing is next considered.
+Closed since the 2026-07-27 pause:
+
+1. **C1-15 — done** via route (b): the download/verify orchestration moved into Core behind delegates, leaving Services a thin adapter. The layering rule holds (tests still reference Models + Core only). See the 2026-07-28 fix-phase entry.
+2. **Co-review of chunks 2, 3 and 4 — done.** No user findings in chunks 2 or 3; the behaviour decisions in both were put to the user and confirmed. Chunk 4 produced **U4-1** (two findings recorded as fixed while only part of each was applied), now fixed.
+3. **`summary.md` + `smoke-checklist.md`** — written for this review, alongside the 2026-06-23 pair.
+4. **`Documents/To Do.txt`** — folded into this branch.
+
+Standing decisions:
+
+- **C1-6** stays `won't-fix` until the installer is code-signed — an Authenticode check on an unsigned build would reject every update rather than protect one. Worth a reminder when signing is next considered.
+- **C4-8** stays `won't-fix` on corrected reasoning (the proposed fix would have frozen the chart).
+- **C4-11 item 1** (`MinimumSpinnerMs = 500`) accepted as deliberate anti-flicker.
+- **C3-2 sub-point 1** (constructor `Refresh()` on the splash path) kept on purpose — deferring it would degrade classification for the first packets after startup.
+
+Still open, and **not** part of the review: whether to bump the version and write release notes for these fixes. 0.0.9 is shipped and several of these are user-visible changes to the update path itself; nothing in this branch touches `<Version>`.
 
 ### Manual verification still outstanding
 
@@ -57,12 +63,12 @@ Plus reuse / simplification / efficiency.
 
 | # | Chunk | State | Findings | Actioned |
 |---|-------|-------|----------|----------|
-| 1 | Auto-update | complete | 15 + U1-1 (1 BUG · 4 RISK · 11 CLEANUP) | 14 fixed · 1 won't-fix · 1 deferred |
-| 2 | Local traffic capture & storage | complete | 11 (2 BUG · 3 RISK · 6 CLEANUP) | 11 fixed |
-| 3 | Local traffic classification & grouping | complete | 7 (1 RISK · 6 CLEANUP) | 7 fixed |
-| 4 | Local traffic UI | complete | 11 (3 BUG · 2 RISK · 6 PERF/CLEANUP) | 10 fixed · 1 won't-fix |
+| 1 | Auto-update | complete · co-reviewed | 15 + U1-1 (1 BUG · 4 RISK · 11 CLEANUP) | 15 fixed · 1 won't-fix |
+| 2 | Local traffic capture & storage | complete · co-reviewed | 11 (2 BUG · 3 RISK · 6 CLEANUP) | 11 fixed |
+| 3 | Local traffic classification & grouping | complete · co-reviewed | 7 (1 RISK · 6 CLEANUP) | 7 fixed |
+| 4 | Local traffic UI | complete · co-reviewed | 11 + U4-1 (3 BUG · 2 RISK · 6 PERF/CLEANUP) | 11 fixed · 1 won't-fix |
 
-**45 findings total (44 reviewer + 1 user) — 42 fixed, 2 won't-fix, 1 deferred.** IDs: `C<chunk>-<n>` reviewer, `U<chunk>-<n>` user.
+**46 findings total (44 reviewer + 2 user) — 44 fixed, 2 won't-fix, 0 deferred.** IDs: `C<chunk>-<n>` reviewer, `U<chunk>-<n>` user.
 
 User findings: **U1-1** — underscores in three test method names, against the CLAUDE.md no-underscores rule; fixed, and a sweep confirmed the remaining underscores in the test project are all inside string literals (GitHub JSON keys, mDNS device names).
 
@@ -152,3 +158,25 @@ Not covered by unit tests (DB- and timing-bound):
 - New apps/devices appear in the grid mid-window without collapsing an open drill-down.
 - The update banner across check → download → cancel → download → install, and that the app returns **visible** after the silent install.
 - After an upgrade, the first `TrafficTracker` flush clears the existing multi-day backlog of raw rows (a large one-off delete, guarded by its own 2-minute watchdog and retried next cycle if it times out).
+
+---
+
+## Fix phase — C1-15 and co-review completion (2026-07-28)
+
+Build: `dotnet build NetworkMonitor.slnx -p:Platform=x64` → **0 errors, 0 warnings**. Tests: **248 passed / 0 failed** (up from 227 — 21 added). **No DB delete is required**: no schema, entity or column changed.
+
+**C1-15 — `UpdateService` orchestration moved to Core (route b).** Written test-first: the 16 new tests were run and watched fail against `NotImplementedException` stubs before any implementation existed.
+
+- `NetworkMonitor.Core/Update/UpdateChecker.cs` — the decision ladder (unreadable tag → unreadable installed version → not newer → newer-but-no-usable-download → available) plus the exception → `Failed(...)` mapping, behind a `Func<string, CancellationToken, Task<string>>` text fetcher. Returns `UpdateCheckOutcome(Result, Cancelled)` so a check abandoned by host shutdown can still be dropped rather than shown as a failure.
+- `NetworkMonitor.Core/Update/UpdateDownloader.cs` — checksum fetch, download, SHA256, verify, the partial-file delete on any failure, the whole-percent progress throttle and the folder sweep. Transport arrives as a stream-provider delegate returning `UpdateDownloadStream` (content + optional `Content-Length` + the response object it owns and disposes).
+- `NetworkMonitor.Services/Update/UpdateService.cs` is now a thin adapter: HTTP transport (the GitHub `Accept` header, `ResponseHeadersRead`), the `AppPaths` location, `LastResult`/`CheckCompleted`, and the installer launch. No orchestration left in it. `AppInfo.GetVersion()` is passed in rather than read inside the ladder, which is what makes the version cases testable.
+- 16 tests: 7 on the checker (including cancellation reported separately from failure, and a fetch exception logging its source), 9 on the downloader — the four gaps C1-15 named (checksum-mismatch delete, `CleanFolder` sweep, missing `Content-Length` fallback to the release size, exception → `Failed`) plus partial-delete on a mid-transfer failure, the stale-file sweep before a download, and whole-percent progress dedup driven by a 1-byte-chunk stream.
+
+**U4-1 — C4-10 and C4-11 completed.** Details under each finding in `chunk-4-local-ui.md`. In short: the six query shapes are now fixed strings chosen by an `if` (`const` where possible, `static readonly` for the four that embed Core's discovery predicate), the optional bucket-range predicates became nullable parameters, a shared `AddParameter` helper replaced ~10 copies of the create-name-value-add block per file, and the rolling rate window moved to `NetworkMonitor.Core/Traffic/RateWindow.cs` with a running total and 5 tests. `InternetViewModel` received the same treatment, as the same code was duplicated there.
+
+**Documentation.** C3-2's entry now records that the constructor `Refresh()` is kept deliberately; C4-10 and C4-11 record what was actually applied on each date; the `## User findings` sections of chunks 2–4 record the co-review outcome.
+
+### Manual verification added by this phase
+
+- The Local and Internet charts still draw correctly after the SQL rewrite, on **both** the rollup path (1 h and longer) and the raw-entry path (5 min), and **clicking a chart bucket to drill down** still filters to that bucket — that is the path the bucket-range predicates changed from appended SQL to nullable parameters.
+- Live rate chips still appear and age correctly with the shared `RateWindow` on both tabs.

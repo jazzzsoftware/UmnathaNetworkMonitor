@@ -181,4 +181,8 @@ The empty catch is deliberate (access-denied on protected processes is normal), 
 
 ## User findings
 
-_(to be filled in during co-review — each becomes `U2-<n>`)_
+Co-reviewed 2026-07-28. **No user findings.** The three behaviour decisions in this chunk were put to the user explicitly and all three confirmed as-is:
+
+- 1-hour retention for raw entries, with rollups keeping the full `TrafficPurgeDays` history (C2-5).
+- An exited process keeps its bytes under its cached name, falling back to `System`, rather than being relabelled `(exited)` (C2-2).
+- Idle flows are dropped after 60 consecutive idle drains, re-draining the removed array so racing bytes aren't stranded (C2-3).

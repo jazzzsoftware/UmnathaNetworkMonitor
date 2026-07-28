@@ -10,18 +10,28 @@ using NetworkMonitor.Services.Platform;
 
 namespace NetworkMonitor.Services.Update
 {
+    // A thin adapter over the Core orchestration: this class owns only the HTTP transport,
+    // the app-data location and the check-result notification. The decision ladder, the
+    // download/verify sequence and the folder housekeeping live in Core so they are testable.
     public sealed class UpdateService : IUpdateService
     {
         private const string LatestReleaseUrl =
             "https://api.github.com/repos/jazzzsoftware/UmnathaNetworkMonitor/releases/latest";
 
-        private readonly HttpClient _httpClient;
         private readonly IInstallerLauncher _launcher;
+        private readonly UpdateChecker _checker;
+        private readonly UpdateDownloader _downloader;
 
         public UpdateService(HttpClient httpClient, IInstallerLauncher launcher)
         {
-            _httpClient = httpClient;
             _launcher = launcher;
+            _checker = new UpdateChecker(
+                (url, cancellationToken) => FetchReleaseJsonAsync(httpClient, url, cancellationToken),
+                AppLog.Error);
+            _downloader = new UpdateDownloader(
+                (url, cancellationToken) => httpClient.GetStringAsync(url, cancellationToken),
+                (url, cancellationToken) => OpenStreamAsync(httpClient, url, cancellationToken),
+                AppLog.Error);
         }
 
         public event EventHandler<UpdateCheckResult>? CheckCompleted;
@@ -32,113 +42,31 @@ namespace NetworkMonitor.Services.Update
             private set;
         }
 
+        private static string UpdatesFolder => Path.Combine(AppPaths.AppDataFolder, "Updates");
+
         public async Task<UpdateCheckResult> CheckAsync(CancellationToken cancellationToken)
         {
-            UpdateCheckResult result;
-            bool cancelled = false;
-
-            try
-            {
-                using HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, LatestReleaseUrl);
-                request.Headers.Add("Accept", "application/vnd.github+json");
-
-                using HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken);
-                response.EnsureSuccessStatusCode();
-
-                string json = await response.Content.ReadAsStringAsync(cancellationToken);
-                string currentVersion = AppInfo.GetVersion();
-
-                if (!ReleaseInfoParser.TryParseVersionTag(json, out string versionTag))
-                {
-                    result = UpdateCheckResult.Failed("The latest release could not be read.");
-                }
-                else if (!SemanticVersion.TryParse(currentVersion, out SemanticVersion _))
-                {
-                    // Without this the comparison below would silently fail closed and the user
-                    // would be told they are up to date on every check, for good.
-                    result = UpdateCheckResult.Failed($"Couldn't read the installed version ({currentVersion}), so updates can't be compared.");
-                }
-                else if (!UpdateDecision.IsNewer(currentVersion, versionTag))
-                {
-                    result = UpdateCheckResult.UpToDate();
-                }
-                else
-                {
-                    AvailableUpdate? update = ReleaseInfoParser.Parse(json);
-
-                    if (update is null)
-                    {
-                        result = UpdateCheckResult.Failed($"Version {versionTag} is available, but its download is incomplete. Please try again later.");
-                    }
-                    else
-                    {
-                        result = UpdateCheckResult.Available(update);
-                    }
-
-                }
-
-            }
-            catch (OperationCanceledException)
-            {
-                cancelled = true;
-                result = UpdateCheckResult.Failed("The update check was cancelled.");
-            }
-            catch (Exception exception)
-            {
-                AppLog.Error("UpdateService.Check", exception);
-                result = UpdateCheckResult.Failed("Couldn't check for updates — check your connection.");
-            }
+            string currentVersion = AppInfo.GetVersion();
+            UpdateCheckOutcome outcome = await _checker.CheckAsync(LatestReleaseUrl, currentVersion, cancellationToken);
 
             // A check cancelled by host shutdown is not a failure the user needs to see.
-            if (!cancelled)
+            if (!outcome.Cancelled)
             {
-                LastResult = result;
-                CheckCompleted?.Invoke(this, result);
+                LastResult = outcome.Result;
+                CheckCompleted?.Invoke(this, outcome.Result);
             }
 
-            return result;
+            return outcome.Result;
         }
 
         public void CleanUpDownloads()
         {
-            string updatesFolder = Path.Combine(AppPaths.AppDataFolder, "Updates");
-
-            if (Directory.Exists(updatesFolder))
-            {
-                CleanFolder(updatesFolder);
-            }
-
+            _downloader.CleanFolder(UpdatesFolder);
         }
 
         public async Task<string> DownloadAndVerifyAsync(AvailableUpdate update, IProgress<double> progress, CancellationToken cancellationToken)
         {
-            string updatesFolder = Path.Combine(AppPaths.AppDataFolder, "Updates");
-            Directory.CreateDirectory(updatesFolder);
-            CleanFolder(updatesFolder);
-
-            string installerPath = Path.Combine(updatesFolder, $"UmnathaNetworkMonitor-{update.NormalizedVersion}.exe");
-
-            try
-            {
-                string checksumText = await _httpClient.GetStringAsync(update.ChecksumUrl, cancellationToken);
-                string expectedHash = ChecksumVerifier.ParseHashFromChecksumFile(checksumText);
-
-                await DownloadToFileAsync(update.InstallerUrl, installerPath, update.SizeBytes, progress, cancellationToken);
-
-                string actualHash = await ChecksumVerifier.ComputeSha256Async(installerPath, cancellationToken);
-
-                if (!ChecksumVerifier.Verify(expectedHash, actualHash))
-                {
-                    throw new InvalidOperationException("The downloaded update failed its checksum check.");
-                }
-
-            }
-            catch (Exception)
-            {
-                TryDelete(installerPath);
-
-                throw;
-            }
+            string installerPath = await _downloader.DownloadAndVerifyAsync(update, UpdatesFolder, progress, cancellationToken);
 
             return installerPath;
         }
@@ -148,83 +76,42 @@ namespace NetworkMonitor.Services.Update
             _launcher.LaunchAndExit(installerPath, beforeExit);
         }
 
-        private async Task DownloadToFileAsync(string url, string destinationPath, long expectedSize, IProgress<double> progress, CancellationToken cancellationToken)
+        private static async Task<string> FetchReleaseJsonAsync(HttpClient httpClient, string url, CancellationToken cancellationToken)
         {
-            using HttpResponseMessage response = await _httpClient.GetAsync(
+            using HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Add("Accept", "application/vnd.github+json");
+
+            using HttpResponseMessage response = await httpClient.SendAsync(request, cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            string releaseJson = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            return releaseJson;
+        }
+
+        private static async Task<UpdateDownloadStream> OpenStreamAsync(HttpClient httpClient, string url, CancellationToken cancellationToken)
+        {
+            UpdateDownloadStream stream;
+            HttpResponseMessage response = await httpClient.GetAsync(
                 url,
                 HttpCompletionOption.ResponseHeadersRead,
                 cancellationToken);
 
-            response.EnsureSuccessStatusCode();
-
-            long totalBytes = response.Content.Headers.ContentLength ?? expectedSize;
-            await using Stream source = await response.Content.ReadAsStreamAsync(cancellationToken);
-            await using FileStream destination = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None);
-
-            byte[] buffer = new byte[81920];
-            long receivedBytes = 0;
-            int lastReportedPercent = -1;
-            int read;
-
-            while ((read = await source.ReadAsync(buffer, cancellationToken)) > 0)
-            {
-                await destination.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
-                receivedBytes += read;
-
-                if (totalBytes > 0)
-                {
-                    double fraction = (double)receivedBytes / totalBytes;
-                    int percent = (int)(fraction * 100.0);
-
-                    // Reporting every 80 KB chunk marshals ~1300 updates to the UI thread for a
-                    // 100 MB installer; the bar only shows whole percent.
-                    if (percent != lastReportedPercent)
-                    {
-                        lastReportedPercent = percent;
-                        progress.Report(fraction);
-                    }
-
-                }
-
-            }
-
-        }
-
-        private static void CleanFolder(string folder)
-        {
-
             try
             {
-                foreach (string file in Directory.EnumerateFiles(folder))
-                {
-                    TryDelete(file);
-                }
+                response.EnsureSuccessStatusCode();
 
+                Stream content = await response.Content.ReadAsStreamAsync(cancellationToken);
+                stream = new UpdateDownloadStream(content, response.Content.Headers.ContentLength, response);
             }
-            catch (Exception exception)
+            catch (Exception)
             {
-                AppLog.Error("UpdateService.CleanFolder", exception);
+                response.Dispose();
+
+                throw;
             }
 
-        }
-
-        private static void TryDelete(string path)
-        {
-
-            try
-            {
-
-                if (File.Exists(path))
-                {
-                    File.Delete(path);
-                }
-
-            }
-            catch (Exception exception)
-            {
-                AppLog.Error("UpdateService.TryDelete", exception);
-            }
-
+            return stream;
         }
     }
 }

@@ -43,6 +43,8 @@ Three small things in one place:
 
 **Proposed fix:** debounce the refresh (a short timer coalescing bursts) and detach the handler in a `Dispose`.
 
+**Fixed as proposed — sub-point 1 deliberately left alone.** The 2-second debounce timer and the `Dispose` that detaches `NetworkAddressChanged` are both in (`LanClassifier.cs:11,25,131-135,255-260`). The constructor still calls `Refresh()` synchronously (`:27`), and that stays: deferring it would leave the first packets after startup classified against `FixedRanges` only, with self-address detection and subnet-broadcast detection both degraded until the first refresh landed. Confirmed with the user during the 2026-07-28 co-review — a few tens of milliseconds on the splash path is the cheaper side of that trade.
+
 ---
 
 ## C3-3 [CLEANUP] A group's service tag comes from an arbitrary child — status: fixed
@@ -117,4 +119,9 @@ If a discovery flow's remote IP isn't in the known-devices map, the whole flow-m
 
 ## User findings
 
-_(to be filled in during co-review — each becomes `U3-<n>`)_
+Co-reviewed 2026-07-28. **No user findings.** The two classification decisions recorded in C3-7 were put to the user and both confirmed:
+
+- All of RFC1918 counts as LAN, so a remote private network reached over a VPN reports as **Local** rather than Internet.
+- CGNAT space (100.64.0.0/10) counts as Internet, so a Tailscale peer appears on the Internet tab.
+
+The user also asked for the chunk's fixes to be verified against the code rather than the ledger. All seven are present; the one wording correction that produced is recorded under C3-2 above.

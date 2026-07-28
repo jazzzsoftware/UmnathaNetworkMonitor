@@ -137,7 +137,7 @@ Nothing ever evicts flows that have aged out of the window either — entries on
 
 ---
 
-## C4-10 [CLEANUP] SQL is assembled by string interpolation and the connection is left open — status: fixed
+## C4-10 [CLEANUP] SQL is assembled by string interpolation and the connection is left open — status: fixed (completed 2026-07-28)
 
 `NetworkMonitor/ViewModels/LocalViewModel.cs:580,586-593,680,686-696`
 
@@ -145,13 +145,23 @@ Nothing ever evicts flows that have aged out of the window either — entries on
 
 **Proposed fix:** hoist the two SQL shapes into `const string` templates chosen by an `if`, so nothing user-reachable can ever reach the interpolation; drop the explicit opens.
 
+**Only half was applied on 2026-07-27 — completed 2026-07-28 during co-review.** The connection half was done (`CloseConnectionAsync` at `LocalViewModel.cs:840,916` and `InternetViewModel.cs:653,728`, balancing the open rather than dropping it), but the command text was still interpolated per call. Now: `FlowBucketsRollupSql` / `FlowBucketsEntriesSql` are `const`, and the four chart shapes are `static readonly` (built once at type initialisation, because the discovery predicate is composed from Core's port list and so isn't a compile-time constant). The shape is chosen by an `if`; the optional bucket-range predicates became nullable parameters — `($bucketStartEpoch IS NULL OR MinuteEpoch >= $bucketStartEpoch)` — the same idiom the selection key already used, which is what let four combinations collapse to two. `InternetViewModel` got the identical treatment (`AppBuckets*Sql`, `ChartBuckets*Sql`). A shared `AddParameter` helper replaced ~10 copies of the four-line create-name-value-add block in each file.
+
+Note the close still runs on the success path only, not in a `finally`. Left as-is: the caller disposes the `DbContext`, which closes the connection regardless, so a `finally` would only tidy the open-count on a path that is already being torn down.
+
 ---
 
-## C4-11 [CLEANUP] Minor items — status: fixed
+## C4-11 [CLEANUP] Minor items — status: 1 fixed 2026-07-27 · 1 fixed 2026-07-28 · 1 accepted
 
 - `MinimumSpinnerMs = 500` (`LocalViewModel.cs:18,170-179`) delays *every* `showLoading` reload to at least half a second, including the one triggered by clicking a grid row. Deliberate anti-flicker, but it makes selection feel slower than doing nothing.
 - `UpdateRateWindows` calls `window.Sum()` / `window.Average()` (LINQ over a `Queue<long>`) per group per tick — trivial, but a running total would be simpler than both.
 - `RebuildGroups` duplicates the status-text construction from `BuildDataAsync` (`:288-302` vs `:512-529`) with one difference: the live copy always says "total" and never the "at &lt;time&gt;" scope. Extract one helper.
+
+**Outcome per item.**
+
+1. **`MinimumSpinnerMs` — accepted, no change.** The half-second floor stays: it is deliberate anti-flicker, and removing it trades a steady spinner for a flashing one on every fast reload. Confirmed with the user 2026-07-28.
+2. **`Sum()` / `Average()` per group per tick — fixed 2026-07-28.** The rolling window moved to `NetworkMonitor.Core/Traffic/RateWindow.cs`, which keeps a running `Total` so a tick costs one add and one subtract instead of two LINQ passes over the queue. Both view models use it (the same LINQ pattern was duplicated verbatim in `InternetViewModel`), and being in Core it is now unit-tested — 5 tests covering the mean, eviction once full, reaching zero when idle, and a shrinking window.
+3. **Status-text duplication — fixed 2026-07-27** via the shared `StatusTextFor` helper.
 
 ---
 
@@ -167,4 +177,12 @@ Nothing ever evicts flows that have aged out of the window either — entries on
 
 ## User findings
 
-_(to be filled in during co-review — each becomes `U4-<n>`)_
+Co-reviewed 2026-07-28.
+
+### U4-1 [CLEANUP] Two findings were recorded as fixed while only part of each was applied — status: fixed
+
+Verifying this chunk against the code instead of the ledger turned up C4-10 with only its connection half applied, and C4-11 with only one of its three items done. Both were completed on 2026-07-28 at the user's instruction; the details are under each finding above, and `MinimumSpinnerMs` was explicitly accepted rather than changed.
+
+The lesson for the procedure: a fix-phase entry saying "fixed" for a multi-part finding needs to say *which* parts, or the next reader inherits a false clean slate. Worth carrying into `code-review-procedure.md` if this shape recurs.
+
+The other nine findings were confirmed present in the code: `ShiftWindow` with per-bucket eviction (C4-1, C4-9), `InsertPositionFor` in the non-reorder branch (C4-2), `_loadGate` (C4-3), both pages detaching `Closed` (C4-4), `UpdateTimeLabels` on the flush path (C4-5), the unconditional `Flushed` (C4-6), and the 60-second `NameMapLifetime` cache (C4-7). C4-8 remains won't-fix on the corrected reasoning.
