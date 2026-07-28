@@ -165,11 +165,12 @@ Done - Publish
 Done - Go live on GitHub
 Done - Auto update
 Done - Code review.
+Done - Software updates from button does nothing.
 
 If skipped report generate on startup
 Laptop chart scale problem
 Blurry report images
-Software updates from button does nothing.
+
 
 
 Roadmap:
