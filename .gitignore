@@ -42,7 +42,7 @@ mono_crash.*
 # ==========================================
 # Installer output
 # ==========================================
-Installer/Output/
+Tools/Installer/Output/
 
 # ==========================================
 # Operating System files

@@ -2,7 +2,7 @@
 ; Packages the self-contained publish output (which already bundles the .NET 10
 ; runtime AND the Windows App SDK runtime) into a single setup.exe.
 ;
-; Build with:  Installer\build-installer.ps1
+; Build with:  Tools\Installer\build-installer.ps1
 ; or manually: ISCC.exe /DMyPublishDir="<path-to-publish>" /DMyAppVersion=1.0.0 NetworkMonitor.iss
 ;
 ; Requires Inno Setup 6 (https://jrsoftware.org/isdl.php).
@@ -12,7 +12,7 @@
 #endif
 
 #ifndef MyPublishDir
-  #define MyPublishDir "..\NetworkMonitor\bin\x64\Release\net10.0-windows10.0.19041.0\win-x64\publish"
+  #define MyPublishDir "..\..\NetworkMonitor\bin\x64\Release\net10.0-windows10.0.19041.0\win-x64\publish"
 #endif
 
 #define MyAppName "Umnatha Network Monitor"
@@ -31,7 +31,7 @@ DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 UninstallDisplayName={#MyAppName}
 UninstallDisplayIcon={app}\{#MyAppExeName}
-SetupIconFile=..\NetworkMonitor\Assets\app.ico
+SetupIconFile=..\..\NetworkMonitor\Assets\app.ico
 WizardStyle=modern
 Compression=lzma2/max
 SolidCompression=yes

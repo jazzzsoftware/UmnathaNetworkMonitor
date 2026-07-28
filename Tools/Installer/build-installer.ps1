@@ -15,7 +15,7 @@
     Reuse an existing publish folder instead of re-running dotnet publish.
 
 .EXAMPLE
-    .\build-installer.ps1 -Version 1.2.0
+    Tools\Installer\build-installer.ps1 -Version 1.2.0
 #>
 
 param(
@@ -26,7 +26,8 @@ param(
 $ErrorActionPreference = "Stop"
 
 $scriptDir   = Split-Path -Parent $MyInvocation.MyCommand.Path
-$repoRoot    = Split-Path -Parent $scriptDir
+# Tools\Installer\ -> Tools\ -> repo root.
+$repoRoot    = Split-Path -Parent (Split-Path -Parent $scriptDir)
 $projectPath = Join-Path $repoRoot "NetworkMonitor\NetworkMonitor.csproj"
 $issPath     = Join-Path $scriptDir "NetworkMonitor.iss"
 $publishDir  = Join-Path $repoRoot "NetworkMonitor\bin\x64\Release\net10.0-windows10.0.19041.0\win-x64\publish"

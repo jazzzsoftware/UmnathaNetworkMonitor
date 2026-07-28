@@ -174,7 +174,7 @@ Blurry report images
 
 
 Roadmap:
-Auto update
+Done - Auto update
 Chart colour schemes
 Floating mini graph
 

@@ -71,10 +71,19 @@ namespace NetworkMonitor.Services.Traffic
             while (!ct.IsCancellationRequested)
             {
 
+                // Both operations share this handler, so the stage has to name itself — otherwise a
+                // purge timing out at PurgeTimeout gets reported as a flush timing out at FlushTimeout.
+                string operationName = "Traffic flush";
+                TimeSpan operationTimeout = FlushTimeout;
+
                 try
                 {
                     await Task.Delay(TimeSpan.FromSeconds(settings.TrafficIntervalSeconds), ct);
                     await Watchdog.RunAsync(FlushAsync, FlushTimeout, ct);
+
+                    operationName = "Raw-entry purge";
+                    operationTimeout = PurgeTimeout;
+
                     await Watchdog.RunAsync(PurgeRawEntriesAsync, PurgeTimeout, ct);
                 }
                 catch (OperationCanceledException)
@@ -82,7 +91,7 @@ namespace NetworkMonitor.Services.Traffic
                 }
                 catch (TimeoutException)
                 {
-                    AppLog.Info($"Traffic flush timed out after {FlushTimeout.TotalSeconds:0} seconds and was aborted; it will retry on the next cycle.");
+                    AppLog.Info($"{operationName} timed out after {operationTimeout.TotalSeconds:0} seconds and was aborted; it will retry on the next cycle.");
                 }
                 catch (Exception exception)
                 {

@@ -35,10 +35,10 @@ The app checks GitHub Releases for updates, so a release must be published in th
 2. Build the installer:
 
    ```
-   Installer\build-installer.ps1 -Version X.Y.Z
+   Tools\Installer\build-installer.ps1 -Version X.Y.Z
    ```
 
-   This produces two files in `Installer\Output`:
+   This produces two files in `Tools\Installer\Output`:
 
    - `Umnatha Network Monitor vX.Y.Z.exe` — the installer
    - `Umnatha Network Monitor vX.Y.Z.exe.sha256` — its SHA-256 checksum

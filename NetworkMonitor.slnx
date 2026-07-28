@@ -86,9 +86,14 @@
     <File Path="Documents/superpowers/specs/2026-07-20-local-traffic-redesign.md" />
     <File Path="Documents/superpowers/specs/2026-07-26-auto-updates-design.md" />
   </Folder>
-  <Folder Name="/Installer/">
-    <File Path="Installer/build-installer.ps1" />
-    <File Path="Installer/NetworkMonitor.iss" />
+  <Folder Name="/Tools/Installer/">
+    <File Path="Tools/Installer/build-installer.ps1" />
+    <File Path="Tools/Installer/NetworkMonitor.iss" />
+  </Folder>
+  <Folder Name="/Tools/RetentionProbe/">
+    <File Path="Tools/RetentionProbe/Program.cs" />
+    <File Path="Tools/RetentionProbe/README.md" />
+    <File Path="Tools/RetentionProbe/RetentionProbe.csproj" />
   </Folder>
   <Project Path="NetworkMonitor\NetworkMonitor.csproj">
     <Platform Solution="Debug|x64" Project="x64" />
