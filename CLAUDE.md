@@ -4,7 +4,7 @@
 
 WinUI 3 desktop app (.NET 10, unpackaged) that periodically scans the local network, tracks devices by MAC address, and maintains a known-devices list.
 
-Five projects: **NetworkMonitor** (the WinUI app — pure UI shell: App/MainWindow/Splash, Views, ViewModels, Converters), **NetworkMonitor.Models** (net10.0 class library — all model types plus the shared unit formatters), **NetworkMonitor.Core** (net10.0 class library — pure, UI-free service logic: classifiers, grouper, CSV, digest builder/schedule, speed-test maths, mDNS parsing, OuiDatabase), **NetworkMonitor.Services** (net10.0-windows class library — background workers, ETW collector, EF context + Settings under `Data\`, digest renderer/PDF, platform services; UseWinUI for the Win2D renderer), and **NetworkMonitor.Tests** (xunit — references Models + Core via ProjectReference only; no source links). Layering: Models ← Core ← Services ← App. In every project each sub-folder is its own namespace (e.g. `NetworkMonitor.Services.Traffic`). New pure logic that needs tests goes in Core, not Services.
+Five projects: **NetworkMonitor** (the WinUI app — pure UI shell: App/MainWindow/Splash, Views, ViewModels, Converters), **NetworkMonitor.Models** (net10.0 class library — all model types plus the shared unit formatters), **NetworkMonitor.Core** (net10.0 class library — pure, UI-free service logic: classifiers, grouper, CSV, digest builder/schedule, speed-test maths, mDNS parsing, OuiDatabase), **NetworkMonitor.Services** (net10.0-windows class library — background workers, ETW collector, EF context + Settings under `Data\`, digest renderer/PDF, platform services; UseWinUI for the Win2D renderer), and **NetworkMonitor.Tests** (xunit — references Models + Core via ProjectReference only; no source links). Layering: Models ← Core ← Services ← App. In every project each sub-folder is its own namespace (e.g. `NetworkMonitor.Services.Traffic`). New pure logic that needs tests goes in Core, not Services. In Solution Explorer the first four sit under the `/App/` solution folder and the test project under `/Tests/`.
 
 ## Stack
 
@@ -19,7 +19,11 @@ Five projects: **NetworkMonitor** (the WinUI app — pure UI shell: App/MainWind
 
 Open `NetworkMonitor.slnx` in Visual Studio 2026. Set platform to **x64** (not Any CPU — WinUI 3 does not support Any CPU). Run restore before first build.
 
-New root-level files (docs, config) must be added to `NetworkMonitor.slnx` so they appear in Solution Explorer — non-project files aren't picked up automatically. Use the existing `/AI/` folder for AI-assistant docs (`CLAUDE.md`), `/Project Config/` for other root config/doc files (`.editorconfig`, `CONTRIBUTING.md`), and `/Documents/` for user-facing docs.
+New root-level files (docs, config) must be added to `NetworkMonitor.slnx` so they appear in Solution Explorer — non-project files aren't picked up automatically. Use `/AI/` for AI-assistant docs (`CLAUDE.md`), `/Project/GitHub/` for the repo's public paperwork (`README.md`, `CONTRIBUTING.md`, `SECURITY.md`, `LICENSE`, `NOTICE.md`), `/Project/Config/` for machine-read root config (`.editorconfig`, `.gitattributes`, `.gitignore`), and `/Documents/` for user-facing docs.
+
+Solution-folder layout: the five projects are grouped under `/App/` (NetworkMonitor, Models, Core, Services) and `/Tests/` (NetworkMonitor.Tests). Solution folders are virtual — they group the project entries in Solution Explorer and change nothing on disk.
+
+`/Tools/` holds standalone tooling — things you run, not things that ship. It is a real on-disk folder registered in the slnx as folders of files, deliberately **not** as buildable projects, so `dotnet build NetworkMonitor.slnx` stays clean. It currently holds `Tools/Installer/` (the Inno Setup script + `build-installer.ps1`) and `Tools/RetentionProbe/` (a command-line diagnostic for the traffic-retention design). New tooling goes here; anything with a `.csproj` under `/Tools/` should pin its packages the way the app does and must not be added as a solution project.
 
 ## Coding Conventions
 

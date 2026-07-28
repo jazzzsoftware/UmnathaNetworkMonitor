@@ -7,8 +7,12 @@
   <Folder Name="/AI/">
     <File Path="CLAUDE.md" />
   </Folder>
-  <Folder Name="/Project Config/">
+  <Folder Name="/Project/Config/">
     <File Path=".editorconfig" />
+    <File Path=".gitattributes" />
+    <File Path=".gitignore" />
+  </Folder>
+  <Folder Name="/Project/GitHub/">
     <File Path="CONTRIBUTING.md" />
     <File Path="LICENSE" />
     <File Path="NOTICE.md" />
@@ -95,13 +99,17 @@
     <File Path="Tools/RetentionProbe/README.md" />
     <File Path="Tools/RetentionProbe/RetentionProbe.csproj" />
   </Folder>
-  <Project Path="NetworkMonitor\NetworkMonitor.csproj">
-    <Platform Solution="Debug|x64" Project="x64" />
-  </Project>
-  <Project Path="NetworkMonitor.Models\NetworkMonitor.Models.csproj" />
-  <Project Path="NetworkMonitor.Core\NetworkMonitor.Core.csproj" />
-  <Project Path="NetworkMonitor.Services\NetworkMonitor.Services.csproj">
-    <Platform Solution="Debug|x64" Project="x64" />
-  </Project>
-  <Project Path="NetworkMonitor.Tests\NetworkMonitor.Tests.csproj" />
+  <Folder Name="/App/">
+    <Project Path="NetworkMonitor\NetworkMonitor.csproj">
+      <Platform Solution="Debug|x64" Project="x64" />
+    </Project>
+    <Project Path="NetworkMonitor.Models\NetworkMonitor.Models.csproj" />
+    <Project Path="NetworkMonitor.Core\NetworkMonitor.Core.csproj" />
+    <Project Path="NetworkMonitor.Services\NetworkMonitor.Services.csproj">
+      <Platform Solution="Debug|x64" Project="x64" />
+    </Project>
+  </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="NetworkMonitor.Tests\NetworkMonitor.Tests.csproj" />
+  </Folder>
 </Solution>

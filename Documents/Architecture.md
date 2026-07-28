@@ -115,7 +115,26 @@ NetworkMonitor/           (the WinUI app — pure UI shell)
     └── Controls/
         ├── TrafficAreaChart.xaml(.cs)  Live stacked area chart with smooth scrolling
         └── DigestReportView.xaml(.cs)  Reusable digest renderer (charts + tables) for the Reports page
+
+NetworkMonitor.Tests/     (xunit — ProjectReference to Models + Core only; no source links,
+                           so anything needing a test belongs in Core or Models, never Services)
+
+Tools/                    (standalone tooling — things you run, not things that ship; registered
+│                          in the slnx as folders of files, NOT as solution projects, so the
+│                          solution build stays clean)
+├── Installer/
+│   ├── build-installer.ps1   Publishes self-contained x64, compiles the Inno Setup installer,
+│   │                         writes the companion .sha256 the in-app updater verifies against
+│   ├── NetworkMonitor.iss    Inno Setup script; paths are relative to this file
+│   └── Output/               Build artifacts (gitignored)
+└── RetentionProbe/
+    ├── Program.cs            Diagnostic for the raw-entry purge: census, purge timing against the
+    │                         120s watchdog, page/freelist counts, WAL collapse, rollup coverage
+    └── README.md             Usage, how to read the output, and the recorded baseline
 ```
+
+In Solution Explorer the five projects are grouped under the `/App/` and `/Tests/` solution
+folders. Those are virtual groupings only — nothing moves on disk.
 
 ## Shell & navigation
 
@@ -388,13 +407,14 @@ Each worker is an **independent** `BackgroundService` on its own loop and shares
 
 ### Hang protection
 
-Every **iterative** worker wraps its per-cycle work in `Common/Watchdog.RunAsync(operation, timeout, ct)`. The watchdog races the operation against `Task.Delay(timeout)`; if the timeout wins it cancels the linked token, abandons (and observes) the stuck task, and throws `TimeoutException`. Crucially it recovers **even when an `await` never observes the token** — the original failure mode, where an in-flight `Ping` whose completion callback never fired (after an overnight network/adapter reset) wedged the scan gate indefinitely and silently killed all scanning until an app restart. On timeout each worker logs an `[INFO]` line and continues to its next cycle, so a hang self-heals and is visible in the diagnostic log.
+Every **iterative** worker wraps its per-cycle work in `Common/Watchdog.RunAsync(operation, timeout, ct)`. The watchdog races the operation against `Task.Delay(timeout)`; if the timeout wins it cancels the linked token, abandons (and observes) the stuck task, and throws `TimeoutException`. Crucially it recovers **even when an `await` never observes the token** — the original failure mode, where an in-flight `Ping` whose completion callback never fired (after an overnight network/adapter reset) wedged the scan gate indefinitely and silently killed all scanning until an app restart. On timeout each worker logs an `[INFO]` line and continues to its next cycle, so a hang self-heals and is visible in the diagnostic log. Where one worker guards two operations under a shared handler — `TrafficTracker` does — the log line must name the stage that actually timed out and quote *its* timeout, not the first one in the method.
 
 | Worker | Bounded operation | Timeout |
 |---|---|---|
 | `ScanWorker` | ping/ARP/DNS scan + merge | `ScanTimeout` = 2 min |
 | `SpeedTestWorker` | HTTP speed test (service also self-bounds at 120 s) | `RunTimeout` = 3 min |
 | `TrafficTracker` | per-second DB flush (`ct` now threaded through all EF/SQLite calls) | `FlushTimeout` = 30 s |
+| `TrafficTracker` | raw-entry purge, rate-limited to once every 5 min | `PurgeTimeout` = 2 min |
 | `DigestWorker` | catch-up + report purge (startup and each loop) | `CycleTimeout` = 5 min |
 | `DatabaseBackupWorker` | SQLite backup + CSV export | `BackupTimeout` = 5 min |
 
