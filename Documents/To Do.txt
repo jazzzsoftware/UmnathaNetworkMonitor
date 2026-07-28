@@ -164,10 +164,12 @@ Done - update OUI file
 Done - Publish
 Done - Go live on GitHub
 Done - Auto update
+Done - Code review.
 
-Code review.
 If skipped report generate on startup
 Laptop chart scale problem
+Blurry report images
+Software updates from button does nothing.
 
 
 Roadmap:

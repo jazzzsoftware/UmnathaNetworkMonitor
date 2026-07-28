@@ -49,6 +49,8 @@ namespace NetworkMonitor.Services.Update
             string currentVersion = AppInfo.GetVersion();
             UpdateCheckOutcome outcome = await _checker.CheckAsync(LatestReleaseUrl, currentVersion, cancellationToken);
 
+            AppLog.Info($"Update check completed: installed={currentVersion}, result={outcome.Result.Availability}, cancelled={outcome.Cancelled}.");
+
             // A check cancelled by host shutdown is not a failure the user needs to see.
             if (!outcome.Cancelled)
             {

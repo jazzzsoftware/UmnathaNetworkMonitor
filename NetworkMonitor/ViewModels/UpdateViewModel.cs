@@ -16,6 +16,7 @@ namespace NetworkMonitor.ViewModels
         private readonly DispatcherQueue _dispatcher;
         private AvailableUpdate? _pendingUpdate;
         private CancellationTokenSource? _downloadCancellation;
+        private UpdateCheckResult? _manualResult;
 
         public UpdateViewModel(IUpdateService updateService)
         {
@@ -165,6 +166,11 @@ namespace NetworkMonitor.ViewModels
             // completing at the same moment can't consume this check's "tell me either way" intent.
             UpdateCheckResult result = await _updateService.CheckAsync(CancellationToken.None);
 
+            // The same check also broadcasts on CheckCompleted, and that handler is queued on the
+            // dispatcher while this continuation runs inline — so without claiming the result first
+            // the queued handler would re-apply it with reportUpToDate false and shut the banner.
+            _manualResult = result;
+
             Apply(result, true);
         }
 
@@ -240,7 +246,12 @@ namespace NetworkMonitor.ViewModels
         {
             _dispatcher.TryEnqueue(() =>
             {
-                Apply(result, false);
+
+                if (!ReferenceEquals(result, _manualResult))
+                {
+                    Apply(result, false);
+                }
+
             });
         }
 
