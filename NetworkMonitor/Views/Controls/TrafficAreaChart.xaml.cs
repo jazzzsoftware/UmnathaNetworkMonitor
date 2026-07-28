@@ -9,6 +9,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using NetworkMonitor.Core.Charting;
 using NetworkMonitor.Models.Charting;
 using NetworkMonitor.Models.Formatting;
 using Windows.Foundation;
@@ -587,27 +588,7 @@ namespace NetworkMonitor.Views.Controls
         private static long RoundAxisMax(long peakBytes, double bucketSeconds)
         {
             double bitsPerSecond = peakBytes * 8.0 / bucketSeconds;
-            double divisor;
-
-            if (bitsPerSecond >= 1_000_000_000)
-            {
-                divisor = 1_000_000_000;
-            }
-            else if (bitsPerSecond >= 1_000_000)
-            {
-                divisor = 1_000_000;
-            }
-            else if (bitsPerSecond >= 1000)
-            {
-                divisor = 1000;
-            }
-            else
-            {
-                divisor = 1;
-            }
-
-            double niceDisplayed = Math.Ceiling(bitsPerSecond / divisor / 10.0) * 10.0;
-            double niceBitsPerSecond = niceDisplayed * divisor;
+            double niceBitsPerSecond = AxisScale.NiceMax(bitsPerSecond);
             long result = (long)Math.Round(niceBitsPerSecond * bucketSeconds / 8.0);
 
             return result;

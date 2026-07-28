@@ -235,6 +235,21 @@ Auto-resume on scroll-to-top is deliberately **not** implemented: a programmatic
 
 Because the inner tab switch (Internet ⇄ Speed Test) only toggles `Frame.Visibility` and does not navigate, `TrafficHostPage` explicitly calls `InternetPage.ResetToLive()` when leaving the Internet tab so it returns Live.
 
+### Chart axis scaling
+
+`TrafficAreaChart` draws a gridline at the axis maximum and another at half of it, then rounds the
+observed peak up via `AxisScale.NiceMax` (Core, unit-tested). The ladder is **1 / 2 / 5 / 10 × 10ⁿ**,
+chosen so every step halves cleanly for that mid gridline.
+
+It replaced a rule that rounded up to the next multiple of ten *in whatever unit the peak fell into*
+(`Ceiling(bitsPerSecond / divisor / 10) * 10`). That collapsed every peak between 1 and 10 Gb/s onto
+a single 10 Gb/s axis — a 2 Gb/s LAN transfer was drawn in the bottom fifth of the chart — and had
+the same effect just above every other unit boundary. It only looked reasonable mid-decade, where
+45 Mb/s rounded to 50 Mb/s.
+
+Note the axis is only ever as good as the peak fed to it: an inflated peak still wastes chart
+height, so a trace that sits low despite this scaling points at the peak calculation, not the axis.
+
 ### Local page — app/device lenses & noise folding
 
 The Local page shows LAN traffic for *this* PC (the only scope any host tool can attribute per app). Two pieces shape it:
