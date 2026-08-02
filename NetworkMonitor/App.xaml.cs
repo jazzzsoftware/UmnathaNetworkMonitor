@@ -111,6 +111,8 @@ namespace NetworkMonitor
                         services.AddHostedService(sp => sp.GetRequiredService<TrafficCollector>());
                         services.AddSingleton<TrafficTracker>();
                         services.AddHostedService(sp => sp.GetRequiredService<TrafficTracker>());
+                        services.AddSingleton<LiveTrafficFeed>();
+                        services.AddHostedService(serviceProvider => serviceProvider.GetRequiredService<LiveTrafficFeed>());
                         services.AddSingleton<InAppNotificationService>();
                         services.AddSingleton<SpeedTestService>(serviceProvider =>
                         {
