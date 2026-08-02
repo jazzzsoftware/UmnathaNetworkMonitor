@@ -56,10 +56,10 @@ namespace NetworkMonitor.Services.Platform
 
         public bool HasAnySection => ShowInternet || ShowLocal || ShowSpeedTest || ShowUnknownDevices;
 
-        public void SavePlacement(int x, int y, int width, int height)
+        public void SavePlacement(int positionX, int positionY, int width, int height)
         {
-            _settings.MiniGraphX = x;
-            _settings.MiniGraphY = y;
+            _settings.MiniGraphX = positionX;
+            _settings.MiniGraphY = positionY;
             _settings.MiniGraphWidth = width;
             _settings.MiniGraphHeight = height;
             _settings.Save();
