@@ -36,6 +36,7 @@ namespace NetworkMonitor
         private static Mutex? _instanceMutex;
         private static EventWaitHandle? _activationEvent;
         private static IntPtr _mainWindowHwnd;
+        private static MiniGraphWindow? _miniGraphWindow;
 
         [DllImport("shell32.dll", SetLastError = true)]
         private static extern int SetCurrentProcessExplicitAppUserModelID(
@@ -277,6 +278,10 @@ namespace NetworkMonitor
                 window.Activate();
                 window.RestoreWindowPlacement();
 
+                MiniGraphState miniGraphState = AppHost.Services.GetRequiredService<MiniGraphState>();
+                miniGraphState.Changed += (stateSender, stateArgs) => ApplyMiniGraphVisibility();
+                ApplyMiniGraphVisibility();
+
                 if (startMinimized)
                 {
                     ShowWindow(_mainWindowHwnd, SwHide);
@@ -290,6 +295,45 @@ namespace NetworkMonitor
                 ShowFatalError(exception.Message);
             }
 
+        }
+
+        internal static void ApplyMiniGraphVisibility()
+        {
+            MiniGraphState state = AppHost.Services.GetRequiredService<MiniGraphState>();
+
+            try
+            {
+
+                if (state.IsVisible)
+                {
+
+                    if (_miniGraphWindow is null)
+                    {
+                        _miniGraphWindow = new MiniGraphWindow(
+                            AppHost.Services.GetRequiredService<MiniGraphViewModel>(),
+                            state,
+                            AppHost.Services.GetRequiredService<Settings>());
+                    }
+
+                    _miniGraphWindow.ShowWidget();
+                }
+                else
+                {
+                    _miniGraphWindow?.HideWidget();
+                }
+
+            }
+            catch (Exception exception)
+            {
+                AppLog.Error("App.ApplyMiniGraphVisibility", exception);
+            }
+
+        }
+
+        internal static void CloseMiniGraph()
+        {
+            _miniGraphWindow?.CloseWidget();
+            _miniGraphWindow = null;
         }
 
         [DllImport("user32.dll")]

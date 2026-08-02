@@ -264,6 +264,7 @@ namespace NetworkMonitor
             _shutdownCompleted = true;
             _savePlacementTimer.Stop();
             SaveWindowPlacement();
+            App.CloseMiniGraph();
             StopHost();
             CheckpointDatabase();
             _trayIcon.Dispose();
