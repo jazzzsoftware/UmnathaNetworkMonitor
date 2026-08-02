@@ -946,16 +946,38 @@ namespace NetworkMonitor.Services.Traffic
 
         public event EventHandler? Updated;
 
+        private SpeedTestResult? _latestSpeedTest;
+
         public SpeedTestResult? LatestSpeedTest
         {
-            get;
-            private set;
+            get
+            {
+                SpeedTestResult? latestSpeedTest;
+
+                lock (_gate)
+                {
+                    latestSpeedTest = _latestSpeedTest;
+                }
+
+                return latestSpeedTest;
+            }
         }
+
+        private int _unapprovedDeviceCount;
 
         public int UnapprovedDeviceCount
         {
-            get;
-            private set;
+            get
+            {
+                int unapprovedDeviceCount;
+
+                lock (_gate)
+                {
+                    unapprovedDeviceCount = _unapprovedDeviceCount;
+                }
+
+                return unapprovedDeviceCount;
+            }
         }
 
         public double WanDownloadBytesPerSecond => RateOf(_wanDownloadRate);
@@ -1420,7 +1442,7 @@ namespace NetworkMonitor.ViewModels
 
         }
 
-        public void Refresh()
+        private void Refresh()
         {
             RateUnitMode mode = _settings.RateUnitMode;
 
@@ -3000,3 +3022,32 @@ git commit -m "Document the floating mini graph and close its to-do entries."
 3. **A gradient scrim via theme dictionaries** rather than a brush computed from the window background, because XAML gradient stops take colours, not brushes.
 
 **Click-through is deliberately not implemented.** See the Out of Scope section of the spec for the reasoning — a window that passes mouse input through receives none itself, which would kill dragging, the ✕ glyph, the right-click flyout and double-click-to-drill.
+
+## Amendments after review
+
+Three defects in this plan's own code samples were caught by review during execution and corrected in
+the shipped code. **Where the committed source and this document's samples disagree, the committed
+source is authoritative.**
+
+1. **Task 3 — `SavePlacement` parameter names.** The sample declared `SavePlacement(int x, int y, …)`,
+   violating this plan's own Global Constraint against single-character identifiers. Shipped as
+   `positionX` / `positionY` (commit `fde9750`).
+
+2. **Task 4 — unsynchronised scalar properties.** `LatestSpeedTest` and `UnapprovedDeviceCount` were
+   written from background handlers and read from the UI thread with no lock, while every other field
+   in the class sat inside `lock (_gate)`. No functional bug — the writes are atomic and single-writer
+   — but the class read as half-synchronised. Both now have backing fields guarded by `_gate` on read
+   and write; the property block above has been updated to match. **The write sites in the Step 1
+   sample below still show direct property assignment and are stale**: in the shipped code each write
+   awaits first, then assigns the backing field inside `lock (_gate)`, and `Updated?.Invoke` stays
+   outside the lock at all three call sites. `SeedAsync` also shares the extracted
+   `CountUnapprovedAsync` helper rather than duplicating the query. See
+   `NetworkMonitor.Services/Traffic/LiveTrafficFeed.cs` (commits `272969b`, `4ca0e9d`).
+
+3. **Task 6 — `Refresh()` visibility.** The sample declared it `public`, though the task's own
+   Interfaces block lists only `Attach()` and `Detach()`. A public unguarded `Refresh()` invites a
+   future background-thread caller to write observable properties off the UI thread. Shipped as
+   `private` (commit `58be3c5`).
+
+All three were referred to the repository owner as plan-mandated findings rather than resolved by the
+controller, and all three were ruled "fix" on 2026-08-02.
