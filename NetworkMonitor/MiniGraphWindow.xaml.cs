@@ -73,6 +73,7 @@ namespace NetworkMonitor
         {
             _savePlacementTimer.Stop();
             _state.Changed -= OnStateChanged;
+            AppWindow.Changed -= OnAppWindowChanged;
             ViewModel.Detach();
             Close();
         }
@@ -111,7 +112,7 @@ namespace NetworkMonitor
             int positionY = _settings.MiniGraphY;
             bool onScreen = false;
 
-            if (positionX > int.MinValue && positionY > int.MinValue && _settings.MiniGraphX >= 0)
+            if (_settings.MiniGraphX != int.MinValue && _settings.MiniGraphY != int.MinValue)
             {
                 DisplayArea area = DisplayArea.GetFromPoint(new PointInt32(positionX, positionY), DisplayAreaFallback.None);
                 onScreen = area is not null;
@@ -224,6 +225,12 @@ namespace NetworkMonitor
             _pointerDown = false;
             _dragging = false;
             RootLayer.ReleasePointerCapture(args.Pointer);
+        }
+
+        private void RootPointerCaptureLost(object sender, PointerRoutedEventArgs args)
+        {
+            _pointerDown = false;
+            _dragging = false;
         }
 
         private void RootPointerEntered(object sender, PointerRoutedEventArgs args)

@@ -219,13 +219,13 @@ namespace NetworkMonitor.Services.Data
         {
             get;
             set;
-        } = -1;
+        } = int.MinValue;
 
         public int MiniGraphY
         {
             get;
             set;
-        } = -1;
+        } = int.MinValue;
 
         public int MiniGraphWidth
         {

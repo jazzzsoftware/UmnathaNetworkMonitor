@@ -12,6 +12,7 @@
         PointerPressed="RootPointerPressed"
         PointerMoved="RootPointerMoved"
         PointerReleased="RootPointerReleased"
+        PointerCaptureLost="RootPointerCaptureLost"
         PointerEntered="RootPointerEntered"
         PointerExited="RootPointerExited">
 
