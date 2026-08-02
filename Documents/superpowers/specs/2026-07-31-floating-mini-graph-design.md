@@ -39,6 +39,9 @@ restoring the main window doesn't dismiss it. It closes with the app on exit.
   opens Devices → Unapproved.
 - **Adjustable opacity**, 50–100% where 100% is fully opaque, so it can sit over a working
   window without blocking it. The whole window fades together — chart, text and background.
+- **Hover to read** — resting the pointer over the widget raises it to fully opaque, and it
+  settles back to the chosen opacity when the pointer leaves. The low setting is for
+  ignoring it; hovering is the gesture that says *let me read that*.
 - **Right-click** opens a flyout with the four checkable section items, an *Opacity*
   submenu, a separator, *Open Network Monitor*, and *Close*.
 
@@ -170,6 +173,28 @@ set from a slider in Settings (50–100 in steps of 5) and from an *Opacity* sub
 right-click flyout offering 50, 60, 70, 80, 90 and 100% as radio items, matching the
 "Settings plus right-click" pattern used for the section toggles.
 
+### Hover to full opacity
+
+`MiniGraphOpacity` is the *resting* opacity. While the pointer is over the window the widget
+renders fully opaque, returning to the resting value when the pointer leaves. There is no
+setting for this — it is always on, and does nothing at all when the slider is already at
+100, so it needs no switch to turn off.
+
+Driven by `PointerEntered` / `PointerExited` on the window's root element, animating the same
+`Opacity` property the slider drives (or stepping the layered-window alpha, if the fallback
+route above proves necessary).
+
+Timing matters more than it sounds. Dragging the pointer across the screen will sometimes
+clip a corner of the widget, and an instant rise makes it flash — which undercuts the whole
+reason the opacity is low. So the rise waits for **150 ms of dwell** before starting, and the
+fall waits **300 ms** after the pointer leaves; each transition then animates over ~120 ms.
+The dwell is not perceived as lag when the user is deliberately moving to look at something,
+and it removes the flash entirely. Both timers are cancelled if the pointer reverses before
+they elapse.
+
+The animation is presentation only. It never writes `MiniGraphOpacity`, so the resting value
+survives a hover and the setting is not churned to disk.
+
 ### Entry point wiring
 
 `TrayIconService` gains a checkable *Mini graph* item in its existing
@@ -234,6 +259,9 @@ Manual verification:
 - Drop opacity to 50% over a text document and confirm the whole widget fades — including
   the Win2D chart, which is the part at risk — and that it still responds to drag,
   right-click and double-click.
+- At 50%, hover the widget and confirm it rises to fully opaque and settles back on exit,
+  chart included. Sweep the pointer quickly across a corner and confirm it does *not* flash.
+  Set opacity to 100 and confirm hovering changes nothing.
 - Check light and dark themes, and 4K at 200% scaling — DPI has bitten this project before.
 
 ## Out of scope
@@ -241,7 +269,13 @@ Manual verification:
 - Time range selection — the widget is fixed at 5 minutes, live only. No history mode, no
   hover card, no click-to-inspect.
 - Per-app or per-device breakdown; the charts are totals only.
-- Click-through and edge snapping.
-- Opacity that changes on its own — no fade to opaque on hover, no fade out when idle. The
-  slider value is what you get.
+- **Click-through.** Deliberately excluded. A window that passes mouse input through
+  receives none itself, which would kill dragging, the ✕ glyph, the right-click flyout and
+  double-click-to-drill — four interactions this design depends on — and would need an
+  escape hatch outside the window to get back. Hover-to-opaque covers the same "it's in my
+  way" complaint at a fraction of the cost. Not revisited unless living with the widget
+  shows a need.
+- Edge snapping.
+- Opacity that changes on its own beyond the hover behaviour above — no fade out when idle,
+  no reacting to what's underneath.
 - A theme independent of the app's.

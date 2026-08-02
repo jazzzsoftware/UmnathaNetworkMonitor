@@ -174,8 +174,8 @@ Done - Test for ex when do manual update for new ver stoppedin logs. Should just
 
 
 Floating mini graph:
-Hover give 100% opacity
-Click through?
+Y - Hover give 100% opacity
+N - Click through?
 
 
 
@@ -186,5 +186,5 @@ Smoke items 46-48 still need a release newer than 0.0.9 (update download / cance
 
 Roadmap:
 Done - Auto update
-Chart colour schemes
 Floating mini graph
+Chart colour schemes
