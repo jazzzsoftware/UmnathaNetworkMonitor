@@ -116,7 +116,26 @@ namespace NetworkMonitor.ViewModels
 
         }
 
-        public void Refresh()
+        private void OnFeedUpdated(object? sender, EventArgs args)
+        {
+            _dispatcherQueue.TryEnqueue(Refresh);
+        }
+
+        private void OnStateChanged(object? sender, EventArgs args)
+        {
+            _dispatcherQueue.TryEnqueue(() =>
+            {
+                OnPropertyChanged(nameof(ShowInternet));
+                OnPropertyChanged(nameof(ShowLocal));
+                OnPropertyChanged(nameof(ShowSpeedTest));
+                OnPropertyChanged(nameof(ShowUnknownDevices));
+                OnPropertyChanged(nameof(ShowFooter));
+                OnPropertyChanged(nameof(ShowEmptyHint));
+                Refresh();
+            });
+        }
+
+        private void Refresh()
         {
             RateUnitMode mode = _settings.RateUnitMode;
 
@@ -135,25 +154,6 @@ namespace NetworkMonitor.ViewModels
             SpeedTestText = MiniGraphFormatter.SpeedTest(_feed.LatestSpeedTest, mode);
             UnknownDevicesText = MiniGraphFormatter.UnknownDevices(_feed.UnapprovedDeviceCount);
             HasUnknownDevices = _feed.UnapprovedDeviceCount > 0;
-        }
-
-        private void OnFeedUpdated(object? sender, EventArgs args)
-        {
-            _dispatcherQueue.TryEnqueue(Refresh);
-        }
-
-        private void OnStateChanged(object? sender, EventArgs args)
-        {
-            _dispatcherQueue.TryEnqueue(() =>
-            {
-                OnPropertyChanged(nameof(ShowInternet));
-                OnPropertyChanged(nameof(ShowLocal));
-                OnPropertyChanged(nameof(ShowSpeedTest));
-                OnPropertyChanged(nameof(ShowUnknownDevices));
-                OnPropertyChanged(nameof(ShowFooter));
-                OnPropertyChanged(nameof(ShowEmptyHint));
-                Refresh();
-            });
         }
     }
 }
