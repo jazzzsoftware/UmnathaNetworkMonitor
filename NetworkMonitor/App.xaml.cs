@@ -165,6 +165,7 @@ namespace NetworkMonitor
                         services.AddSingleton<InternetViewModel>();
                         services.AddSingleton<LocalViewModel>();
                         services.AddSingleton<SpeedTestViewModel>();
+                        services.AddSingleton<MiniGraphViewModel>();
                         services.AddTransient<MainWindow>();
                     })
                     .Build();
