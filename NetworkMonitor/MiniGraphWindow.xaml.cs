@@ -1,9 +1,11 @@
+using System.ComponentModel;
 using System.Runtime.InteropServices;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using NetworkMonitor.Services.Data;
 using NetworkMonitor.Services.Platform;
 using NetworkMonitor.ViewModels;
@@ -32,9 +34,10 @@ namespace NetworkMonitor
         private bool _placementRestored;
         private bool _pointerDown;
         private bool _dragging;
+        private bool _pointerCaptured;
         private bool _pointerInside;
+        private bool _teardownStarted;
         private Point _dragOrigin;
-        private PointInt32 _dragWindowOrigin;
 
         public MiniGraphWindow(MiniGraphViewModel viewModel, MiniGraphState state, Settings settings)
         {
@@ -45,7 +48,7 @@ namespace NetworkMonitor
 
             CloseGlyph.OpacityTransition = new ScalarTransition
             {
-                Duration = TimeSpan.FromMilliseconds(120)
+                Duration = OpacityFadeDuration
             };
 
             RootLayer.OpacityTransition = new ScalarTransition
@@ -76,10 +79,13 @@ namespace NetworkMonitor
             ConfigureWindow();
             ApplyLayout();
             ApplyRestingOpacity();
+            ApplyUnknownDevicesBrush();
             RestorePlacement();
 
             _state.Changed += OnStateChanged;
+            ViewModel.PropertyChanged += OnViewModelPropertyChanged;
             AppWindow.Changed += OnAppWindowChanged;
+            Closed += OnWindowClosed;
         }
 
         public MiniGraphViewModel ViewModel
@@ -90,25 +96,27 @@ namespace NetworkMonitor
         public void ShowWidget()
         {
             ViewModel.Attach();
+            SetChartsLive(true);
             AppWindow.Show();
         }
 
         public void HideWidget()
         {
+            FlushPlacement();
+            _savePlacementTimer.Stop();
             _hoverRiseTimer.Stop();
             _hoverFallTimer.Stop();
             ViewModel.Detach();
+
+            // AppWindow.Hide leaves the XAML tree loaded, so the charts keep their per-frame
+            // rendering hook. Only IsLive stops them redrawing a widget nobody can see.
+            SetChartsLive(false);
             AppWindow.Hide();
         }
 
         public void CloseWidget()
         {
-            _savePlacementTimer.Stop();
-            _hoverRiseTimer.Stop();
-            _hoverFallTimer.Stop();
-            _state.Changed -= OnStateChanged;
-            AppWindow.Changed -= OnAppWindowChanged;
-            ViewModel.Detach();
+            Teardown();
             Close();
         }
 
@@ -117,6 +125,70 @@ namespace NetworkMonitor
 
         [DllImport("user32.dll", SetLastError = true)]
         private static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
+
+        private void OnWindowClosed(object sender, WindowEventArgs args)
+        {
+
+            // The widget carries a resize border, so Alt+F4 destroys it behind the app's back. Without
+            // this the tray item, the toolbar toggle and Settings all keep reporting it as visible and
+            // the next show call lands on a dead window.
+            if (!_teardownStarted)
+            {
+                Teardown();
+                App.ForgetMiniGraph();
+                _state.IsVisible = false;
+            }
+
+        }
+
+        private void Teardown()
+        {
+            _teardownStarted = true;
+
+            try
+            {
+                FlushPlacement();
+                AppWindow.Changed -= OnAppWindowChanged;
+            }
+            catch (Exception exception)
+            {
+                // Alt+F4 reaches here after the window is destroyed, so AppWindow may already be gone.
+                AppLog.Error("MiniGraphWindow.Teardown", exception);
+            }
+
+            _savePlacementTimer.Stop();
+            _hoverRiseTimer.Stop();
+            _hoverFallTimer.Stop();
+            _state.Changed -= OnStateChanged;
+            ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
+            ViewModel.Detach();
+        }
+
+        // Placement is written on a 400 ms debounce, so a drag followed straight away by a hide or an
+        // exit would stop the timer before it ever fired and lose the new position.
+        private void FlushPlacement()
+        {
+
+            if (_placementRestored && _savePlacementTimer.IsEnabled)
+            {
+                SizeInt32 size = AppWindow.Size;
+
+                if (size.Width >= MinimumWidth && size.Height >= MinimumHeight)
+                {
+                    PointInt32 position = AppWindow.Position;
+
+                    _state.SavePlacement(position.X, position.Y, size.Width, size.Height);
+                }
+
+            }
+
+        }
+
+        private void SetChartsLive(bool isLive)
+        {
+            InternetSection.IsLive = isLive;
+            LocalSection.IsLive = isLive;
+        }
 
         private void ConfigureWindow()
         {
@@ -173,10 +245,38 @@ namespace NetworkMonitor
             FooterPanel.Visibility = _state.ShowSpeedTest || _state.ShowUnknownDevices ? Visibility.Visible : Visibility.Collapsed;
             EmptyHint.Visibility = _state.HasAnySection ? Visibility.Collapsed : Visibility.Visible;
 
+            GridLength fill = new GridLength(1, GridUnitType.Star);
+            GridLength none = new GridLength(0);
+
             // The strips are fixed height and the charts share everything left over, so switching Local
-            // off makes Internet twice as tall rather than shrinking the window.
-            SectionsPanel.RowDefinitions[0].Height = _state.ShowInternet ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
-            SectionsPanel.RowDefinitions[1].Height = _state.ShowLocal ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
+            // off makes Internet twice as tall rather than shrinking the window. With both charts off
+            // row 0 stays a star and acts as a spacer, otherwise the footer would pin to the top edge
+            // with the empty space below it.
+            bool spacerNeeded = !_state.ShowInternet && !_state.ShowLocal;
+
+            SectionsPanel.RowDefinitions[0].Height = _state.ShowInternet || spacerNeeded ? fill : none;
+            SectionsPanel.RowDefinitions[1].Height = _state.ShowLocal ? fill : none;
+        }
+
+        private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs args)
+        {
+
+            if (args.PropertyName is null || args.PropertyName == nameof(MiniGraphViewModel.HasUnknownDevices))
+            {
+                DispatcherQueue.TryEnqueue(ApplyUnknownDevicesBrush);
+            }
+
+        }
+
+        private void ApplyUnknownDevicesBrush()
+        {
+            string resourceKey = ViewModel.HasUnknownDevices ? "SystemFillColorCautionBrush" : "TextFillColorSecondaryBrush";
+
+            if (Application.Current.Resources.TryGetValue(resourceKey, out object? resource) && resource is Brush brush)
+            {
+                UnknownDevicesLine.Foreground = brush;
+            }
+
         }
 
         private void OnStateChanged(object? sender, EventArgs args)
@@ -224,9 +324,11 @@ namespace NetworkMonitor
             {
                 _pointerDown = true;
                 _dragging = false;
+
+                // Window-relative, so it is the grab point on the widget rather than a screen point.
+                // That frame moves with the window, which is exactly what makes the delta below
+                // self-correcting once the window starts following the pointer.
                 _dragOrigin = args.GetCurrentPoint(null).Position;
-                _dragWindowOrigin = AppWindow.Position;
-                RootLayer.CapturePointer(args.Pointer);
             }
 
         }
@@ -244,11 +346,29 @@ namespace NetworkMonitor
                 // underneath instead of being eaten by a one-pixel drag.
                 if (_dragging || Math.Abs(deltaX) > DragThreshold || Math.Abs(deltaY) > DragThreshold)
                 {
-                    _dragging = true;
+
+                    // Capturing on press would route every later pointer event here and the child
+                    // sections would never complete their tap gestures, killing all four drill-ins.
+                    // Capture only once the press has actually become a drag.
+                    if (!_dragging)
+                    {
+                        _dragging = true;
+                        _pointerCaptured = RootLayer.CapturePointer(args.Pointer);
+                    }
+
+                    // Both origin and current are measured against the window, so the delta is how far
+                    // the grab point has slipped from under the pointer. Applying it to the *current*
+                    // window position drives that slip to zero: W' = W + (P - W/s - g) * s = (P - g) * s,
+                    // an absolute target that cannot accumulate. Applying it to the press-time position
+                    // instead would subtract the travel already made and oscillate in place.
+                    // GetCurrentPoint yields DIPs while AppWindow.Move takes physical pixels, hence the
+                    // rasterization scale — without it a drag runs at 1/2 speed on a 200% display.
+                    double scale = RootLayer.XamlRoot?.RasterizationScale ?? 1.0;
+                    PointInt32 position = AppWindow.Position;
 
                     AppWindow.Move(new PointInt32(
-                        _dragWindowOrigin.X + (int)Math.Round(deltaX),
-                        _dragWindowOrigin.Y + (int)Math.Round(deltaY)));
+                        position.X + (int)Math.Round(deltaX * scale),
+                        position.Y + (int)Math.Round(deltaY * scale)));
                 }
 
             }
@@ -259,13 +379,20 @@ namespace NetworkMonitor
         {
             _pointerDown = false;
             _dragging = false;
-            RootLayer.ReleasePointerCapture(args.Pointer);
+
+            if (_pointerCaptured)
+            {
+                _pointerCaptured = false;
+                RootLayer.ReleasePointerCapture(args.Pointer);
+            }
+
         }
 
         private void RootPointerCaptureLost(object sender, PointerRoutedEventArgs args)
         {
             _pointerDown = false;
             _dragging = false;
+            _pointerCaptured = false;
         }
 
         private void RootPointerEntered(object sender, PointerRoutedEventArgs args)

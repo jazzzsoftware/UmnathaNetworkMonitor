@@ -81,18 +81,6 @@ namespace NetworkMonitor.ViewModels
             private set => SetProperty(ref _hasUnknownDevices, value);
         }
 
-        public bool ShowInternet => _state.ShowInternet;
-
-        public bool ShowLocal => _state.ShowLocal;
-
-        public bool ShowSpeedTest => _state.ShowSpeedTest;
-
-        public bool ShowUnknownDevices => _state.ShowUnknownDevices;
-
-        public bool ShowFooter => _state.ShowSpeedTest || _state.ShowUnknownDevices;
-
-        public bool ShowEmptyHint => !_state.HasAnySection;
-
         public void Attach()
         {
 
@@ -123,16 +111,7 @@ namespace NetworkMonitor.ViewModels
 
         private void OnStateChanged(object? sender, EventArgs args)
         {
-            _dispatcherQueue.TryEnqueue(() =>
-            {
-                OnPropertyChanged(nameof(ShowInternet));
-                OnPropertyChanged(nameof(ShowLocal));
-                OnPropertyChanged(nameof(ShowSpeedTest));
-                OnPropertyChanged(nameof(ShowUnknownDevices));
-                OnPropertyChanged(nameof(ShowFooter));
-                OnPropertyChanged(nameof(ShowEmptyHint));
-                Refresh();
-            });
+            _dispatcherQueue.TryEnqueue(Refresh);
         }
 
         private void Refresh()

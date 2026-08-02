@@ -138,9 +138,13 @@ Window chrome:
 - Theme follows the app, as `MainWindow` does.
 
 The window is created lazily on first show and **hidden rather than closed** thereafter, so
-toggling it is instant and its Win2D surfaces aren't rebuilt each time. While hidden, chart
-updates are skipped — the cost drops to the ring-buffer writes alone. Lifetime is owned by
-`App.xaml.cs` next to the existing `MainWindow` handling.
+toggling it is instant and its Win2D surfaces aren't rebuilt each time. Hiding the window
+does not unload its XAML tree, so the charts keep their `CompositionTarget.Rendering` hook
+and would otherwise redraw forever; hiding therefore also clears `IsLive` on both sections
+and detaches the view model from the feed, which stops the per-frame redraws and leaves the
+ring-buffer writes as the only running cost. Lifetime is owned by `App.xaml.cs` next to the
+existing `MainWindow` handling. Alt+F4 can still destroy the window, so it reports its own
+`Closed` back to `App` and clears `MiniGraphState.IsVisible` so every toggle stays truthful.
 
 ### `NetworkMonitor/Views/Controls/MiniTrafficSection.xaml`
 

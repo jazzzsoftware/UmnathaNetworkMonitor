@@ -37,6 +37,7 @@ namespace NetworkMonitor
         private static EventWaitHandle? _activationEvent;
         private static IntPtr _mainWindowHwnd;
         private static MiniGraphWindow? _miniGraphWindow;
+        private static bool? _miniGraphVisible;
 
         [DllImport("shell32.dll", SetLastError = true)]
         private static extern int SetCurrentProcessExplicitAppUserModelID(
@@ -303,23 +304,33 @@ namespace NetworkMonitor
 
             try
             {
+                bool visible = state.IsVisible;
 
-                if (state.IsVisible)
+                // MiniGraphState raises one Changed event for all six of its setters, so most calls
+                // land here for a section or opacity edit. Showing on those would re-activate the
+                // widget and steal focus — the opacity slider alone would do it ten times per drag.
+                if (_miniGraphVisible != visible)
                 {
+                    _miniGraphVisible = visible;
 
-                    if (_miniGraphWindow is null)
+                    if (visible)
                     {
-                        _miniGraphWindow = new MiniGraphWindow(
-                            AppHost.Services.GetRequiredService<MiniGraphViewModel>(),
-                            state,
-                            AppHost.Services.GetRequiredService<Settings>());
+
+                        if (_miniGraphWindow is null)
+                        {
+                            _miniGraphWindow = new MiniGraphWindow(
+                                AppHost.Services.GetRequiredService<MiniGraphViewModel>(),
+                                state,
+                                AppHost.Services.GetRequiredService<Settings>());
+                        }
+
+                        _miniGraphWindow.ShowWidget();
+                    }
+                    else
+                    {
+                        _miniGraphWindow?.HideWidget();
                     }
 
-                    _miniGraphWindow.ShowWidget();
-                }
-                else
-                {
-                    _miniGraphWindow?.HideWidget();
                 }
 
             }
@@ -334,6 +345,15 @@ namespace NetworkMonitor
         {
             _miniGraphWindow?.CloseWidget();
             _miniGraphWindow = null;
+            _miniGraphVisible = null;
+        }
+
+        // The widget can be destroyed by Alt+F4 without anyone asking, so it tells the app to drop the
+        // dead reference rather than leaving the next show call to fail against it.
+        internal static void ForgetMiniGraph()
+        {
+            _miniGraphWindow = null;
+            _miniGraphVisible = false;
         }
 
         internal static void ShowMainWindow()
