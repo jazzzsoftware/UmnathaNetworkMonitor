@@ -32,6 +32,7 @@ namespace NetworkMonitor
         private readonly DispatcherTimer _toastTimer;
         private readonly DispatcherTimer _savePlacementTimer;
         private readonly TrayIconService _trayIcon;
+        private readonly MiniGraphState _miniGraphState;
         private readonly IntPtr _hwnd;
         private bool _exitRequested;
         private bool _placementRestored;
@@ -40,7 +41,7 @@ namespace NetworkMonitor
         private const int SwShowMinimized = 2;
         private const int SwShowMaximized = 3;
 
-        public MainWindow(ScanWorker scanWorker, Settings settings, IDbContextFactory<AppDbContext> dbFactory, InAppNotificationService notificationService, SpeedTestWorker speedTestWorker, UpdateViewModel updateViewModel)
+        public MainWindow(ScanWorker scanWorker, Settings settings, IDbContextFactory<AppDbContext> dbFactory, InAppNotificationService notificationService, SpeedTestWorker speedTestWorker, UpdateViewModel updateViewModel, MiniGraphState miniGraphState)
         {
             Current = this;
             _dispatcherQueue = DispatcherQueue.GetForCurrentThread();
@@ -49,6 +50,7 @@ namespace NetworkMonitor
             _notificationService = notificationService;
             _speedTestWorker = speedTestWorker;
             UpdateViewModel = updateViewModel;
+            _miniGraphState = miniGraphState;
             InitializeComponent();
 
             _toastTimer = new DispatcherTimer
@@ -81,7 +83,11 @@ namespace NetworkMonitor
             digestGenerator.ReportGenerated += OnDigestReportGenerated;
 
             _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-            _trayIcon = new TrayIconService(_hwnd, OnExitApp);
+            _trayIcon = new TrayIconService(
+                _hwnd,
+                OnExitApp,
+                () => _miniGraphState.IsVisible = !_miniGraphState.IsVisible,
+                () => _miniGraphState.IsVisible);
             AppWindow.Closing += OnAppWindowClosing;
         }
 

@@ -106,18 +106,24 @@ namespace NetworkMonitor.Services.Platform
         private const int SwShow = 5;
         private const uint MenuShow = 1;
         private const uint MenuExit = 2;
+        private const uint MenuMiniGraph = 3;
+        private const uint MfChecked = 0x0008;
 
         private readonly IntPtr _hwnd;
         private readonly Action _onExit;
+        private readonly Action _onToggleMiniGraph;
+        private readonly Func<bool> _isMiniGraphVisible;
         private readonly SubclassProcDelegate _subclassProc;
         private readonly IntPtr _hIcon;
         private readonly bool _ownsIcon;
         private bool _disposed;
 
-        public TrayIconService(IntPtr hwnd, Action onExit)
+        public TrayIconService(IntPtr hwnd, Action onExit, Action onToggleMiniGraph, Func<bool> isMiniGraphVisible)
         {
             _hwnd = hwnd;
             _onExit = onExit;
+            _onToggleMiniGraph = onToggleMiniGraph;
+            _isMiniGraphVisible = isMiniGraphVisible;
             _subclassProc = SubclassProc;
 
             string iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "app.ico");
@@ -214,6 +220,9 @@ namespace NetworkMonitor.Services.Platform
         {
             GetCursorPos(out POINT pt);
             IntPtr hMenu = CreatePopupMenu();
+            uint miniGraphFlags = _isMiniGraphVisible() ? MfString | MfChecked : MfString;
+
+            AppendMenu(hMenu, miniGraphFlags, MenuMiniGraph, "Mini graph");
             AppendMenu(hMenu, MfString, MenuShow, "Show Umnatha Network Monitor");
             AppendMenu(hMenu, MfString, MenuExit, "Exit");
             SetForegroundWindow(hWnd);
@@ -221,7 +230,11 @@ namespace NetworkMonitor.Services.Platform
                 hMenu, TpmReturnCmd | TpmRightButton, pt.x, pt.y, 0, hWnd, IntPtr.Zero);
             DestroyMenu(hMenu);
 
-            if (cmd == MenuShow)
+            if (cmd == MenuMiniGraph)
+            {
+                _onToggleMiniGraph();
+            }
+            else if (cmd == MenuShow)
             {
                 ShowFromTray(hWnd);
             }

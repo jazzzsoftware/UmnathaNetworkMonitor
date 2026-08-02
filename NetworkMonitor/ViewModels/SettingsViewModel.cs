@@ -19,14 +19,16 @@ namespace NetworkMonitor.ViewModels
         private readonly WindowsStartupService _startupService;
         private readonly InAppNotificationService _notificationService;
         private readonly DispatcherQueue _dispatcherQueue;
+        private readonly MiniGraphState _miniGraphState;
 
-        public SettingsViewModel(Settings settings, IDbContextFactory<AppDbContext> dbFactory, WindowsStartupService startupService, InAppNotificationService notificationService)
+        public SettingsViewModel(Settings settings, IDbContextFactory<AppDbContext> dbFactory, WindowsStartupService startupService, InAppNotificationService notificationService, MiniGraphState miniGraphState)
         {
             _dispatcherQueue = DispatcherQueue.GetForCurrentThread();
             _settings = settings;
             _dbFactory = dbFactory;
             _startupService = startupService;
             _notificationService = notificationService;
+            _miniGraphState = miniGraphState;
             _subnetBase = settings.SubnetBase;
             _autoDetectSubnet = settings.AutoDetectSubnet;
             _startHost = settings.StartHost;
@@ -48,6 +50,12 @@ namespace NetworkMonitor.ViewModels
             _speedTestEnabled = settings.SpeedTestEnabled;
             _rateUnitModeIndex = (int)settings.RateUnitMode;
             _autoCheckForUpdates = settings.AutoCheckForUpdates;
+            _showMiniGraph = miniGraphState.IsVisible;
+            _miniGraphShowInternet = miniGraphState.ShowInternet;
+            _miniGraphShowLocal = miniGraphState.ShowLocal;
+            _miniGraphShowSpeedTest = miniGraphState.ShowSpeedTest;
+            _miniGraphShowUnknownDevices = miniGraphState.ShowUnknownDevices;
+            _miniGraphOpacity = miniGraphState.Opacity;
 
             PropertyChanged += OnSettingChanged;
             _ = InitializeRunAtStartupAsync();
@@ -307,6 +315,102 @@ namespace NetworkMonitor.ViewModels
             set => SetProperty(ref _autoCheckForUpdates, value);
         }
 
+        private bool _showMiniGraph;
+
+        public bool ShowMiniGraph
+        {
+            get => _showMiniGraph;
+            set
+            {
+
+                if (SetProperty(ref _showMiniGraph, value))
+                {
+                    _miniGraphState.IsVisible = value;
+                }
+
+            }
+        }
+
+        private bool _miniGraphShowInternet;
+
+        public bool MiniGraphShowInternet
+        {
+            get => _miniGraphShowInternet;
+            set
+            {
+
+                if (SetProperty(ref _miniGraphShowInternet, value))
+                {
+                    _miniGraphState.ShowInternet = value;
+                }
+
+            }
+        }
+
+        private bool _miniGraphShowLocal;
+
+        public bool MiniGraphShowLocal
+        {
+            get => _miniGraphShowLocal;
+            set
+            {
+
+                if (SetProperty(ref _miniGraphShowLocal, value))
+                {
+                    _miniGraphState.ShowLocal = value;
+                }
+
+            }
+        }
+
+        private bool _miniGraphShowSpeedTest;
+
+        public bool MiniGraphShowSpeedTest
+        {
+            get => _miniGraphShowSpeedTest;
+            set
+            {
+
+                if (SetProperty(ref _miniGraphShowSpeedTest, value))
+                {
+                    _miniGraphState.ShowSpeedTest = value;
+                }
+
+            }
+        }
+
+        private bool _miniGraphShowUnknownDevices;
+
+        public bool MiniGraphShowUnknownDevices
+        {
+            get => _miniGraphShowUnknownDevices;
+            set
+            {
+
+                if (SetProperty(ref _miniGraphShowUnknownDevices, value))
+                {
+                    _miniGraphState.ShowUnknownDevices = value;
+                }
+
+            }
+        }
+
+        private double _miniGraphOpacity;
+
+        public double MiniGraphOpacity
+        {
+            get => _miniGraphOpacity;
+            set
+            {
+
+                if (SetProperty(ref _miniGraphOpacity, value))
+                {
+                    _miniGraphState.Opacity = (int)value;
+                }
+
+            }
+        }
+
         private void PersistAll()
         {
             _settings.SubnetBase = SubnetBase;
@@ -346,7 +450,13 @@ namespace NetworkMonitor.ViewModels
                 && args.PropertyName != nameof(PurgeStatus)
                 && args.PropertyName != nameof(TrafficPurgeStatus)
                 && args.PropertyName != nameof(RunAtStartup)
-                && args.PropertyName != nameof(SubnetBaseEditable);
+                && args.PropertyName != nameof(SubnetBaseEditable)
+                && args.PropertyName != nameof(ShowMiniGraph)
+                && args.PropertyName != nameof(MiniGraphShowInternet)
+                && args.PropertyName != nameof(MiniGraphShowLocal)
+                && args.PropertyName != nameof(MiniGraphShowSpeedTest)
+                && args.PropertyName != nameof(MiniGraphShowUnknownDevices)
+                && args.PropertyName != nameof(MiniGraphOpacity);
 
             if (isPersistable)
             {

@@ -9,26 +9,41 @@
     <Grid
         RowDefinitions="Auto,*">
 
-        <SelectorBar
+        <Grid
             Grid.Row="0"
-            x:Name="TabBar"
-            FontSize="13"
             Margin="24,12,24,0"
-            SelectionChanged="TabBarSelectionChanged">
+            ColumnDefinitions="*,Auto">
 
-            <SelectorBarItem
-                Tag="Internet"
-                Text="Internet" />
+            <SelectorBar
+                Grid.Column="0"
+                x:Name="TabBar"
+                FontSize="13"
+                SelectionChanged="TabBarSelectionChanged">
 
-            <SelectorBarItem
-                Tag="Local"
-                Text="Local" />
+                <SelectorBarItem
+                    Tag="Internet"
+                    Text="Internet" />
 
-            <SelectorBarItem
-                Tag="SpeedTest"
-                Text="Speed Test" />
+                <SelectorBarItem
+                    Tag="Local"
+                    Text="Local" />
 
-        </SelectorBar>
+                <SelectorBarItem
+                    Tag="SpeedTest"
+                    Text="Speed Test" />
+
+            </SelectorBar>
+
+            <ToggleButton
+                Grid.Column="1"
+                x:Name="MiniGraphToggle"
+                VerticalAlignment="Center"
+                Padding="10,4"
+                FontSize="12"
+                Content="Mini graph"
+                Click="MiniGraphToggleClick" />
+
+        </Grid>
 
         <Frame
             Grid.Row="1"

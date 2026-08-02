@@ -1,15 +1,21 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using NetworkMonitor.Services.Platform;
 
 namespace NetworkMonitor.Views
 {
     public sealed partial class TrafficHostPage : Page
     {
+        private readonly MiniGraphState _miniGraphState = App.AppHost.Services.GetRequiredService<MiniGraphState>();
+
         public TrafficHostPage()
         {
             InitializeComponent();
             InternetFrame.Navigate(typeof(InternetPage));
             TabBar.SelectedItem = TabBar.Items[0];
+            Loaded += OnPageLoaded;
+            Unloaded += OnPageUnloaded;
         }
 
         private void TabBarSelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
@@ -44,6 +50,30 @@ namespace NetworkMonitor.Views
                 SpeedTestFrame.Visibility = selectedTag == "SpeedTest" ? Visibility.Visible : Visibility.Collapsed;
             }
 
+        }
+
+        private void MiniGraphToggleClick(object sender, RoutedEventArgs args)
+        {
+            _miniGraphState.IsVisible = MiniGraphToggle.IsChecked == true;
+        }
+
+        private void OnMiniGraphStateChanged(object? sender, EventArgs args)
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                MiniGraphToggle.IsChecked = _miniGraphState.IsVisible;
+            });
+        }
+
+        private void OnPageLoaded(object sender, RoutedEventArgs args)
+        {
+            MiniGraphToggle.IsChecked = _miniGraphState.IsVisible;
+            _miniGraphState.Changed += OnMiniGraphStateChanged;
+        }
+
+        private void OnPageUnloaded(object sender, RoutedEventArgs args)
+        {
+            _miniGraphState.Changed -= OnMiniGraphStateChanged;
         }
     }
 }
