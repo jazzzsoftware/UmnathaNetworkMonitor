@@ -87,6 +87,13 @@ namespace NetworkMonitor.Views.Controls
                 typeof(TrafficAreaChart),
                 new PropertyMetadata(null, OnSelectedBucketStartChanged));
 
+        public static readonly DependencyProperty CompactProperty =
+            DependencyProperty.Register(
+                nameof(Compact),
+                typeof(bool),
+                typeof(TrafficAreaChart),
+                new PropertyMetadata(false, OnCompactChanged));
+
         public event EventHandler<ChartPoint>? BucketSelected;
 
         public TrafficAreaChart()
@@ -119,6 +126,12 @@ namespace NetworkMonitor.Views.Controls
         {
             get => (DateTime?)GetValue(SelectedBucketStartProperty);
             set => SetValue(SelectedBucketStartProperty, value);
+        }
+
+        public bool Compact
+        {
+            get => (bool)GetValue(CompactProperty);
+            set => SetValue(CompactProperty, value);
         }
 
         public void MarkLiveUpdate()
@@ -161,6 +174,23 @@ namespace NetworkMonitor.Views.Controls
             }
 
             chart.ChartCanvas.Invalidate();
+        }
+
+        private static void OnCompactChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
+        {
+            TrafficAreaChart chart = (TrafficAreaChart)sender;
+            bool compact = (bool)args.NewValue;
+            Visibility visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+
+            chart.AxisLabelPanel.Visibility = visibility;
+            chart.InputLayer.Visibility = visibility;
+
+            if (compact)
+            {
+                chart.CrosshairLine.Visibility = Visibility.Collapsed;
+                chart.HoverPanel.Visibility = Visibility.Collapsed;
+            }
+
         }
 
         private static double NowEpoch()
@@ -382,7 +412,10 @@ namespace NetworkMonitor.Views.Controls
                 DrawArea(sender, args.DrawingSession, _downloadPointBuffer, height, _downloadFill, DownloadStrokeColor);
                 DrawArea(sender, args.DrawingSession, _uploadPointBuffer, height, _uploadFill, UploadStrokeColor);
 
-                DrawAxisLabels(args.DrawingSession, width, height, _axisTextFormat);
+                if (!Compact)
+                {
+                    DrawAxisLabels(args.DrawingSession, width, height, _axisTextFormat);
+                }
 
                 if (_selectedBucketEpoch is double selectedEpoch)
                 {
