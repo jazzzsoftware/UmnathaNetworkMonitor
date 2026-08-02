@@ -19,14 +19,20 @@ namespace NetworkMonitor
         private const int MinimumWidth = 240;
         private const int MinimumHeight = 120;
         private const double DragThreshold = 4.0;
+        private static readonly TimeSpan HoverRiseDelay = TimeSpan.FromMilliseconds(150);
+        private static readonly TimeSpan HoverFallDelay = TimeSpan.FromMilliseconds(300);
+        private static readonly TimeSpan OpacityFadeDuration = TimeSpan.FromMilliseconds(120);
 
         private readonly MiniGraphState _state;
         private readonly Settings _settings;
         private readonly DispatcherTimer _savePlacementTimer;
+        private readonly DispatcherTimer _hoverRiseTimer;
+        private readonly DispatcherTimer _hoverFallTimer;
         private readonly IntPtr _hwnd;
         private bool _placementRestored;
         private bool _pointerDown;
         private bool _dragging;
+        private bool _pointerInside;
         private Point _dragOrigin;
         private PointInt32 _dragWindowOrigin;
 
@@ -42,6 +48,11 @@ namespace NetworkMonitor
                 Duration = TimeSpan.FromMilliseconds(120)
             };
 
+            RootLayer.OpacityTransition = new ScalarTransition
+            {
+                Duration = OpacityFadeDuration
+            };
+
             _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
 
             _savePlacementTimer = new DispatcherTimer
@@ -50,8 +61,21 @@ namespace NetworkMonitor
             };
             _savePlacementTimer.Tick += OnSavePlacementTimerTick;
 
+            _hoverRiseTimer = new DispatcherTimer
+            {
+                Interval = HoverRiseDelay
+            };
+            _hoverRiseTimer.Tick += OnHoverRiseTick;
+
+            _hoverFallTimer = new DispatcherTimer
+            {
+                Interval = HoverFallDelay
+            };
+            _hoverFallTimer.Tick += OnHoverFallTick;
+
             ConfigureWindow();
             ApplyLayout();
+            ApplyRestingOpacity();
             RestorePlacement();
 
             _state.Changed += OnStateChanged;
@@ -71,6 +95,8 @@ namespace NetworkMonitor
 
         public void HideWidget()
         {
+            _hoverRiseTimer.Stop();
+            _hoverFallTimer.Stop();
             ViewModel.Detach();
             AppWindow.Hide();
         }
@@ -78,6 +104,8 @@ namespace NetworkMonitor
         public void CloseWidget()
         {
             _savePlacementTimer.Stop();
+            _hoverRiseTimer.Stop();
+            _hoverFallTimer.Stop();
             _state.Changed -= OnStateChanged;
             AppWindow.Changed -= OnAppWindowChanged;
             ViewModel.Detach();
@@ -154,6 +182,7 @@ namespace NetworkMonitor
         private void OnStateChanged(object? sender, EventArgs args)
         {
             DispatcherQueue.TryEnqueue(ApplyLayout);
+            DispatcherQueue.TryEnqueue(ApplyRestingOpacity);
         }
 
         private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
@@ -241,12 +270,54 @@ namespace NetworkMonitor
 
         private void RootPointerEntered(object sender, PointerRoutedEventArgs args)
         {
+            _pointerInside = true;
             CloseGlyph.Opacity = 1.0;
+            _hoverFallTimer.Stop();
+
+            // A pointer merely clipping a corner while dragging across the screen should not
+            // make the widget flash to full opacity, so the rise waits for a real dwell.
+            if (RootLayer.Opacity < 1.0)
+            {
+                _hoverRiseTimer.Stop();
+                _hoverRiseTimer.Start();
+            }
+
         }
 
         private void RootPointerExited(object sender, PointerRoutedEventArgs args)
         {
+            _pointerInside = false;
             CloseGlyph.Opacity = 0.0;
+            _hoverRiseTimer.Stop();
+            _hoverFallTimer.Stop();
+            _hoverFallTimer.Start();
+        }
+
+        private void OnHoverRiseTick(object? sender, object args)
+        {
+            _hoverRiseTimer.Stop();
+
+            if (_pointerInside)
+            {
+                RootLayer.Opacity = 1.0;
+            }
+
+        }
+
+        private void OnHoverFallTick(object? sender, object args)
+        {
+            _hoverFallTimer.Stop();
+            ApplyRestingOpacity();
+        }
+
+        private void ApplyRestingOpacity()
+        {
+
+            if (!_pointerInside)
+            {
+                RootLayer.Opacity = _state.Opacity / 100.0;
+            }
+
         }
 
         private void InternetSectionDoubleTapped(object sender, DoubleTappedRoutedEventArgs args)
