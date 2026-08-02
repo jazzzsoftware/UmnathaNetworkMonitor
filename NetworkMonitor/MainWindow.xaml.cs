@@ -158,6 +158,54 @@ namespace NetworkMonitor
             host?.ShowDeviceHistory(mac);
         }
 
+        public void NavigateToTraffic(string tabTag)
+        {
+
+            foreach (object item in NavView.MenuItems)
+            {
+
+                if (item is NavigationViewItem navigationItem && navigationItem.Tag?.ToString() == "traffic")
+                {
+                    NavView.SelectedItem = navigationItem;
+
+                    break;
+                }
+
+            }
+
+            if (ContentFrame.Content is not TrafficHostPage)
+            {
+                ContentFrame.Navigate(typeof(TrafficHostPage));
+            }
+
+            TrafficHostPage? host = ContentFrame.Content as TrafficHostPage;
+            host?.SelectTab(tabTag);
+        }
+
+        public void NavigateToUnapprovedDevices()
+        {
+
+            foreach (object item in NavView.MenuItems)
+            {
+
+                if (item is NavigationViewItem navigationItem && navigationItem.Tag?.ToString() == "devices")
+                {
+                    NavView.SelectedItem = navigationItem;
+
+                    break;
+                }
+
+            }
+
+            if (ContentFrame.Content is not DevicesHostPage)
+            {
+                ContentFrame.Navigate(typeof(DevicesHostPage));
+            }
+
+            DevicesHostPage? host = ContentFrame.Content as DevicesHostPage;
+            host?.SelectTab("Unapproved");
+        }
+
         private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
         {
 

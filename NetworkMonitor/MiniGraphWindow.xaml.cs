@@ -322,18 +322,23 @@ namespace NetworkMonitor
 
         private void InternetSectionDoubleTapped(object sender, DoubleTappedRoutedEventArgs args)
         {
+            ShowMainWindow("Internet");
         }
 
         private void LocalSectionDoubleTapped(object sender, DoubleTappedRoutedEventArgs args)
         {
+            ShowMainWindow("Local");
         }
 
         private void SpeedLineDoubleTapped(object sender, DoubleTappedRoutedEventArgs args)
         {
+            ShowMainWindow("SpeedTest");
         }
 
         private void DevicesLineDoubleTapped(object sender, DoubleTappedRoutedEventArgs args)
         {
+            App.ShowMainWindow();
+            MainWindow.Current?.NavigateToUnapprovedDevices();
         }
 
         private void CloseGlyphClick(object sender, RoutedEventArgs args)
@@ -409,6 +414,13 @@ namespace NetworkMonitor
 
         private void ShowMainWindow(string? trafficTabTag)
         {
+            App.ShowMainWindow();
+
+            if (trafficTabTag is not null)
+            {
+                MainWindow.Current?.NavigateToTraffic(trafficTabTag);
+            }
+
         }
     }
 }

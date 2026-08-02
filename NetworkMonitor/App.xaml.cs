@@ -336,6 +336,17 @@ namespace NetworkMonitor
             _miniGraphWindow = null;
         }
 
+        internal static void ShowMainWindow()
+        {
+
+            if (_mainWindowHwnd != IntPtr.Zero)
+            {
+                ShowWindow(_mainWindowHwnd, SwRestore);
+                SetForegroundWindow(_mainWindowHwnd);
+            }
+
+        }
+
         [DllImport("user32.dll")]
         private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
