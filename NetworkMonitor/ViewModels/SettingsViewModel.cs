@@ -466,6 +466,23 @@ namespace NetworkMonitor.ViewModels
 
         }
 
+        public void SyncMiniGraphFromState()
+        {
+            _showMiniGraph = _miniGraphState.IsVisible;
+            _miniGraphShowInternet = _miniGraphState.ShowInternet;
+            _miniGraphShowLocal = _miniGraphState.ShowLocal;
+            _miniGraphShowSpeedTest = _miniGraphState.ShowSpeedTest;
+            _miniGraphShowUnknownDevices = _miniGraphState.ShowUnknownDevices;
+            _miniGraphOpacity = _miniGraphState.Opacity;
+
+            OnPropertyChanged(nameof(ShowMiniGraph));
+            OnPropertyChanged(nameof(MiniGraphShowInternet));
+            OnPropertyChanged(nameof(MiniGraphShowLocal));
+            OnPropertyChanged(nameof(MiniGraphShowSpeedTest));
+            OnPropertyChanged(nameof(MiniGraphShowUnknownDevices));
+            OnPropertyChanged(nameof(MiniGraphOpacity));
+        }
+
         public async Task<int> PurgeHistoryAsync()
         {
             await using AppDbContext db = await _dbFactory.CreateDbContextAsync();
