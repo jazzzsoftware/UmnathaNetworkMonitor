@@ -43,16 +43,38 @@ namespace NetworkMonitor.Services.Traffic
 
         public event EventHandler? Updated;
 
+        private SpeedTestResult? _latestSpeedTest;
+
         public SpeedTestResult? LatestSpeedTest
         {
-            get;
-            private set;
+            get
+            {
+                SpeedTestResult? latestSpeedTest;
+
+                lock (_gate)
+                {
+                    latestSpeedTest = _latestSpeedTest;
+                }
+
+                return latestSpeedTest;
+            }
         }
+
+        private int _unapprovedDeviceCount;
 
         public int UnapprovedDeviceCount
         {
-            get;
-            private set;
+            get
+            {
+                int unapprovedDeviceCount;
+
+                lock (_gate)
+                {
+                    unapprovedDeviceCount = _unapprovedDeviceCount;
+                }
+
+                return unapprovedDeviceCount;
+            }
         }
 
         public double WanDownloadBytesPerSecond => RateOf(_wanDownloadRate);
@@ -125,13 +147,20 @@ namespace NetworkMonitor.Services.Traffic
             {
                 await using AppDbContext db = await _dbFactory.CreateDbContextAsync(cancellationToken);
 
-                LatestSpeedTest = await db.SpeedTestResults
+                SpeedTestResult? latestSpeedTest = await db.SpeedTestResults
                     .AsNoTracking()
                     .Where(result => result.Success)
                     .OrderByDescending(result => result.Timestamp)
                     .FirstOrDefaultAsync(cancellationToken);
 
-                UnapprovedDeviceCount = await CountUnapprovedAsync(db, cancellationToken);
+                int unapprovedDeviceCount = await CountUnapprovedAsync(db, cancellationToken);
+
+                lock (_gate)
+                {
+                    _latestSpeedTest = latestSpeedTest;
+                    _unapprovedDeviceCount = unapprovedDeviceCount;
+                }
+
             }
             catch (Exception exception)
             {
@@ -204,7 +233,12 @@ namespace NetworkMonitor.Services.Traffic
 
                 if (args.Result.Success)
                 {
-                    LatestSpeedTest = args.Result;
+
+                    lock (_gate)
+                    {
+                        _latestSpeedTest = args.Result;
+                    }
+
                     Updated?.Invoke(this, EventArgs.Empty);
                 }
 
@@ -229,7 +263,11 @@ namespace NetworkMonitor.Services.Traffic
                 await using AppDbContext db = await _dbFactory.CreateDbContextAsync();
                 int count = await CountUnapprovedAsync(db, CancellationToken.None);
 
-                UnapprovedDeviceCount = count;
+                lock (_gate)
+                {
+                    _unapprovedDeviceCount = count;
+                }
+
                 Updated?.Invoke(this, EventArgs.Empty);
             }
             catch (Exception exception)
