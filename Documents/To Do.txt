@@ -177,14 +177,23 @@ Floating mini graph:
 Y - Hover give 100% opacity
 N - Click through?
 
+Github:
+Topics
+Post on Reddit
+Post on Hacker News, Product Hunt, Dev.to and Hashnode
+
+Jazzz Software logo and tag line.
 
 
 Smoke items 46-48 still need a release newer than 0.0.9 (update download / cancel mid-download / install + relaunch visible). Test these at the next installer build - see Documents/Code Review/2026-07-27/smoke-checklist.md
 
 
-
-
 Roadmap:
 Done - Auto update
-Floating mini graph
+Built, not yet run - Floating mini graph. On branch feature/floating-mini-graph, 20 commits, 294 tests.
+   Smoke test before merging: drag at 100% and 200% and across a scale boundary (watch for the widget running
+   ahead of the cursor then snapping back); opacity at 50% over a document - the Win2D CHART must fade with the
+   text, and if faded areas render black rather than showing wallpaper the fix is the WS_EX_LAYERED fallback;
+   the four double-click drill-ins; Alt+F4 then re-enable; the three toggles staying in sync.
+   Full checklist in .superpowers/sdd/2026-08-02-floating-mini-graph/progress.md
 Chart colour schemes
