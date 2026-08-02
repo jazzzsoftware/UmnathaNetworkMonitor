@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using NetworkMonitor.Services.Data;
 using NetworkMonitor.Services.Platform;
@@ -35,6 +36,11 @@ namespace NetworkMonitor
             _state = state;
             _settings = settings;
             InitializeComponent();
+
+            CloseGlyph.OpacityTransition = new ScalarTransition
+            {
+                Duration = TimeSpan.FromMilliseconds(120)
+            };
 
             _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
 
@@ -235,10 +241,12 @@ namespace NetworkMonitor
 
         private void RootPointerEntered(object sender, PointerRoutedEventArgs args)
         {
+            CloseGlyph.Opacity = 1.0;
         }
 
         private void RootPointerExited(object sender, PointerRoutedEventArgs args)
         {
+            CloseGlyph.Opacity = 0.0;
         }
 
         private void InternetSectionDoubleTapped(object sender, DoubleTappedRoutedEventArgs args)
@@ -260,6 +268,76 @@ namespace NetworkMonitor
         private void CloseGlyphClick(object sender, RoutedEventArgs args)
         {
             _state.IsVisible = false;
+        }
+
+        private void RootRightTapped(object sender, RightTappedRoutedEventArgs args)
+        {
+            WidgetMenu.Items.Clear();
+            WidgetMenu.Items.Add(BuildSectionItem("Internet", _state.ShowInternet, value => _state.ShowInternet = value));
+            WidgetMenu.Items.Add(BuildSectionItem("Local", _state.ShowLocal, value => _state.ShowLocal = value));
+            WidgetMenu.Items.Add(BuildSectionItem("Speed test", _state.ShowSpeedTest, value => _state.ShowSpeedTest = value));
+            WidgetMenu.Items.Add(BuildSectionItem("Unknown devices", _state.ShowUnknownDevices, value => _state.ShowUnknownDevices = value));
+            WidgetMenu.Items.Add(BuildOpacitySubmenu());
+            WidgetMenu.Items.Add(new MenuFlyoutSeparator());
+
+            MenuFlyoutItem openItem = new MenuFlyoutItem
+            {
+                Text = "Open Network Monitor"
+            };
+            openItem.Click += (itemSender, itemArgs) => ShowMainWindow(null);
+            WidgetMenu.Items.Add(openItem);
+
+            MenuFlyoutItem closeItem = new MenuFlyoutItem
+            {
+                Text = "Close"
+            };
+            closeItem.Click += (itemSender, itemArgs) => _state.IsVisible = false;
+            WidgetMenu.Items.Add(closeItem);
+
+            WidgetMenu.ShowAt(RootLayer, args.GetPosition(RootLayer));
+        }
+
+        private ToggleMenuFlyoutItem BuildSectionItem(string text, bool isChecked, Action<bool> assign)
+        {
+            ToggleMenuFlyoutItem item = new ToggleMenuFlyoutItem
+            {
+                Text = text,
+                IsChecked = isChecked
+            };
+
+            item.Click += (sender, args) => assign(item.IsChecked);
+
+            return item;
+        }
+
+        private MenuFlyoutSubItem BuildOpacitySubmenu()
+        {
+            MenuFlyoutSubItem submenu = new MenuFlyoutSubItem
+            {
+                Text = "Opacity"
+            };
+
+            int[] levels = { 50, 60, 70, 80, 90, 100 };
+            int current = _state.Opacity;
+
+            foreach (int level in levels)
+            {
+                RadioMenuFlyoutItem item = new RadioMenuFlyoutItem
+                {
+                    Text = $"{level}%",
+                    GroupName = "MiniGraphOpacity",
+                    IsChecked = level == current
+                };
+
+                item.Click += (sender, args) => _state.Opacity = level;
+                submenu.Items.Add(item);
+            }
+
+            return submenu;
+        }
+
+        private void ShowMainWindow(string? trafficTabTag)
+        {
         }
     }
 }

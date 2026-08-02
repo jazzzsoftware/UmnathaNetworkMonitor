@@ -14,7 +14,15 @@
         PointerReleased="RootPointerReleased"
         PointerCaptureLost="RootPointerCaptureLost"
         PointerEntered="RootPointerEntered"
-        PointerExited="RootPointerExited">
+        PointerExited="RootPointerExited"
+        RightTapped="RootRightTapped">
+
+        <FlyoutBase.AttachedFlyout>
+
+            <MenuFlyout
+                x:Name="WidgetMenu" />
+
+        </FlyoutBase.AttachedFlyout>
 
         <Grid
             x:Name="SectionsPanel"
