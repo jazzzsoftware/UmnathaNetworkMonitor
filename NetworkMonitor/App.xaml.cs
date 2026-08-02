@@ -96,6 +96,7 @@ namespace NetworkMonitor
                         }
 
                         services.AddSingleton(scannerSettings);
+                        services.AddSingleton<MiniGraphState>();
                         services.AddSingleton<OuiDatabase>();
                         services.AddSingleton<MdnsProbe>();
                         services.AddSingleton<WindowsStartupService>();
