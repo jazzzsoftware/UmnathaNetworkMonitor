@@ -21,6 +21,11 @@ namespace NetworkMonitor.Core.Common
             {
                 ObserveInBackground(operationTask);
 
+                // The delay runs on the linked token, so the caller cancelling completes it just as
+                // surely as the timeout elapsing. Without this, shutting the app down mid-operation was
+                // reported as "timed out after 180 seconds" a tenth of a second after it started.
+                cancellationToken.ThrowIfCancellationRequested();
+
                 throw new TimeoutException($"Operation did not complete within {timeout.TotalSeconds:0} seconds and was abandoned.");
             }
 

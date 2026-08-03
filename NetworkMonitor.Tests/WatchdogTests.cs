@@ -48,6 +48,23 @@ namespace NetworkMonitor.Tests
             neverReleased.TrySetResult();
         }
 
+        // Shutting the app down mid-operation used to surface as a TimeoutException, which had the
+        // speed test worker logging "timed out after 180 seconds" a tenth of a second into the run.
+        [Fact(Timeout = 5000)]
+        public async Task RunAsyncReportsCallerCancellationAsCancellationRatherThanTimeout()
+        {
+            using CancellationTokenSource cancellation = new CancellationTokenSource();
+
+            Task run = Watchdog.RunAsync(
+                token => Task.Delay(Timeout.Infinite, token),
+                TimeSpan.FromMinutes(5),
+                cancellation.Token);
+
+            cancellation.Cancel();
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run);
+        }
+
         [Fact(Timeout = 5000)]
         public async Task RunAsyncSurfacesOperationFailure()
         {

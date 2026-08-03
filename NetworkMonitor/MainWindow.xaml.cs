@@ -1,4 +1,3 @@
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.UI.Dispatching;
@@ -26,7 +25,6 @@ namespace NetworkMonitor
     {
         private readonly DispatcherQueue _dispatcherQueue;
         private readonly Settings _settings;
-        private readonly IDbContextFactory<AppDbContext> _dbFactory;
         private readonly InAppNotificationService _notificationService;
         private readonly SpeedTestWorker _speedTestWorker;
         private readonly DispatcherTimer _toastTimer;
@@ -41,12 +39,11 @@ namespace NetworkMonitor
         private const int SwShowMinimized = 2;
         private const int SwShowMaximized = 3;
 
-        public MainWindow(ScanWorker scanWorker, Settings settings, IDbContextFactory<AppDbContext> dbFactory, InAppNotificationService notificationService, SpeedTestWorker speedTestWorker, UpdateViewModel updateViewModel, MiniGraphState miniGraphState)
+        public MainWindow(ScanWorker scanWorker, Settings settings, InAppNotificationService notificationService, SpeedTestWorker speedTestWorker, UpdateViewModel updateViewModel, MiniGraphState miniGraphState)
         {
             Current = this;
             _dispatcherQueue = DispatcherQueue.GetForCurrentThread();
             _settings = settings;
-            _dbFactory = dbFactory;
             _notificationService = notificationService;
             _speedTestWorker = speedTestWorker;
             UpdateViewModel = updateViewModel;
@@ -287,21 +284,6 @@ namespace NetworkMonitor
             public RECT NormalPosition;
         }
 
-        private void CheckpointDatabase()
-        {
-
-            try
-            {
-                using AppDbContext db = _dbFactory.CreateDbContext();
-                db.Database.ExecuteSqlRaw("PRAGMA wal_checkpoint(TRUNCATE)");
-            }
-            catch (Exception exception)
-            {
-                AppLog.Error("MainWindow.CheckpointDatabase", exception);
-            }
-
-        }
-
         internal void ShutdownForUpdate()
         {
 
@@ -320,7 +302,10 @@ namespace NetworkMonitor
             SaveWindowPlacement();
             App.CloseMiniGraph();
             StopHost();
-            CheckpointDatabase();
+
+            // After StopHost, so the background services' final writes are inside the checkpoint.
+            DatabaseCheckpoint.Truncate();
+
             _trayIcon.Dispose();
         }
 

@@ -92,6 +92,26 @@ namespace NetworkMonitor.Services.SpeedTest
                     Success = true
                 };
             }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+
+                // The app is shutting down or the caller gave up. There is nothing to record and
+                // nothing has gone wrong, so this leaves as a cancellation rather than a failed result.
+                throw;
+            }
+            catch (OperationCanceledException)
+            {
+
+                // Our own 120-second budget, not the caller's.
+                AppLog.Info("Speed test did not finish within 120 seconds; it will retry on the next cycle.");
+
+                result = new SpeedTestResult
+                {
+                    Timestamp = DateTime.UtcNow,
+                    Success = false,
+                    Error = "Timed out"
+                };
+            }
             catch (HttpRequestException)
             {
                 AppLog.Info("Speed test skipped: no internet connection.");
