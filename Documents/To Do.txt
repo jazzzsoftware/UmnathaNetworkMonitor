@@ -171,9 +171,7 @@ Done - Blurry report images in digest page
 Done - Laptop chart scale problem
 Done - Rate numbers for Lan not correct
 Done - Test for ex when do manual update for new ver stoppedin logs. Should just be a msg.
-
-
-Floating mini graph.
+Done - Floating mini graph.
 
 Github:
 Topics
@@ -188,13 +186,15 @@ Smoke items 46-48 still need a release newer than 0.0.9 (update download / cance
 
 Roadmap:
 Done - Auto update
-Smoke test nearly done - Floating mini graph. Merged to master 2026-08-03, branch deleted, 292 tests.
-   Passed so far: opacity showing the desktop through the widget (WS_EX_LAYERED + alpha), hover fade,
-   rounded corners, Exit from the tray closing the whole app, all four double-click drill-ins, the Local
-   chart now agreeing with the Local tab, and the charts still rendering under the layered window.
-   Live traffic figures cross-checked against Get-NetAdapterStatistics during an IDrive NAS backup:
-   LAN 9.7 GB in vs WAN 8.8 GB out over the same five minutes, NIC 258 Mb/s up against the app's 248.
-   Still to check: drag at 100% and 200% and across a scale boundary (watch for the widget running ahead
-   of the cursor then snapping back); Alt+F4 then re-enable; the three toggles staying in sync.
+Smoke test started - Floating mini graph. On branch feature/floating-mini-graph, 295 tests.
+   First run found six defects, all now fixed and awaiting a second run: section labels were upper-cased;
+   the Local chart counted discovery chatter the Local tab folds out, so the two charts disagreed; the rate
+   figures blanked below half a megabit and so never appeared for LAN traffic; opacity faded the XAML root
+   only, which dimmed the widget instead of showing the window underneath (now WS_EX_LAYERED + alpha);
+   square corners rather than the Win 11 rounding (now DWMWA_WINDOW_CORNER_PREFERENCE); and Exit from the
+   tray closed the main window while leaving the widget on screen (now a hard exit once shutdown completes).
+   Still to check on the second run: drag at 100% and 200% and across a scale boundary (watch for the widget
+   running ahead of the cursor then snapping back); the four double-click drill-ins; Alt+F4 then re-enable;
+   the three toggles staying in sync; and that the layered window did not cost the charts their rendering.
    Full checklist in .superpowers/sdd/2026-08-02-floating-mini-graph/progress.md
 Chart colour schemes
