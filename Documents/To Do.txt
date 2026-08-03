@@ -173,9 +173,7 @@ Done - Rate numbers for Lan not correct
 Done - Test for ex when do manual update for new ver stoppedin logs. Should just be a msg.
 
 
-Floating mini graph:
-Y - Hover give 100% opacity
-N - Click through?
+Floating mini graph.
 
 Github:
 Topics
@@ -190,10 +188,15 @@ Smoke items 46-48 still need a release newer than 0.0.9 (update download / cance
 
 Roadmap:
 Done - Auto update
-Built, not yet run - Floating mini graph. On branch feature/floating-mini-graph, 20 commits, 294 tests.
-   Smoke test before merging: drag at 100% and 200% and across a scale boundary (watch for the widget running
-   ahead of the cursor then snapping back); opacity at 50% over a document - the Win2D CHART must fade with the
-   text, and if faded areas render black rather than showing wallpaper the fix is the WS_EX_LAYERED fallback;
-   the four double-click drill-ins; Alt+F4 then re-enable; the three toggles staying in sync.
+Smoke test started - Floating mini graph. On branch feature/floating-mini-graph, 295 tests.
+   First run found six defects, all now fixed and awaiting a second run: section labels were upper-cased;
+   the Local chart counted discovery chatter the Local tab folds out, so the two charts disagreed; the rate
+   figures blanked below half a megabit and so never appeared for LAN traffic; opacity faded the XAML root
+   only, which dimmed the widget instead of showing the window underneath (now WS_EX_LAYERED + alpha);
+   square corners rather than the Win 11 rounding (now DWMWA_WINDOW_CORNER_PREFERENCE); and Exit from the
+   tray closed the main window while leaving the widget on screen (now a hard exit once shutdown completes).
+   Still to check on the second run: drag at 100% and 200% and across a scale boundary (watch for the widget
+   running ahead of the cursor then snapping back); the four double-click drill-ins; Alt+F4 then re-enable;
+   the three toggles staying in sync; and that the layered window did not cost the charts their rendering.
    Full checklist in .superpowers/sdd/2026-08-02-floating-mini-graph/progress.md
 Chart colour schemes

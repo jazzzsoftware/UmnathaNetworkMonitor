@@ -41,22 +41,6 @@ namespace NetworkMonitor.ViewModels
             private set => SetProperty(ref _localPoints, value);
         }
 
-        private string _internetRateText = "—";
-
-        public string InternetRateText
-        {
-            get => _internetRateText;
-            private set => SetProperty(ref _internetRateText, value);
-        }
-
-        private string _localRateText = "—";
-
-        public string LocalRateText
-        {
-            get => _localRateText;
-            private set => SetProperty(ref _localRateText, value);
-        }
-
         private string _speedTestText = "No speed test yet";
 
         public string SpeedTestText
@@ -121,13 +105,11 @@ namespace NetworkMonitor.ViewModels
             if (_state.ShowInternet)
             {
                 InternetPoints = _feed.WanSnapshot();
-                InternetRateText = MiniGraphFormatter.Rate(_feed.WanDownloadBytesPerSecond, _feed.WanUploadBytesPerSecond, mode);
             }
 
             if (_state.ShowLocal)
             {
                 LocalPoints = _feed.LanSnapshot();
-                LocalRateText = MiniGraphFormatter.Rate(_feed.LanDownloadBytesPerSecond, _feed.LanUploadBytesPerSecond, mode);
             }
 
             SpeedTestText = MiniGraphFormatter.SpeedTest(_feed.LatestSpeedTest, mode);

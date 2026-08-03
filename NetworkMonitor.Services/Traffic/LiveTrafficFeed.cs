@@ -25,7 +25,6 @@ namespace NetworkMonitor.Services.Traffic
         IDbContextFactory<AppDbContext> dbFactory) : IHostedService
     {
         private const int WindowSeconds = 300;
-        private const int RateSampleCount = 5;
 
         private readonly TrafficTracker _tracker = tracker;
         private readonly SpeedTestWorker _speedTestWorker = speedTestWorker;
@@ -34,10 +33,6 @@ namespace NetworkMonitor.Services.Traffic
         private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
         private readonly LiveRateBuffer _wanBuffer = new LiveRateBuffer(WindowSeconds);
         private readonly LiveRateBuffer _lanBuffer = new LiveRateBuffer(WindowSeconds);
-        private readonly RateWindow _wanDownloadRate = new RateWindow();
-        private readonly RateWindow _wanUploadRate = new RateWindow();
-        private readonly RateWindow _lanDownloadRate = new RateWindow();
-        private readonly RateWindow _lanUploadRate = new RateWindow();
         private readonly object _gate = new object();
         private DateTime _lastFlushUtc = DateTime.MinValue;
 
@@ -76,14 +71,6 @@ namespace NetworkMonitor.Services.Traffic
                 return unapprovedDeviceCount;
             }
         }
-
-        public double WanDownloadBytesPerSecond => RateOf(_wanDownloadRate);
-
-        public double WanUploadBytesPerSecond => RateOf(_wanUploadRate);
-
-        public double LanDownloadBytesPerSecond => RateOf(_lanDownloadRate);
-
-        public double LanUploadBytesPerSecond => RateOf(_lanUploadRate);
 
         public async Task StartAsync(CancellationToken cancellationToken)
         {
@@ -196,6 +183,18 @@ namespace NetworkMonitor.Services.Traffic
 
                 foreach (LocalTrafficDelta delta in args.LocalDeltas)
                 {
+
+                    // The Local tab's chart excludes discovery traffic (NOT DiscoverySqlPredicate) and
+                    // so must this one. mDNS, SSDP, NetBIOS and DHCP tick over on every device on the
+                    // segment, so counting them here drew a dense sawtooth in the widget beside a
+                    // near-flat line on the tab — the same two minutes of the same network.
+                    FlowClassification classification = LocalFlowClassifier.Classify(delta.Protocol, delta.RemotePort);
+
+                    if (classification.Category != FlowCategory.Data)
+                    {
+                        continue;
+                    }
+
                     lanDownload += delta.BytesDownloaded;
                     lanUpload += delta.BytesUploaded;
                 }
@@ -210,10 +209,6 @@ namespace NetworkMonitor.Services.Traffic
                 {
                     _wanBuffer.AddInterval(intervalStartUtc, nowUtc, wanDownload, wanUpload);
                     _lanBuffer.AddInterval(intervalStartUtc, nowUtc, lanDownload, lanUpload);
-                    _wanDownloadRate.Add(wanDownload, RateSampleCount);
-                    _wanUploadRate.Add(wanUpload, RateSampleCount);
-                    _lanDownloadRate.Add(lanDownload, RateSampleCount);
-                    _lanUploadRate.Add(lanUpload, RateSampleCount);
                 }
 
                 Updated?.Invoke(this, EventArgs.Empty);
@@ -277,22 +272,5 @@ namespace NetworkMonitor.Services.Traffic
 
         }
 
-        private double RateOf(RateWindow window)
-        {
-            double intervalSeconds = Math.Max(1.0, _settings.TrafficIntervalSeconds);
-            double rate = 0.0;
-
-            lock (_gate)
-            {
-
-                if (window.Count > 0)
-                {
-                    rate = window.Average / intervalSeconds;
-                }
-
-            }
-
-            return rate;
-        }
     }
 }

@@ -33,6 +33,16 @@ namespace NetworkMonitor.Tests
             Assert.Equal(expected, result);
         }
 
+        // The mini graph has room for one unit per line, so Both has to resolve to something. Bits wins
+        // because that is what line speeds are quoted in; an explicit choice is left alone.
+        [Fact]
+        public void SingleUnitResolvesBothToBitsAndLeavesAnExplicitChoiceAlone()
+        {
+            Assert.Equal(RateUnitMode.Bits, TrafficRateFormatter.SingleUnit(RateUnitMode.Both));
+            Assert.Equal(RateUnitMode.Bits, TrafficRateFormatter.SingleUnit(RateUnitMode.Bits));
+            Assert.Equal(RateUnitMode.Bytes, TrafficRateFormatter.SingleUnit(RateUnitMode.Bytes));
+        }
+
         [Fact]
         public void CompositeShowsBothUnitsByDefault()
         {

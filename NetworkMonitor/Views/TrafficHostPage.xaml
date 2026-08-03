@@ -11,7 +11,7 @@
 
         <Grid
             Grid.Row="0"
-            Margin="24,12,24,0"
+            Margin="24,12,16,0"
             ColumnDefinitions="*,Auto">
 
             <SelectorBar

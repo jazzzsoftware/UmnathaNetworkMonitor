@@ -335,6 +335,11 @@ namespace NetworkMonitor
                     ShutdownGracefully();
                 }
 
+                // The widget is a second top-level window and its close is queued, not immediate, so
+                // closing this one is not enough to end the process: Exit from the tray left the mini
+                // graph on screen driven by a host that had already been stopped. Everything that has
+                // to survive — placement, settings, the WAL checkpoint — is written above.
+                Environment.Exit(0);
             }
             else
             {
@@ -360,13 +365,24 @@ namespace NetworkMonitor
 
         }
 
+        // Exit from the tray used to close this window and hope the process followed. It did not: the
+        // widget is a second top-level window, its Close is queued rather than immediate, and whatever
+        // it was that kept it alive left it on screen being fed by a host that had already stopped.
+        // Shutting down here and ending the process outright removes the guesswork — nothing in the
+        // exit path now depends on another window's close message being processed.
         private void OnExitApp()
         {
             AppLog.Info("Application stopping.");
 
             _exitRequested = true;
             UpdateViewModel.CancelPendingWork();
-            Close();
+
+            if (!_shutdownCompleted)
+            {
+                ShutdownGracefully();
+            }
+
+            Environment.Exit(0);
         }
 
         private void NavViewLoaded(object sender, RoutedEventArgs args)

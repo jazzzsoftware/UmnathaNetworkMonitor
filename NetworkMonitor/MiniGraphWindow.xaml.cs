@@ -18,18 +18,33 @@ namespace NetworkMonitor
     {
         private const int GwlExStyle = -20;
         private const long WsExToolWindow = 0x00000080;
+        private const long WsExLayered = 0x00080000;
+        private const uint LwaAlpha = 0x00000002;
+        private const int DwmwaWindowCornerPreference = 33;
+        private const int DwmwcpRound = 2;
         private const int MinimumWidth = 240;
         private const int MinimumHeight = 120;
+        private const double ReferenceWidth = 320.0;
+        private const double ReferenceHeight = 220.0;
+        // The sizes chosen in Settings are the sizes at the widget's minimum, so nothing shrinks below
+        // them: scaling only ever grows the text from there. Letting the scale fall under one made a
+        // small widget — or a large one carrying all four sections — illegible.
+        private const double MinimumFontScale = 1.0;
+        private const double MaximumFontScale = 2.0;
+        private const double FooterFontSize = 11.0;
         private const double DragThreshold = 4.0;
         private static readonly TimeSpan HoverRiseDelay = TimeSpan.FromMilliseconds(150);
         private static readonly TimeSpan HoverFallDelay = TimeSpan.FromMilliseconds(300);
         private static readonly TimeSpan OpacityFadeDuration = TimeSpan.FromMilliseconds(120);
+        private static readonly TimeSpan AlphaStepInterval = TimeSpan.FromMilliseconds(16);
+        private const int AlphaStepPercent = 5;
 
         private readonly MiniGraphState _state;
         private readonly Settings _settings;
         private readonly DispatcherTimer _savePlacementTimer;
         private readonly DispatcherTimer _hoverRiseTimer;
         private readonly DispatcherTimer _hoverFallTimer;
+        private readonly DispatcherTimer _alphaFadeTimer;
         private readonly IntPtr _hwnd;
         private bool _placementRestored;
         private bool _pointerDown;
@@ -37,6 +52,8 @@ namespace NetworkMonitor
         private bool _pointerCaptured;
         private bool _pointerInside;
         private bool _teardownStarted;
+        private int _alphaPercent = 100;
+        private int _targetAlphaPercent = 100;
         private Point _dragOrigin;
 
         public MiniGraphWindow(MiniGraphViewModel viewModel, MiniGraphState state, Settings settings)
@@ -47,11 +64,6 @@ namespace NetworkMonitor
             InitializeComponent();
 
             CloseGlyph.OpacityTransition = new ScalarTransition
-            {
-                Duration = OpacityFadeDuration
-            };
-
-            RootLayer.OpacityTransition = new ScalarTransition
             {
                 Duration = OpacityFadeDuration
             };
@@ -76,10 +88,24 @@ namespace NetworkMonitor
             };
             _hoverFallTimer.Tick += OnHoverFallTick;
 
+            // A layered window's alpha is a single Win32 call with no animation behind it, so the
+            // fade the XAML OpacityTransition used to give for free has to be stepped by hand.
+            _alphaFadeTimer = new DispatcherTimer
+            {
+                Interval = AlphaStepInterval
+            };
+            _alphaFadeTimer.Tick += OnAlphaFadeTick;
+
             ConfigureWindow();
             ApplyLayout();
-            ApplyRestingOpacity();
+
+            // Snap rather than fade on the way in: the widget should appear at its resting opacity,
+            // not brighten into it.
+            _targetAlphaPercent = _state.Opacity;
+
+            SetWindowAlpha(_state.Opacity);
             ApplyUnknownDevicesBrush();
+            ApplySpeedTestText();
             RestorePlacement();
 
             _state.Changed += OnStateChanged;
@@ -106,6 +132,7 @@ namespace NetworkMonitor
             _savePlacementTimer.Stop();
             _hoverRiseTimer.Stop();
             _hoverFallTimer.Stop();
+            _alphaFadeTimer.Stop();
             ViewModel.Detach();
 
             // AppWindow.Hide leaves the XAML tree loaded, so the charts keep their per-frame
@@ -125,6 +152,13 @@ namespace NetworkMonitor
 
         [DllImport("user32.dll", SetLastError = true)]
         private static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool SetLayeredWindowAttributes(IntPtr hWnd, uint crKey, byte bAlpha, uint dwFlags);
+
+        [DllImport("dwmapi.dll")]
+        private static extern int DwmSetWindowAttribute(IntPtr hWnd, int attribute, ref int value, int size);
 
         private void OnWindowClosed(object sender, WindowEventArgs args)
         {
@@ -159,6 +193,7 @@ namespace NetworkMonitor
             _savePlacementTimer.Stop();
             _hoverRiseTimer.Stop();
             _hoverFallTimer.Stop();
+            _alphaFadeTimer.Stop();
             _state.Changed -= OnStateChanged;
             ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
             ViewModel.Detach();
@@ -190,6 +225,21 @@ namespace NetworkMonitor
             LocalSection.IsLive = isLive;
         }
 
+        // Every size the widget can be dragged to is a legitimate one, and text fixed at 12 point looks
+        // cramped at 600 wide and swamps the charts at 240. The reference size is the default placement.
+        private void SectionsPanelSizeChanged(object sender, SizeChangedEventArgs args)
+        {
+            double widthScale = args.NewSize.Width / ReferenceWidth;
+            double heightScale = args.NewSize.Height / ReferenceHeight;
+            double scale = Math.Clamp(Math.Min(widthScale, heightScale), MinimumFontScale, MaximumFontScale);
+
+            InternetSection.FontScale = scale;
+            LocalSection.FontScale = scale;
+            SpeedTestLine.FontSize = FooterFontSize * scale;
+            UnknownDevicesLine.FontSize = FooterFontSize * scale;
+            CloseGlyph.FontSize = FooterFontSize * scale;
+        }
+
         private void ConfigureWindow()
         {
             AppWindow.IsShownInSwitchers = false;
@@ -204,10 +254,19 @@ namespace NetworkMonitor
                 presenter.IsMinimizable = false;
             }
 
+            // WS_EX_LAYERED is what makes the opacity setting mean anything. Fading the XAML root
+            // instead only blends the content towards the window's own opaque surface, which is why
+            // 50% looked like a dimmed widget rather than a see-through one — there was nothing
+            // behind the content to show. With the style set, DWM composites the whole window,
+            // charts included, against whatever is underneath it.
             long exStyle = GetWindowLongPtr(_hwnd, GwlExStyle).ToInt64();
-            exStyle |= WsExToolWindow;
+            exStyle |= WsExToolWindow | WsExLayered;
 
             SetWindowLongPtr(_hwnd, GwlExStyle, new IntPtr(exStyle));
+
+            int cornerPreference = DwmwcpRound;
+
+            DwmSetWindowAttribute(_hwnd, DwmwaWindowCornerPreference, ref cornerPreference, sizeof(int));
         }
 
         private void RestorePlacement()
@@ -240,9 +299,8 @@ namespace NetworkMonitor
         {
             InternetSection.Visibility = _state.ShowInternet ? Visibility.Visible : Visibility.Collapsed;
             LocalSection.Visibility = _state.ShowLocal ? Visibility.Visible : Visibility.Collapsed;
-            SpeedTestLine.Visibility = _state.ShowSpeedTest ? Visibility.Visible : Visibility.Collapsed;
-            UnknownDevicesLine.Visibility = _state.ShowUnknownDevices ? Visibility.Visible : Visibility.Collapsed;
-            FooterPanel.Visibility = _state.ShowSpeedTest || _state.ShowUnknownDevices ? Visibility.Visible : Visibility.Collapsed;
+            SpeedTestBand.Visibility = _state.ShowSpeedTest ? Visibility.Visible : Visibility.Collapsed;
+            UnknownDevicesBand.Visibility = _state.ShowUnknownDevices ? Visibility.Visible : Visibility.Collapsed;
             EmptyHint.Visibility = _state.HasAnySection ? Visibility.Collapsed : Visibility.Visible;
 
             GridLength fill = new GridLength(1, GridUnitType.Star);
@@ -266,6 +324,19 @@ namespace NetworkMonitor
                 DispatcherQueue.TryEnqueue(ApplyUnknownDevicesBrush);
             }
 
+            // The label half of this line is a bold Run and the readings are a second Run, so the text
+            // is assigned here rather than bound: a Run is not a FrameworkElement and carries no
+            // binding of its own.
+            if (args.PropertyName is null || args.PropertyName == nameof(MiniGraphViewModel.SpeedTestText))
+            {
+                DispatcherQueue.TryEnqueue(ApplySpeedTestText);
+            }
+
+        }
+
+        private void ApplySpeedTestText()
+        {
+            SpeedTestDetail.Text = ViewModel.SpeedTestText;
         }
 
         private void ApplyUnknownDevicesBrush()
@@ -403,7 +474,7 @@ namespace NetworkMonitor
 
             // A pointer merely clipping a corner while dragging across the screen should not
             // make the widget flash to full opacity, so the rise waits for a real dwell.
-            if (RootLayer.Opacity < 1.0)
+            if (_alphaPercent < 100)
             {
                 _hoverRiseTimer.Stop();
                 _hoverRiseTimer.Start();
@@ -426,7 +497,7 @@ namespace NetworkMonitor
 
             if (_pointerInside)
             {
-                RootLayer.Opacity = 1.0;
+                FadeAlphaTo(100);
             }
 
         }
@@ -442,9 +513,49 @@ namespace NetworkMonitor
 
             if (!_pointerInside)
             {
-                RootLayer.Opacity = _state.Opacity / 100.0;
+                FadeAlphaTo(_state.Opacity);
             }
 
+        }
+
+        private void FadeAlphaTo(int percent)
+        {
+            _targetAlphaPercent = Math.Clamp(percent, 10, 100);
+
+            if (_targetAlphaPercent == _alphaPercent)
+            {
+                _alphaFadeTimer.Stop();
+            }
+            else
+            {
+                _alphaFadeTimer.Start();
+            }
+
+        }
+
+        private void OnAlphaFadeTick(object? sender, object args)
+        {
+            int distance = _targetAlphaPercent - _alphaPercent;
+
+            if (Math.Abs(distance) <= AlphaStepPercent)
+            {
+                _alphaFadeTimer.Stop();
+                SetWindowAlpha(_targetAlphaPercent);
+            }
+            else
+            {
+                SetWindowAlpha(_alphaPercent + Math.Sign(distance) * AlphaStepPercent);
+            }
+
+        }
+
+        private void SetWindowAlpha(int percent)
+        {
+            byte alpha = (byte)Math.Round(percent * 255.0 / 100.0);
+
+            _alphaPercent = percent;
+
+            SetLayeredWindowAttributes(_hwnd, 0, alpha, LwaAlpha);
         }
 
         private void InternetSectionDoubleTapped(object sender, DoubleTappedRoutedEventArgs args)
@@ -502,10 +613,16 @@ namespace NetworkMonitor
 
         private ToggleMenuFlyoutItem BuildSectionItem(string text, bool isChecked, Action<bool> assign)
         {
+
+            // The state refuses to hide the last section. Greying it out here says so before the click
+            // instead of leaving a tick that silently springs back.
+            bool isLastRemaining = isChecked && _state.VisibleSectionCount <= 1;
+
             ToggleMenuFlyoutItem item = new ToggleMenuFlyoutItem
             {
                 Text = text,
-                IsChecked = isChecked
+                IsChecked = isChecked,
+                IsEnabled = !isLastRemaining
             };
 
             item.Click += (sender, args) => assign(item.IsChecked);

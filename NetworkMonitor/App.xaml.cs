@@ -343,7 +343,18 @@ namespace NetworkMonitor
 
         internal static void CloseMiniGraph()
         {
-            _miniGraphWindow?.CloseWidget();
+
+            try
+            {
+                _miniGraphWindow?.CloseWidget();
+            }
+            catch (Exception exception)
+            {
+                // Shutdown must not stall on the widget. Before this, a fault here left the main
+                // window closing with the host still running and the tray icon still in place.
+                AppLog.Error("App.CloseMiniGraph", exception);
+            }
+
             _miniGraphWindow = null;
             _miniGraphVisible = null;
         }

@@ -22,25 +22,55 @@ namespace NetworkMonitor.Services.Platform
         public bool ShowInternet
         {
             get => _settings.MiniGraphShowInternet;
-            set => Apply(_settings.MiniGraphShowInternet != value, () => _settings.MiniGraphShowInternet = value);
+            set => ApplySection(_settings.MiniGraphShowInternet, value, () => _settings.MiniGraphShowInternet = value);
         }
 
         public bool ShowLocal
         {
             get => _settings.MiniGraphShowLocal;
-            set => Apply(_settings.MiniGraphShowLocal != value, () => _settings.MiniGraphShowLocal = value);
+            set => ApplySection(_settings.MiniGraphShowLocal, value, () => _settings.MiniGraphShowLocal = value);
         }
 
         public bool ShowSpeedTest
         {
             get => _settings.MiniGraphShowSpeedTest;
-            set => Apply(_settings.MiniGraphShowSpeedTest != value, () => _settings.MiniGraphShowSpeedTest = value);
+            set => ApplySection(_settings.MiniGraphShowSpeedTest, value, () => _settings.MiniGraphShowSpeedTest = value);
         }
 
         public bool ShowUnknownDevices
         {
             get => _settings.MiniGraphShowUnknownDevices;
-            set => Apply(_settings.MiniGraphShowUnknownDevices != value, () => _settings.MiniGraphShowUnknownDevices = value);
+            set => ApplySection(_settings.MiniGraphShowUnknownDevices, value, () => _settings.MiniGraphShowUnknownDevices = value);
+        }
+
+        public int VisibleSectionCount
+        {
+            get
+            {
+                int count = 0;
+
+                if (ShowInternet)
+                {
+                    count++;
+                }
+
+                if (ShowLocal)
+                {
+                    count++;
+                }
+
+                if (ShowSpeedTest)
+                {
+                    count++;
+                }
+
+                if (ShowUnknownDevices)
+                {
+                    count++;
+                }
+
+                return count;
+            }
         }
 
         public int Opacity
@@ -63,6 +93,17 @@ namespace NetworkMonitor.Services.Platform
             _settings.MiniGraphWidth = width;
             _settings.MiniGraphHeight = height;
             _settings.Save();
+        }
+
+        // The last section cannot be turned off. An empty widget is a bare rectangle floating on the
+        // desktop with nothing in it to say what it is, and the only way back is a right-click menu the
+        // user has no reason to look for. This sits in the state rather than in the menus so the tray,
+        // the widget's own menu and the Settings checkboxes all obey the same rule.
+        private void ApplySection(bool current, bool value, Action assign)
+        {
+            bool wouldEmptyTheWidget = !value && VisibleSectionCount <= 1;
+
+            Apply(current != value && !wouldEmptyTheWidget, assign);
         }
 
         private void Apply(bool changed, Action assign)

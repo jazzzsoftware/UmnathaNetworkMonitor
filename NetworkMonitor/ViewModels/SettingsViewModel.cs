@@ -342,6 +342,10 @@ namespace NetworkMonitor.ViewModels
                 if (SetProperty(ref _miniGraphShowInternet, value))
                 {
                     _miniGraphState.ShowInternet = value;
+
+                    // The state refuses to turn off the last remaining section, and a refusal is silent.
+                    // Without this the checkbox would sit unchecked against a widget still showing it.
+                    SyncMiniGraphFromState();
                 }
 
             }
@@ -358,6 +362,7 @@ namespace NetworkMonitor.ViewModels
                 if (SetProperty(ref _miniGraphShowLocal, value))
                 {
                     _miniGraphState.ShowLocal = value;
+                    SyncMiniGraphFromState();
                 }
 
             }
@@ -374,6 +379,7 @@ namespace NetworkMonitor.ViewModels
                 if (SetProperty(ref _miniGraphShowSpeedTest, value))
                 {
                     _miniGraphState.ShowSpeedTest = value;
+                    SyncMiniGraphFromState();
                 }
 
             }
@@ -390,6 +396,7 @@ namespace NetworkMonitor.ViewModels
                 if (SetProperty(ref _miniGraphShowUnknownDevices, value))
                 {
                     _miniGraphState.ShowUnknownDevices = value;
+                    SyncMiniGraphFromState();
                 }
 
             }
@@ -410,6 +417,7 @@ namespace NetworkMonitor.ViewModels
 
             }
         }
+
 
         private void PersistAll()
         {

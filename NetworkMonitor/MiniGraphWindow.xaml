@@ -26,15 +26,17 @@
 
         <Grid
             x:Name="SectionsPanel"
-            RowDefinitions="*,*,Auto">
+            RowDefinitions="*,*,Auto,Auto"
+            Padding="4,4,4,0"
+            SizeChanged="SectionsPanelSizeChanged">
 
             <controls:MiniTrafficSection
                 x:Name="InternetSection"
                 Grid.Row="0"
                 Label="Internet"
                 MinHeight="40"
+                Margin="0,0,0,4"
                 DoubleTapped="InternetSectionDoubleTapped"
-                RateText="{x:Bind ViewModel.InternetRateText, Mode=OneWay}"
                 Points="{x:Bind ViewModel.InternetPoints, Mode=OneWay}" />
 
             <controls:MiniTrafficSection
@@ -42,24 +44,45 @@
                 Grid.Row="1"
                 Label="Local"
                 MinHeight="40"
+                Margin="0,0,0,4"
                 DoubleTapped="LocalSectionDoubleTapped"
-                RateText="{x:Bind ViewModel.LocalRateText, Mode=OneWay}"
                 Points="{x:Bind ViewModel.LocalPoints, Mode=OneWay}" />
 
-            <StackPanel
-                x:Name="FooterPanel"
+            <Border
+                x:Name="SpeedTestBand"
                 Grid.Row="2"
-                Padding="8,5,8,6"
-                Spacing="2"
-                Background="{ThemeResource LayerFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
-                BorderThickness="0,1,0,0">
+                Margin="0,0,0,4"
+                Padding="8,5,8,5"
+                CornerRadius="4"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1">
 
                 <TextBlock
                     x:Name="SpeedTestLine"
                     FontSize="11"
-                    DoubleTapped="SpeedLineDoubleTapped"
-                    Text="{x:Bind ViewModel.SpeedTestText, Mode=OneWay}" />
+                    DoubleTapped="SpeedLineDoubleTapped">
+
+                    <Run
+                        FontWeight="Bold"
+                        Text="Speed Test" />
+
+                    <Run
+                        x:Name="SpeedTestDetail" />
+
+                </TextBlock>
+
+            </Border>
+
+            <Border
+                x:Name="UnknownDevicesBand"
+                Grid.Row="3"
+                Margin="0,0,0,4"
+                Padding="8,5,8,5"
+                CornerRadius="4"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1">
 
                 <TextBlock
                     x:Name="UnknownDevicesLine"
@@ -67,7 +90,7 @@
                     DoubleTapped="DevicesLineDoubleTapped"
                     Text="{x:Bind ViewModel.UnknownDevicesText, Mode=OneWay}" />
 
-            </StackPanel>
+            </Border>
 
         </Grid>
 
