@@ -185,6 +185,66 @@ namespace NetworkMonitor.Services.Data
             set;
         } = true;
 
+        public bool ShowMiniGraph
+        {
+            get;
+            set;
+        } = false;
+
+        public bool MiniGraphShowInternet
+        {
+            get;
+            set;
+        } = true;
+
+        public bool MiniGraphShowLocal
+        {
+            get;
+            set;
+        } = true;
+
+        public bool MiniGraphShowSpeedTest
+        {
+            get;
+            set;
+        } = true;
+
+        public bool MiniGraphShowUnknownDevices
+        {
+            get;
+            set;
+        } = true;
+
+        public int MiniGraphX
+        {
+            get;
+            set;
+        } = int.MinValue;
+
+        public int MiniGraphY
+        {
+            get;
+            set;
+        } = int.MinValue;
+
+        public int MiniGraphWidth
+        {
+            get;
+            set;
+        } = 320;
+
+        public int MiniGraphHeight
+        {
+            get;
+            set;
+        } = 230;
+
+        public int MiniGraphOpacity
+        {
+            get;
+            set;
+        } = 100;
+
         public void Save()
         {
             string json = JsonSerializer.Serialize(this, new JsonSerializerOptions

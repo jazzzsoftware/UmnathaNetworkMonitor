@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<Window
+    x:Class="NetworkMonitor.MiniGraphWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:NetworkMonitor.Views.Controls">
+
+    <Grid
+        x:Name="RootLayer"
+        Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+        PointerPressed="RootPointerPressed"
+        PointerMoved="RootPointerMoved"
+        PointerReleased="RootPointerReleased"
+        PointerCaptureLost="RootPointerCaptureLost"
+        PointerEntered="RootPointerEntered"
+        PointerExited="RootPointerExited"
+        RightTapped="RootRightTapped">
+
+        <FlyoutBase.AttachedFlyout>
+
+            <MenuFlyout
+                x:Name="WidgetMenu" />
+
+        </FlyoutBase.AttachedFlyout>
+
+        <Grid
+            x:Name="SectionsPanel"
+            RowDefinitions="*,*,Auto,Auto"
+            Padding="4,4,4,0"
+            SizeChanged="SectionsPanelSizeChanged">
+
+            <controls:MiniTrafficSection
+                x:Name="InternetSection"
+                Grid.Row="0"
+                Label="Internet"
+                MinHeight="40"
+                Margin="0,0,0,4"
+                DoubleTapped="InternetSectionDoubleTapped"
+                Points="{x:Bind ViewModel.InternetPoints, Mode=OneWay}" />
+
+            <controls:MiniTrafficSection
+                x:Name="LocalSection"
+                Grid.Row="1"
+                Label="Local"
+                MinHeight="40"
+                Margin="0,0,0,4"
+                DoubleTapped="LocalSectionDoubleTapped"
+                Points="{x:Bind ViewModel.LocalPoints, Mode=OneWay}" />
+
+            <Border
+                x:Name="SpeedTestBand"
+                Grid.Row="2"
+                Margin="0,0,0,4"
+                Padding="8,5,8,5"
+                CornerRadius="4"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1">
+
+                <TextBlock
+                    x:Name="SpeedTestLine"
+                    FontSize="11"
+                    DoubleTapped="SpeedLineDoubleTapped">
+
+                    <Run
+                        FontWeight="Bold"
+                        Text="Speed Test" />
+
+                    <Run
+                        x:Name="SpeedTestDetail" />
+
+                </TextBlock>
+
+            </Border>
+
+            <Border
+                x:Name="UnknownDevicesBand"
+                Grid.Row="3"
+                Margin="0,0,0,4"
+                Padding="8,5,8,5"
+                CornerRadius="4"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1">
+
+                <TextBlock
+                    x:Name="UnknownDevicesLine"
+                    FontSize="11"
+                    DoubleTapped="DevicesLineDoubleTapped"
+                    Text="{x:Bind ViewModel.UnknownDevicesText, Mode=OneWay}" />
+
+            </Border>
+
+        </Grid>
+
+        <TextBlock
+            x:Name="EmptyHint"
+            FontSize="12"
+            Opacity="0.7"
+            TextWrapping="Wrap"
+            TextAlignment="Center"
+            Margin="16"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Visibility="Collapsed"
+            Text="Right-click to choose what to show" />
+
+        <Button
+            x:Name="CloseGlyph"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            Margin="0,2,2,0"
+            Padding="6,2"
+            FontSize="11"
+            Background="Transparent"
+            BorderThickness="0"
+            Opacity="0"
+            Content="&#x2715;"
+            Click="CloseGlyphClick" />
+
+    </Grid>
+
+</Window>

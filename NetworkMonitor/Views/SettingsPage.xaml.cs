@@ -13,6 +13,8 @@ namespace NetworkMonitor.Views
 {
     public sealed partial class SettingsPage : Page
     {
+        private readonly MiniGraphState _miniGraphState = App.AppHost.Services.GetRequiredService<MiniGraphState>();
+
         public SettingsPage()
         {
             ViewModel = App.AppHost.Services.GetRequiredService<SettingsViewModel>();
@@ -23,6 +25,8 @@ namespace NetworkMonitor.Views
             ReleaseNotesVersion.Text = $"Version {AppInfo.GetVersion()}";
             AboutLogo.Source = new BitmapImage(
                 new Uri(Path.Combine(AppContext.BaseDirectory, "Assets", "splash-logo.png")));
+            Loaded += OnPageLoaded;
+            Unloaded += OnPageUnloaded;
         }
 
         public SettingsViewModel ViewModel
@@ -146,6 +150,25 @@ namespace NetworkMonitor.Views
                 AppLog.Error("SettingsPage.OpenDataFolder", exception);
             }
 
+        }
+
+        private void OnMiniGraphStateChanged(object? sender, EventArgs args)
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                ViewModel.SyncMiniGraphFromState();
+            });
+        }
+
+        private void OnPageLoaded(object sender, RoutedEventArgs args)
+        {
+            ViewModel.SyncMiniGraphFromState();
+            _miniGraphState.Changed += OnMiniGraphStateChanged;
+        }
+
+        private void OnPageUnloaded(object sender, RoutedEventArgs args)
+        {
+            _miniGraphState.Changed -= OnMiniGraphStateChanged;
         }
     }
 }

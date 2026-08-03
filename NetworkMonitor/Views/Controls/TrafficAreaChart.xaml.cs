@@ -50,6 +50,9 @@ namespace NetworkMonitor.Views.Controls
         private CanvasLinearGradientBrush? _downloadFill;
         private CanvasLinearGradientBrush? _uploadFill;
         private CanvasTextFormat? _axisTextFormat;
+        private CanvasTextFormat? _compactTextFormat;
+        private CanvasTextFormat? _compactCenterTextFormat;
+        private CanvasTextFormat? _compactRightTextFormat;
         private Vector2[]? _downloadPointBuffer;
         private Vector2[]? _uploadPointBuffer;
         private long _labelTargetMax = -1;
@@ -87,6 +90,41 @@ namespace NetworkMonitor.Views.Controls
                 typeof(TrafficAreaChart),
                 new PropertyMetadata(null, OnSelectedBucketStartChanged));
 
+        public static readonly DependencyProperty CompactProperty =
+            DependencyProperty.Register(
+                nameof(Compact),
+                typeof(bool),
+                typeof(TrafficAreaChart),
+                new PropertyMetadata(false, OnCompactChanged));
+
+        public static readonly DependencyProperty CompactFontSizeProperty =
+            DependencyProperty.Register(
+                nameof(CompactFontSize),
+                typeof(double),
+                typeof(TrafficAreaChart),
+                new PropertyMetadata(10.0, OnCompactFontSizeChanged));
+
+        public static readonly DependencyProperty ShowCompactLabelsProperty =
+            DependencyProperty.Register(
+                nameof(ShowCompactLabels),
+                typeof(bool),
+                typeof(TrafficAreaChart),
+                new PropertyMetadata(true, OnShowCompactLabelsChanged));
+
+        public static readonly DependencyProperty CompactTopInsetProperty =
+            DependencyProperty.Register(
+                nameof(CompactTopInset),
+                typeof(double),
+                typeof(TrafficAreaChart),
+                new PropertyMetadata(0.0));
+
+        public static readonly DependencyProperty PeakTextProperty =
+            DependencyProperty.Register(
+                nameof(PeakText),
+                typeof(string),
+                typeof(TrafficAreaChart),
+                new PropertyMetadata(string.Empty));
+
         public event EventHandler<ChartPoint>? BucketSelected;
 
         public TrafficAreaChart()
@@ -119,6 +157,44 @@ namespace NetworkMonitor.Views.Controls
         {
             get => (DateTime?)GetValue(SelectedBucketStartProperty);
             set => SetValue(SelectedBucketStartProperty, value);
+        }
+
+        public bool Compact
+        {
+            get => (bool)GetValue(CompactProperty);
+            set => SetValue(CompactProperty, value);
+        }
+
+        public double CompactFontSize
+        {
+            get => (double)GetValue(CompactFontSizeProperty);
+            set => SetValue(CompactFontSizeProperty, value);
+        }
+
+        // Set false when the section is too small to carry text at a legible size. The gridlines stay —
+        // they still say where half and full scale are — but the values and the time row are dropped
+        // rather than drawn at a size nobody can read.
+        public bool ShowCompactLabels
+        {
+            get => (bool)GetValue(ShowCompactLabelsProperty);
+            set => SetValue(ShowCompactLabelsProperty, value);
+        }
+
+        // How far down the compact labels must start to clear whatever the host draws over the top of
+        // the chart. The mini graph puts its section header there, and the top gridline sits at a tenth
+        // of the height — on a short section that is squarely behind the header.
+        public double CompactTopInset
+        {
+            get => (double)GetValue(CompactTopInsetProperty);
+            set => SetValue(CompactTopInsetProperty, value);
+        }
+
+        // The window's peak over the drawn range, already formatted for the current unit setting. The
+        // mini graph shows it in place of the live rate, which moved too fast to read.
+        public string PeakText
+        {
+            get => (string)GetValue(PeakTextProperty);
+            private set => SetValue(PeakTextProperty, value);
         }
 
         public void MarkLiveUpdate()
@@ -161,6 +237,46 @@ namespace NetworkMonitor.Views.Controls
             }
 
             chart.ChartCanvas.Invalidate();
+        }
+
+        private static void OnShowCompactLabelsChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
+        {
+            TrafficAreaChart chart = (TrafficAreaChart)sender;
+
+            chart.ChartCanvas.Invalidate();
+        }
+
+        private static void OnCompactFontSizeChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
+        {
+            TrafficAreaChart chart = (TrafficAreaChart)sender;
+
+            // Rebuilt on the next draw at the new size. A text format is a DirectWrite object rather
+            // than a device resource, so it does not have to wait for CreateResources.
+            chart._compactTextFormat?.Dispose();
+            chart._compactTextFormat = null;
+            chart._compactCenterTextFormat?.Dispose();
+            chart._compactCenterTextFormat = null;
+            chart._compactRightTextFormat?.Dispose();
+            chart._compactRightTextFormat = null;
+
+            chart.ChartCanvas.Invalidate();
+        }
+
+        private static void OnCompactChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
+        {
+            TrafficAreaChart chart = (TrafficAreaChart)sender;
+            bool compact = (bool)args.NewValue;
+            Visibility visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+
+            chart.AxisLabelPanel.Visibility = visibility;
+            chart.InputLayer.Visibility = visibility;
+
+            if (compact)
+            {
+                chart.CrosshairLine.Visibility = Visibility.Collapsed;
+                chart.HoverPanel.Visibility = Visibility.Collapsed;
+            }
+
         }
 
         private static double NowEpoch()
@@ -312,6 +428,12 @@ namespace NetworkMonitor.Views.Controls
             _uploadFill = null;
             _axisTextFormat?.Dispose();
             _axisTextFormat = null;
+            _compactTextFormat?.Dispose();
+            _compactTextFormat = null;
+            _compactCenterTextFormat?.Dispose();
+            _compactCenterTextFormat = null;
+            _compactRightTextFormat?.Dispose();
+            _compactRightTextFormat = null;
 
             ChartCanvas.RemoveFromVisualTree();
         }
@@ -336,6 +458,7 @@ namespace NetworkMonitor.Views.Controls
             {
                 FontSize = 12f
             };
+
         }
 
         private void ChartCanvasDraw(CanvasControl sender, CanvasDrawEventArgs args)
@@ -366,23 +489,54 @@ namespace NetworkMonitor.Views.Controls
                 }
 
                 double safeMax = Math.Max(_displayMax, 1.0);
-                double usableHeight = height * 0.9;
+
+                // Compact mode gives the header its own strip at the top and the time row its own at the
+                // bottom, and the plot lives between them. Insetting the plot rather than the labels is
+                // what keeps a gridline and its value on the same line.
+                double plotTop = Compact ? Math.Min(CompactTopInset, height * 0.5) : 0.0;
+                double bottomInset = ShowCompactLabels ? CompactFontSize + 4.0 : 0.0;
+                double plotBottom = Compact ? Math.Max(plotTop + 1.0, height - bottomInset) : height;
+                double usableHeight = (plotBottom - plotTop) * 0.9;
                 bool scrolling = _isLive && _smoothScrolling;
                 double nowEpoch = _frozen ? _frozenNowEpoch : NowEpoch();
                 (double leftEdge, double span) = Window(_count, _bucketSeconds, _timeEpoch[0], _timeEpoch[_count - 1], scrolling, nowEpoch);
 
-                _downloadFill.StartPoint = new Vector2(0f, 0f);
-                _downloadFill.EndPoint = new Vector2(0f, (float)height);
-                _uploadFill.StartPoint = new Vector2(0f, 0f);
-                _uploadFill.EndPoint = new Vector2(0f, (float)height);
+                _downloadFill.StartPoint = new Vector2(0f, (float)plotTop);
+                _downloadFill.EndPoint = new Vector2(0f, (float)plotBottom);
+                _uploadFill.StartPoint = new Vector2(0f, (float)plotTop);
+                _uploadFill.EndPoint = new Vector2(0f, (float)plotBottom);
 
-                _downloadPointBuffer = BuildPoints(_downloadPointBuffer, _timeEpoch, _displayedDownload, _count, leftEdge, span, width, height, usableHeight, safeMax, scrolling, nowEpoch);
-                _uploadPointBuffer = BuildPoints(_uploadPointBuffer, _timeEpoch, _displayedUpload, _count, leftEdge, span, width, height, usableHeight, safeMax, scrolling, nowEpoch);
+                _downloadPointBuffer = BuildPoints(_downloadPointBuffer, _timeEpoch, _displayedDownload, _count, leftEdge, span, width, plotBottom, usableHeight, safeMax, scrolling, nowEpoch);
+                _uploadPointBuffer = BuildPoints(_uploadPointBuffer, _timeEpoch, _displayedUpload, _count, leftEdge, span, width, plotBottom, usableHeight, safeMax, scrolling, nowEpoch);
 
-                DrawArea(sender, args.DrawingSession, _downloadPointBuffer, height, _downloadFill, DownloadStrokeColor);
-                DrawArea(sender, args.DrawingSession, _uploadPointBuffer, height, _uploadFill, UploadStrokeColor);
+                DrawArea(sender, args.DrawingSession, _downloadPointBuffer, plotBottom, _downloadFill, DownloadStrokeColor);
+                DrawArea(sender, args.DrawingSession, _uploadPointBuffer, plotBottom, _uploadFill, UploadStrokeColor);
 
-                DrawAxisLabels(args.DrawingSession, width, height, _axisTextFormat);
+                if (Compact)
+                {
+                    _compactTextFormat ??= new CanvasTextFormat
+                    {
+                        FontSize = (float)CompactFontSize
+                    };
+
+                    _compactCenterTextFormat ??= new CanvasTextFormat
+                    {
+                        FontSize = (float)CompactFontSize,
+                        HorizontalAlignment = CanvasHorizontalAlignment.Center
+                    };
+
+                    _compactRightTextFormat ??= new CanvasTextFormat
+                    {
+                        FontSize = (float)CompactFontSize,
+                        HorizontalAlignment = CanvasHorizontalAlignment.Right
+                    };
+
+                    DrawCompactAxis(args.DrawingSession, width, plotBottom, usableHeight, leftEdge, span);
+                }
+                else
+                {
+                    DrawAxisLabels(args.DrawingSession, width, height, _axisTextFormat);
+                }
 
                 if (_selectedBucketEpoch is double selectedEpoch)
                 {
@@ -404,14 +558,85 @@ namespace NetworkMonitor.Views.Controls
 
         }
 
-        private void DrawAxisLabels(CanvasDrawingSession session, double width, double height, CanvasTextFormat format)
+        // The mini graph has no room for a full axis, but a chart with no units at all cannot be read —
+        // a spike could be a kilobit or a gigabit. It gets the same two gridlines as the full chart,
+        // each labelled with its value, and honours the unit setting the same way.
+        private void DrawCompactAxis(
+            CanvasDrawingSession session, double width, double plotBottom, double usableHeight, double leftEdge, double span)
         {
-            double usableHeight = height * 0.9;
-            Color baseColor = ((SolidColorBrush)Application.Current.Resources["TextFillColorPrimaryBrush"]).Color;
-            Color axisColor = Color.FromArgb(0x8C, baseColor.R, baseColor.G, baseColor.B);
-            Color spineColor = Color.FromArgb(0x55, baseColor.R, baseColor.G, baseColor.B);
-            Color gridColor = Color.FromArgb(0x22, baseColor.R, baseColor.G, baseColor.B);
+            EnsureScaleLabels();
 
+            Color baseColor = ((SolidColorBrush)Application.Current.Resources["TextFillColorPrimaryBrush"]).Color;
+            Color labelColor = Color.FromArgb(0x99, baseColor.R, baseColor.G, baseColor.B);
+            Color gridColor = Color.FromArgb(0x22, baseColor.R, baseColor.G, baseColor.B);
+            float topLine = (float)(plotBottom - usableHeight);
+            float midLine = (float)(plotBottom - usableHeight / 2.0);
+            float lineHeight = (float)CompactFontSize + 2f;
+
+            session.DrawLine(0f, topLine, (float)width, topLine, gridColor, 1f);
+            session.DrawLine(0f, midLine, (float)width, midLine, gridColor, 1f);
+
+            if (ShowCompactLabels)
+            {
+                RateUnitMode mode = TrafficRateFormatter.SingleUnit(TrafficRateFormatter.Mode);
+                bool showBits = mode != RateUnitMode.Bytes;
+                bool showBytes = mode != RateUnitMode.Bits;
+
+                if (showBits)
+                {
+                    session.DrawText(_labelTopBits, 6f, topLine + 1f, labelColor, _compactTextFormat);
+                    session.DrawText(_labelMidBits, 6f, midLine + 1f, labelColor, _compactTextFormat);
+                }
+
+                if (showBytes)
+                {
+                    float bytesOffset = showBits ? lineHeight : 0f;
+
+                    session.DrawText(_labelTopBytes, 6f, topLine + 1f + bytesOffset, labelColor, _compactTextFormat);
+                    session.DrawText(_labelMidBytes, 6f, midLine + 1f + bytesOffset, labelColor, _compactTextFormat);
+                }
+
+                DrawCompactTimeRow(session, width, plotBottom, leftEdge, span, labelColor);
+            }
+        }
+
+        // The same row of ticks the full chart carries, thinned to what the width can hold: the oldest
+        // time on the left, "now" on the right, and evenly spaced times between them. A chart that says
+        // how much but never over how long is only half a chart.
+        private void DrawCompactTimeRow(
+            CanvasDrawingSession session, double width, double plotBottom, double leftEdge, double span, Color labelColor)
+        {
+            int ticks = (int)Math.Clamp(Math.Floor(width / 80.0), 2.0, 5.0);
+            float timeRow = (float)(plotBottom + 2.0);
+            double rowHeight = CompactFontSize + 3.0;
+
+            for (int index = 0; index < ticks; index++)
+            {
+                double fraction = (double)index / (ticks - 1);
+                DateTime tickTime = DateTime.UnixEpoch.AddSeconds(leftEdge + span * fraction).ToLocalTime();
+                string text = index == ticks - 1 ? "now" : tickTime.ToString("HH:mm");
+
+                if (index == 0)
+                {
+                    session.DrawText(text, 6f, timeRow, labelColor, _compactTextFormat);
+                }
+                else if (index == ticks - 1)
+                {
+                    session.DrawText(text, new Rect(0, timeRow, width - 6.0, rowHeight), labelColor, _compactRightTextFormat);
+                }
+                else
+                {
+                    double centre = width * fraction;
+
+                    session.DrawText(text, new Rect(centre - 40.0, timeRow, 80.0, rowHeight), labelColor, _compactCenterTextFormat);
+                }
+
+            }
+
+        }
+
+        private void EnsureScaleLabels()
+        {
             long targetMax = (long)_targetMax;
 
             if (targetMax != _labelTargetMax || _bucketSeconds != _labelBucketSeconds)
@@ -424,6 +649,18 @@ namespace NetworkMonitor.Views.Controls
                 _labelMidBits = TrafficRateFormatter.BitsPerSecond(midMax, _bucketSeconds);
                 _labelMidBytes = TrafficRateFormatter.BytesPerSecond(midMax, _bucketSeconds);
             }
+
+        }
+
+        private void DrawAxisLabels(CanvasDrawingSession session, double width, double height, CanvasTextFormat format)
+        {
+            double usableHeight = height * 0.9;
+            Color baseColor = ((SolidColorBrush)Application.Current.Resources["TextFillColorPrimaryBrush"]).Color;
+            Color axisColor = Color.FromArgb(0x8C, baseColor.R, baseColor.G, baseColor.B);
+            Color spineColor = Color.FromArgb(0x55, baseColor.R, baseColor.G, baseColor.B);
+            Color gridColor = Color.FromArgb(0x22, baseColor.R, baseColor.G, baseColor.B);
+
+            EnsureScaleLabels();
 
             session.DrawLine(1f, 0f, 1f, (float)height, spineColor, 1f);
             session.DrawLine(1f, (float)(height - usableHeight), (float)width, (float)(height - usableHeight), gridColor, 1f);
@@ -536,6 +773,7 @@ namespace NetworkMonitor.Views.Controls
                 _upload = null;
                 _displayedDownload = null;
                 _displayedUpload = null;
+                PeakText = string.Empty;
                 MaxScaleLabel.Text = string.Empty;
                 MaxScaleMBpsLabel.Text = string.Empty;
             }
@@ -601,8 +839,14 @@ namespace NetworkMonitor.Views.Controls
             Visibility bitsVisibility = mode == RateUnitMode.Bytes ? Visibility.Collapsed : Visibility.Visible;
             Visibility bytesVisibility = mode == RateUnitMode.Bits ? Visibility.Collapsed : Visibility.Visible;
 
-            MaxScaleLabel.Text = TrafficRateFormatter.BitsPerSecond(maxValue, bucketSeconds);
-            MaxScaleMBpsLabel.Text = TrafficRateFormatter.BytesPerSecond(maxValue, bucketSeconds);
+            string peakBits = TrafficRateFormatter.BitsPerSecond(maxValue, bucketSeconds);
+            string peakBytes = TrafficRateFormatter.BytesPerSecond(maxValue, bucketSeconds);
+
+            // Only the mini graph reads this, and its header has room for one figure.
+            PeakText = TrafficRateFormatter.SingleUnit(mode) == RateUnitMode.Bytes ? peakBytes : peakBits;
+
+            MaxScaleLabel.Text = peakBits;
+            MaxScaleMBpsLabel.Text = peakBytes;
             MaxScaleLabel.Visibility = bitsVisibility;
             MaxScaleCaption.Visibility = bitsVisibility;
             MaxScaleMBpsLabel.Visibility = bytesVisibility;

@@ -22,6 +22,16 @@ namespace NetworkMonitor.Models.Formatting
             return result;
         }
 
+        // Both units side by side needs room the mini graph does not have, so anywhere space is tight
+        // Both resolves to bits — the unit line speeds are quoted in. An explicit single choice is
+        // always honoured as it stands.
+        public static RateUnitMode SingleUnit(RateUnitMode mode)
+        {
+            RateUnitMode single = mode == RateUnitMode.Bytes ? RateUnitMode.Bytes : RateUnitMode.Bits;
+
+            return single;
+        }
+
         public static string BitsPerSecond(long bytes, double seconds)
         {
             double bitsPerSecond = bytes * 8.0 / seconds;

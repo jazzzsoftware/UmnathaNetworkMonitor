@@ -32,6 +32,7 @@ namespace NetworkMonitor
         private readonly DispatcherTimer _toastTimer;
         private readonly DispatcherTimer _savePlacementTimer;
         private readonly TrayIconService _trayIcon;
+        private readonly MiniGraphState _miniGraphState;
         private readonly IntPtr _hwnd;
         private bool _exitRequested;
         private bool _placementRestored;
@@ -40,7 +41,7 @@ namespace NetworkMonitor
         private const int SwShowMinimized = 2;
         private const int SwShowMaximized = 3;
 
-        public MainWindow(ScanWorker scanWorker, Settings settings, IDbContextFactory<AppDbContext> dbFactory, InAppNotificationService notificationService, SpeedTestWorker speedTestWorker, UpdateViewModel updateViewModel)
+        public MainWindow(ScanWorker scanWorker, Settings settings, IDbContextFactory<AppDbContext> dbFactory, InAppNotificationService notificationService, SpeedTestWorker speedTestWorker, UpdateViewModel updateViewModel, MiniGraphState miniGraphState)
         {
             Current = this;
             _dispatcherQueue = DispatcherQueue.GetForCurrentThread();
@@ -49,6 +50,7 @@ namespace NetworkMonitor
             _notificationService = notificationService;
             _speedTestWorker = speedTestWorker;
             UpdateViewModel = updateViewModel;
+            _miniGraphState = miniGraphState;
             InitializeComponent();
 
             _toastTimer = new DispatcherTimer
@@ -81,7 +83,11 @@ namespace NetworkMonitor
             digestGenerator.ReportGenerated += OnDigestReportGenerated;
 
             _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-            _trayIcon = new TrayIconService(_hwnd, OnExitApp);
+            _trayIcon = new TrayIconService(
+                _hwnd,
+                OnExitApp,
+                () => _miniGraphState.IsVisible = !_miniGraphState.IsVisible,
+                () => _miniGraphState.IsVisible);
             AppWindow.Closing += OnAppWindowClosing;
         }
 
@@ -150,6 +156,54 @@ namespace NetworkMonitor
 
             DevicesHostPage? host = ContentFrame.Content as DevicesHostPage;
             host?.ShowDeviceHistory(mac);
+        }
+
+        public void NavigateToTraffic(string tabTag)
+        {
+
+            foreach (object item in NavView.MenuItems)
+            {
+
+                if (item is NavigationViewItem navigationItem && navigationItem.Tag?.ToString() == "traffic")
+                {
+                    NavView.SelectedItem = navigationItem;
+
+                    break;
+                }
+
+            }
+
+            if (ContentFrame.Content is not TrafficHostPage)
+            {
+                ContentFrame.Navigate(typeof(TrafficHostPage));
+            }
+
+            TrafficHostPage? host = ContentFrame.Content as TrafficHostPage;
+            host?.SelectTab(tabTag);
+        }
+
+        public void NavigateToUnapprovedDevices()
+        {
+
+            foreach (object item in NavView.MenuItems)
+            {
+
+                if (item is NavigationViewItem navigationItem && navigationItem.Tag?.ToString() == "devices")
+                {
+                    NavView.SelectedItem = navigationItem;
+
+                    break;
+                }
+
+            }
+
+            if (ContentFrame.Content is not DevicesHostPage)
+            {
+                ContentFrame.Navigate(typeof(DevicesHostPage));
+            }
+
+            DevicesHostPage? host = ContentFrame.Content as DevicesHostPage;
+            host?.SelectTab("Unapproved");
         }
 
         private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
@@ -264,6 +318,7 @@ namespace NetworkMonitor
             _shutdownCompleted = true;
             _savePlacementTimer.Stop();
             SaveWindowPlacement();
+            App.CloseMiniGraph();
             StopHost();
             CheckpointDatabase();
             _trayIcon.Dispose();
@@ -280,6 +335,11 @@ namespace NetworkMonitor
                     ShutdownGracefully();
                 }
 
+                // The widget is a second top-level window and its close is queued, not immediate, so
+                // closing this one is not enough to end the process: Exit from the tray left the mini
+                // graph on screen driven by a host that had already been stopped. Everything that has
+                // to survive — placement, settings, the WAL checkpoint — is written above.
+                Environment.Exit(0);
             }
             else
             {
@@ -305,13 +365,24 @@ namespace NetworkMonitor
 
         }
 
+        // Exit from the tray used to close this window and hope the process followed. It did not: the
+        // widget is a second top-level window, its Close is queued rather than immediate, and whatever
+        // it was that kept it alive left it on screen being fed by a host that had already stopped.
+        // Shutting down here and ending the process outright removes the guesswork — nothing in the
+        // exit path now depends on another window's close message being processed.
         private void OnExitApp()
         {
             AppLog.Info("Application stopping.");
 
             _exitRequested = true;
             UpdateViewModel.CancelPendingWork();
-            Close();
+
+            if (!_shutdownCompleted)
+            {
+                ShutdownGracefully();
+            }
+
+            Environment.Exit(0);
         }
 
         private void NavViewLoaded(object sender, RoutedEventArgs args)

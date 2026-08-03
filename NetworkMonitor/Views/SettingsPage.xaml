@@ -611,6 +611,67 @@
 
                         <TextBlock
                             Style="{StaticResource SettingsCardHeader}"
+                            Text="Floating mini graph" />
+
+                        <StackPanel
+                            Spacing="4">
+
+                            <ToggleSwitch
+                                Header="Show floating mini graph"
+                                IsOn="{x:Bind ViewModel.ShowMiniGraph, Mode=TwoWay}" />
+
+                            <TextBlock
+                                Text="A small always-on-top widget showing live activity without the main window open. Hovering it makes it fully opaque so you can read it."
+                                FontSize="12"
+                                Opacity="0.65"
+                                TextWrapping="Wrap" />
+
+                        </StackPanel>
+
+                        <CheckBox
+                            Content="Internet chart"
+                            IsChecked="{x:Bind ViewModel.MiniGraphShowInternet, Mode=TwoWay}" />
+
+                        <CheckBox
+                            Content="Local chart"
+                            IsChecked="{x:Bind ViewModel.MiniGraphShowLocal, Mode=TwoWay}" />
+
+                        <CheckBox
+                            Content="Last speed test"
+                            IsChecked="{x:Bind ViewModel.MiniGraphShowSpeedTest, Mode=TwoWay}" />
+
+                        <CheckBox
+                            Content="Unknown devices"
+                            IsChecked="{x:Bind ViewModel.MiniGraphShowUnknownDevices, Mode=TwoWay}" />
+
+                        <StackPanel
+                            Spacing="4">
+
+                            <TextBlock
+                                Text="Resting opacity (%)" />
+
+                            <Slider
+                                Minimum="50"
+                                Maximum="100"
+                                StepFrequency="5"
+                                TickFrequency="10"
+                                TickPlacement="Outside"
+                                Value="{x:Bind ViewModel.MiniGraphOpacity, Mode=TwoWay}" />
+
+                        </StackPanel>
+
+                    </StackPanel>
+
+                </Border>
+
+                <Border
+                    Style="{StaticResource SettingsCard}">
+
+                    <StackPanel
+                        Spacing="12">
+
+                        <TextBlock
+                            Style="{StaticResource SettingsCardHeader}"
                             Text="Daily digest" />
 
                         <StackPanel

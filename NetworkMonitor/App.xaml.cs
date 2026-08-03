@@ -36,6 +36,8 @@ namespace NetworkMonitor
         private static Mutex? _instanceMutex;
         private static EventWaitHandle? _activationEvent;
         private static IntPtr _mainWindowHwnd;
+        private static MiniGraphWindow? _miniGraphWindow;
+        private static bool? _miniGraphVisible;
 
         [DllImport("shell32.dll", SetLastError = true)]
         private static extern int SetCurrentProcessExplicitAppUserModelID(
@@ -96,6 +98,7 @@ namespace NetworkMonitor
                         }
 
                         services.AddSingleton(scannerSettings);
+                        services.AddSingleton<MiniGraphState>();
                         services.AddSingleton<OuiDatabase>();
                         services.AddSingleton<MdnsProbe>();
                         services.AddSingleton<WindowsStartupService>();
@@ -110,6 +113,8 @@ namespace NetworkMonitor
                         services.AddHostedService(sp => sp.GetRequiredService<TrafficCollector>());
                         services.AddSingleton<TrafficTracker>();
                         services.AddHostedService(sp => sp.GetRequiredService<TrafficTracker>());
+                        services.AddSingleton<LiveTrafficFeed>();
+                        services.AddHostedService(serviceProvider => serviceProvider.GetRequiredService<LiveTrafficFeed>());
                         services.AddSingleton<InAppNotificationService>();
                         services.AddSingleton<SpeedTestService>(serviceProvider =>
                         {
@@ -162,6 +167,7 @@ namespace NetworkMonitor
                         services.AddSingleton<InternetViewModel>();
                         services.AddSingleton<LocalViewModel>();
                         services.AddSingleton<SpeedTestViewModel>();
+                        services.AddSingleton<MiniGraphViewModel>();
                         services.AddTransient<MainWindow>();
                     })
                     .Build();
@@ -273,6 +279,10 @@ namespace NetworkMonitor
                 window.Activate();
                 window.RestoreWindowPlacement();
 
+                MiniGraphState miniGraphState = AppHost.Services.GetRequiredService<MiniGraphState>();
+                miniGraphState.Changed += (stateSender, stateArgs) => ApplyMiniGraphVisibility();
+                ApplyMiniGraphVisibility();
+
                 if (startMinimized)
                 {
                     ShowWindow(_mainWindowHwnd, SwHide);
@@ -284,6 +294,86 @@ namespace NetworkMonitor
                 AppLog.Error("App.OnLaunched", exception);
                 splash?.Close();
                 ShowFatalError(exception.Message);
+            }
+
+        }
+
+        internal static void ApplyMiniGraphVisibility()
+        {
+            MiniGraphState state = AppHost.Services.GetRequiredService<MiniGraphState>();
+
+            try
+            {
+                bool visible = state.IsVisible;
+
+                // MiniGraphState raises one Changed event for all six of its setters, so most calls
+                // land here for a section or opacity edit. Showing on those would re-activate the
+                // widget and steal focus — the opacity slider alone would do it ten times per drag.
+                if (_miniGraphVisible != visible)
+                {
+                    _miniGraphVisible = visible;
+
+                    if (visible)
+                    {
+
+                        if (_miniGraphWindow is null)
+                        {
+                            _miniGraphWindow = new MiniGraphWindow(
+                                AppHost.Services.GetRequiredService<MiniGraphViewModel>(),
+                                state,
+                                AppHost.Services.GetRequiredService<Settings>());
+                        }
+
+                        _miniGraphWindow.ShowWidget();
+                    }
+                    else
+                    {
+                        _miniGraphWindow?.HideWidget();
+                    }
+
+                }
+
+            }
+            catch (Exception exception)
+            {
+                AppLog.Error("App.ApplyMiniGraphVisibility", exception);
+            }
+
+        }
+
+        internal static void CloseMiniGraph()
+        {
+
+            try
+            {
+                _miniGraphWindow?.CloseWidget();
+            }
+            catch (Exception exception)
+            {
+                // Shutdown must not stall on the widget. Before this, a fault here left the main
+                // window closing with the host still running and the tray icon still in place.
+                AppLog.Error("App.CloseMiniGraph", exception);
+            }
+
+            _miniGraphWindow = null;
+            _miniGraphVisible = null;
+        }
+
+        // The widget can be destroyed by Alt+F4 without anyone asking, so it tells the app to drop the
+        // dead reference rather than leaving the next show call to fail against it.
+        internal static void ForgetMiniGraph()
+        {
+            _miniGraphWindow = null;
+            _miniGraphVisible = false;
+        }
+
+        internal static void ShowMainWindow()
+        {
+
+            if (_mainWindowHwnd != IntPtr.Zero)
+            {
+                ShowWindow(_mainWindowHwnd, SwRestore);
+                SetForegroundWindow(_mainWindowHwnd);
             }
 
         }

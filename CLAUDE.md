@@ -88,12 +88,15 @@ Solution-folder layout: the five projects are grouped under `/App/` (NetworkMoni
 | `NetworkMonitor/Views/ApprovedDevicesPage.xaml` | Editable approved-device list with Edit / Delete / CSV import-export |
 | `NetworkMonitor.Services/Traffic/TrafficCollector.cs` | ETW kernel session; per-flow WAN (`_counters` by PID) + LAN (`_localCounters` by `LocalFlowKey`) capture. TCP recv/send use `daddr/dport`; UDP recv uses `saddr` |
 | `NetworkMonitor.Services/Traffic/TrafficTracker.cs` | Flush loop → writes Traffic/LocalTraffic entries + rollups; raises `Flushed(entries, localDeltas)` |
+| `NetworkMonitor.Services/Traffic/LiveTrafficFeed.cs` | Always-on singleton feeding the mini graph from `Flushed` / `SpeedTestCompleted` / `ScanCompleted`; two DB reads at startup, none after |
 | `NetworkMonitor.Core/Traffic/LanClassifier.cs` | Classifies a remote IP as LAN vs WAN; `IsSelfOrLoopback` self/loopback drop |
 | `NetworkMonitor.Core/Traffic/LocalFlowClassifier.cs` | `(protocol, remotePort)` → Data/Discovery + service tag (SMB…); single source of the discovery port list (`DiscoverySqlPredicate`) |
 | `NetworkMonitor.Core/Traffic/LocalTrafficGrouper.cs` | Builds the two-level app/device row model + background (discovery) fold |
+| `NetworkMonitor.Core/Traffic/LiveRateBuffer.cs` | Fixed ring of one-second buckets behind the mini graph; zero-fills idle gaps, spreads a flush across its interval |
 | `NetworkMonitor/ViewModels/InternetViewModel.cs` | WAN per-app grid + area chart + live rate badge |
 | `NetworkMonitor/ViewModels/LocalViewModel.cs` | LAN app/device lenses, in-place row reconcile, live rate badge |
 | `NetworkMonitor/Views/LocalPage.xaml` | Local traffic grid (lens toggle, service/discovery/rate chips, drill-down) |
+| `NetworkMonitor/MiniGraphWindow.xaml` | Frameless always-on-top widget: Internet + Local charts, speed and unknown-device strips, hover-to-opaque |
 
 ## Git Workflow
 

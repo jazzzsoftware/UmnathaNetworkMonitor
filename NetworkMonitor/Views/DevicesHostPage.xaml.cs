@@ -30,6 +30,23 @@ namespace NetworkMonitor.Views
 
         }
 
+        internal void SelectTab(string tabTag)
+        {
+
+            foreach (object item in TabBar.Items)
+            {
+
+                if (item is SelectorBarItem barItem && barItem.Tag?.ToString() == tabTag)
+                {
+                    TabBar.SelectedItem = barItem;
+
+                    break;
+                }
+
+            }
+
+        }
+
         private void TabBarSelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
         {
 
