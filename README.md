@@ -13,9 +13,21 @@ This app is a Windows desktop app that watches your local network: it scans cont
 </p>
 
 <p align="center">
+  <img src="Documents/Images/TeaserLocal.png" alt="Local network traffic" width="820">
+  <br>
+  <em>Local network traffic, pivoted by app or by device</em>
+</p>
+
+<p align="center">
   <img src="Documents/Images/TeaserSpeedtest.png" alt="Hourly internet speed test" width="820">
   <br>
   <em>Hourly download / upload / latency / jitter speed tests</em>
+</p>
+
+<p align="center">
+  <img src="Documents/Images/MiniGraph.png" alt="Floating mini graph on the desktop" width="640">
+  <br>
+  <em>The floating mini graph — live throughput, last speed test and unknown devices, always on top</em>
 </p>
 
 ## What it does
@@ -25,6 +37,7 @@ This app is a Windows desktop app that watches your local network: it scans cont
 - **Names devices via mDNS** — a per-scan DNS-SD (Bonjour) discovery pass fills in a friendly name and hardware model for devices that vendor and reverse-DNS lookups can't identify, chiefly randomized-MAC gear; discovered values never overwrite a name you've set.
 - **Maintains a known-devices list** — approve any device to give it a friendly name, type and notes; approved devices stop showing as unknown, and the whole list imports and exports as CSV.
 - **Measures per-application traffic** — captures upload/download bytes per process directly from the Windows kernel (ETW) and charts it live, split into **Internet** (WAN) and **Local** (LAN) views. The Local view pivots **by app or by device**, folds away device-discovery chatter, tags SMB/file-share flows, and shows a live throughput badge (Mb/s · MB/s) on whatever's actively transferring.
+- **Floats a mini graph on the desktop** — an optional always-on-top widget showing live Internet and Local throughput, the last speed test and any unknown devices, without keeping the main window open. It sits at whatever opacity you choose and rises to full when you hover it; double-click any section to jump straight to that page.
 - **Measures internet speed** — an hourly download/upload/latency/jitter test against Cloudflare, no account needed.
 - **Generates a daily digest** summarising device activity and traffic, exportable to PDF or CSV.
 - **Alerts via Windows toast + in-app banner** when a device appears or disappears, optionally limited to unknown devices only.
@@ -39,6 +52,7 @@ See [`Documents/Overview.md`](Documents/Overview.md) for the full feature tour, 
 - [Devices](Documents/Images/Devices.png) — every device on the network, tracked by MAC with type, vendor and live status.
 - [Internet traffic](Documents/Images/Internet.png) — per-application WAN bandwidth with a live download/upload chart.
 - [Local traffic](Documents/Images/Local.png) — LAN traffic pivoted by app or device, with discovery chatter folded away.
+- [Floating mini graph](Documents/Images/MiniGraph.png) — the always-on-top widget: live Internet and Local throughput, last speed test, unknown devices.
 - [Speed test](Documents/Images/Speedtest.png) — hourly Cloudflare download/upload/latency/jitter history.
 - [Daily digest](Documents/Images/DigestReport.png) — a summary report of device activity and traffic, exportable to PDF.
 
@@ -65,7 +79,7 @@ Ideas being explored, in no particular order and with no committed timeline:
 
 - ~~**Automatic updates** — in-app update checks and one-click upgrades.~~ Shipped in v0.0.9.
 - **Chart colour schemes** — selectable palettes for the traffic and speed charts.
-- **Floating mini-graph** — a small always-on-top live throughput window.
+- ~~**Floating mini-graph** — a small always-on-top live throughput window.~~ Built; ships in the next release.
 
 ## License
 
