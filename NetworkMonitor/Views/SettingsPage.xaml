@@ -1020,6 +1020,44 @@
                         FontSize="16" />
 
                     <TextBlock
+                        Text="• New: Floating mini graph. A small always-on-top window showing live Internet and local network activity, your latest speed test and any unknown devices. Switch it on from the tray icon, the toolbar or Settings. It fades when you're not using it and turns solid when you hover, and double-clicking a section opens the matching page."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• New: Online only filter. The Devices list has an 'Online only' toggle that hides devices which have gone offline. Your choice is remembered between sessions."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• Traffic chart axes now scale on a 1-2-5-10 ladder, so the labels read as round numbers."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• Fixed live chart peaks that could read above your connection's physical line rate."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• Daily digest: preview charts render at their displayed size so they stay sharp, and a missed digest is caught up when the app starts rather than waiting for the next scheduled run."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• Update checks: an unreachable update server is now logged as a message rather than reported as a failure, checks are bounded to 20 seconds, and the Settings 'Check for updates' button no longer closes its own result banner."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• In-app notifications are centred on the page content instead of the window."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• Fixed a false 'checkpoint failed' and a false speed-test timeout reported during shutdown."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="Version 0.0.9"
+                        FontWeight="SemiBold"
+                        FontSize="16"
+                        Margin="0,12,0,0" />
+
+                    <TextBlock
                         Text="• New: Automatic updates. The app now checks GitHub for a newer version when it starts and once a day after that. When one is available a banner appears at the top of the window — click Update now and the app downloads it, installs it and restarts itself on the new version, or click Later to leave it for another time."
                         TextWrapping="Wrap" />
 
