@@ -33,6 +33,7 @@ namespace NetworkMonitor.Views
         protected override async void OnNavigatedTo(NavigationEventArgs args)
         {
             base.OnNavigatedTo(args);
+            ViewModel.RestoreOnlineOnlyFilter();
             SortPreference? pref = SortPreference.Load("devices");
 
             if (pref is not null)

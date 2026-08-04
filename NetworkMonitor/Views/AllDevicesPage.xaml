@@ -14,7 +14,7 @@
 
         <Grid
             Grid.Row="0"
-            ColumnDefinitions="*,Auto,Auto"
+            ColumnDefinitions="*,Auto,Auto,Auto"
             Margin="0,0,0,10"
             ColumnSpacing="8">
 
@@ -37,14 +37,23 @@
 
             </StackPanel>
 
-            <ProgressRing
+            <ToggleSwitch
                 Grid.Column="1"
+                VerticalAlignment="Center"
+                MinWidth="0"
+                OnContent="Online only"
+                OffContent="Online only"
+                ToolTipService.ToolTip="Show only devices that are currently online."
+                IsOn="{x:Bind ViewModel.ShowOnlineOnly, Mode=TwoWay}" />
+
+            <ProgressRing
+                Grid.Column="2"
                 Width="24"
                 Height="24"
                 IsActive="{x:Bind ViewModel.IsScanning, Mode=OneWay}" />
 
             <Button
-                Grid.Column="2"
+                Grid.Column="3"
                 Content="Scan Network"
                 Style="{StaticResource AccentButtonStyle}"
                 Command="{x:Bind ViewModel.ScanNowCommand}" />

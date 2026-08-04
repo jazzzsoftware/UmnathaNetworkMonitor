@@ -11,9 +11,23 @@ Five projects: **NetworkMonitor** (the WinUI app — pure UI shell: App/MainWind
 - **UI**: WinUI 3 (Windows App SDK), Blazor NavigationView shell
 - **MVVM**: CommunityToolkit.Mvvm (source generators)
 - **DataGrid**: CommunityToolkit.WinUI.UI.Controls.DataGrid 7.x
-- **ORM**: EF Core 10 + SQLite (no migrations — EnsureCreated)
+- **ORM**: EF Core 10 + SQLite (migrations required — see Database below)
 - **DI / background**: Microsoft.Extensions.Hosting, BackgroundService
 - **Scanning**: System.Net.NetworkInformation.Ping + `arp -a` + Dns.GetHostEntryAsync
+
+## Database
+
+**Every schema change ships an EF Core migration, in the same commit as the change.** A schema change is anything that adds, removes or alters a table, column or index — including a new `DbSet`, a new property on an existing entity, and a changed key or index definition.
+
+The app is publicly released, so a user's `networkmonitor.db` holds the only copy of their device and traffic history. "Delete the DB and let it rebuild" was acceptable while the app was pre-release and the user was the sole tester; it is not acceptable now and must never be offered as the fix for a schema change. Without a migration, an updated build either throws on startup against the old schema or silently loses history.
+
+Practical rules:
+
+- Author the migration alongside the code change; never defer it to "later" or to the release step.
+- Startup must apply pending migrations. Note that `App.xaml.cs` currently calls `db.Database.EnsureCreatedAsync()` (the only such call in the codebase) — that path still needs converting to `MigrateAsync()`, and the first migration must account for existing v0.0.8-era databases created by `EnsureCreated` (they have no `__EFMigrationsHistory` table, so the initial migration has to be baselined rather than replayed).
+- Migrations are additive where possible. Prefer a nullable column with a sensible default over a destructive rewrite.
+- **State the DB impact of every change**, even when the answer is "none". Changes to `settings.json` preferences, UI, or pure runtime behaviour are not schema changes and need no migration — say so explicitly.
+- DB location: `%LOCALAPPDATA%\UmnathaNetworkMonitor\networkmonitor.db` (plus `-wal` and `-shm`). Verify against `AppPaths.cs` before quoting it.
 
 ## Build
 

@@ -18,14 +18,16 @@ namespace NetworkMonitor.ViewModels
         private readonly DispatcherQueueTimer _searchDebounceTimer;
         private readonly IDbContextFactory<AppDbContext> _dbFactory;
         private readonly ScanWorker _scanWorker;
+        private readonly Settings _settings;
         private List<Device> _allDevices = [];
         private bool _isActive;
 
-        public AllDevicesViewModel(IDbContextFactory<AppDbContext> dbFactory, ScanWorker scanWorker)
+        public AllDevicesViewModel(IDbContextFactory<AppDbContext> dbFactory, ScanWorker scanWorker, Settings settings)
         {
             _dispatcherQueue = DispatcherQueue.GetForCurrentThread();
             _dbFactory = dbFactory;
             _scanWorker = scanWorker;
+            _settings = settings;
             _scanWorker.ScanCompleted += OnScanCompleted;
 
             _searchDebounceTimer = _dispatcherQueue.CreateTimer();
@@ -91,6 +93,24 @@ namespace NetworkMonitor.ViewModels
             }
         }
 
+        private bool _showOnlineOnly;
+
+        public bool ShowOnlineOnly
+        {
+            get => _showOnlineOnly;
+            set
+            {
+
+                if (SetProperty(ref _showOnlineOnly, value))
+                {
+                    _settings.DevicesOnlineOnly = value;
+                    _settings.Save();
+                    ApplyFilter();
+                }
+
+            }
+        }
+
         private string _sortProperty = "IpAddress";
 
         public string SortProperty => _sortProperty;
@@ -126,6 +146,11 @@ namespace NetworkMonitor.ViewModels
             _sortProperty = property;
             _sortAscending = ascending;
             ApplyFilter();
+        }
+
+        public void RestoreOnlineOnlyFilter()
+        {
+            ShowOnlineOnly = _settings.DevicesOnlineOnly;
         }
 
         public async Task<List<Device>> GetApprovedDevicesAsync()
@@ -294,6 +319,11 @@ namespace NetworkMonitor.ViewModels
             else if (ShowUnapprovedOnly)
             {
                 filtered = filtered.Where(device => !device.IsApproved);
+            }
+
+            if (ShowOnlineOnly)
+            {
+                filtered = filtered.Where(device => device.IsOnline);
             }
 
             if (!string.IsNullOrWhiteSpace(SearchText))

@@ -95,6 +95,12 @@ namespace NetworkMonitor.Services.Data
             set;
         } = LocalLens.ByApp;
 
+        public bool DevicesOnlineOnly
+        {
+            get;
+            set;
+        } = false;
+
         public int TrafficIntervalSeconds
         {
             get;
