@@ -79,7 +79,7 @@ Ideas being explored, in no particular order and with no committed timeline:
 
 - ~~**Automatic updates** — in-app update checks and one-click upgrades.~~ Shipped in v0.0.9.
 - **Chart colour schemes** — selectable palettes for the traffic and speed charts.
-- ~~**Floating mini-graph** — a small always-on-top live throughput window.~~ Built; ships in the next release.
+- ~~**Floating mini-graph** — a small always-on-top live throughput window.~~ Shipped in v0.0.10.
 
 ## License
 
