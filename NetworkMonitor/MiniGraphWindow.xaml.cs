@@ -9,7 +9,6 @@ using Microsoft.UI.Xaml.Media;
 using NetworkMonitor.Services.Data;
 using NetworkMonitor.Services.Platform;
 using NetworkMonitor.ViewModels;
-using Windows.Foundation;
 using Windows.Graphics;
 
 namespace NetworkMonitor
@@ -59,7 +58,10 @@ namespace NetworkMonitor
         private bool _teardownStarted;
         private int _alphaPercent = 100;
         private int _targetAlphaPercent = 100;
-        private Point _dragOrigin;
+        private int _dragOffsetX;
+        private int _dragOffsetY;
+        private int _dragStartX;
+        private int _dragStartY;
 
         public MiniGraphWindow(MiniGraphViewModel viewModel, MiniGraphState state, Settings settings)
         {
@@ -173,6 +175,10 @@ namespace NetworkMonitor
 
         [DllImport("shcore.dll")]
         private static extern int GetDpiForMonitor(IntPtr monitor, int dpiType, out uint dpiX, out uint dpiY);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool GetCursorPos(out NativePoint point);
 
         [StructLayout(LayoutKind.Sequential)]
         private struct NativePoint
@@ -474,15 +480,20 @@ namespace NetworkMonitor
         private void RootPointerPressed(object sender, PointerRoutedEventArgs args)
         {
 
-            if (args.GetCurrentPoint(RootLayer).Properties.IsLeftButtonPressed)
+            if (args.GetCurrentPoint(RootLayer).Properties.IsLeftButtonPressed && GetCursorPos(out NativePoint cursor))
             {
+                PointInt32 position = AppWindow.Position;
+
                 _pointerDown = true;
                 _dragging = false;
+                _dragStartX = cursor.X;
+                _dragStartY = cursor.Y;
 
-                // Window-relative, so it is the grab point on the widget rather than a screen point.
-                // That frame moves with the window, which is exactly what makes the delta below
-                // self-correcting once the window starts following the pointer.
-                _dragOrigin = args.GetCurrentPoint(null).Position;
+                // The grab point is held as a fixed screen-space offset from the window's own origin,
+                // in the physical pixels AppWindow.Move already speaks, so every move below is an
+                // absolute target that needs no scale conversion and cannot drift.
+                _dragOffsetX = cursor.X - position.X;
+                _dragOffsetY = cursor.Y - position.Y;
             }
 
         }
@@ -490,15 +501,13 @@ namespace NetworkMonitor
         private void RootPointerMoved(object sender, PointerRoutedEventArgs args)
         {
 
-            if (_pointerDown)
+            if (_pointerDown && GetCursorPos(out NativePoint cursor))
             {
-                Point current = args.GetCurrentPoint(null).Position;
-                double deltaX = current.X - _dragOrigin.X;
-                double deltaY = current.Y - _dragOrigin.Y;
+                double threshold = DragThreshold * GetCurrentScale();
 
                 // Below the threshold nothing moves, so a double-click still reaches the section
                 // underneath instead of being eaten by a one-pixel drag.
-                if (_dragging || Math.Abs(deltaX) > DragThreshold || Math.Abs(deltaY) > DragThreshold)
+                if (_dragging || Math.Abs(cursor.X - _dragStartX) > threshold || Math.Abs(cursor.Y - _dragStartY) > threshold)
                 {
 
                     // Capturing on press would route every later pointer event here and the child
@@ -510,19 +519,13 @@ namespace NetworkMonitor
                         _pointerCaptured = RootLayer.CapturePointer(args.Pointer);
                     }
 
-                    // Both origin and current are measured against the window, so the delta is how far
-                    // the grab point has slipped from under the pointer. Applying it to the *current*
-                    // window position drives that slip to zero: W' = W + (P - W/s - g) * s = (P - g) * s,
-                    // an absolute target that cannot accumulate. Applying it to the press-time position
-                    // instead would subtract the travel already made and oscillate in place.
-                    // GetCurrentPoint yields DIPs while AppWindow.Move takes physical pixels, hence the
-                    // rasterization scale — without it a drag runs at 1/2 speed on a 200% display.
-                    double scale = RootLayer.XamlRoot?.RasterizationScale ?? 1.0;
-                    PointInt32 position = AppWindow.Position;
-
-                    AppWindow.Move(new PointInt32(
-                        position.X + (int)Math.Round(deltaX * scale),
-                        position.Y + (int)Math.Round(deltaY * scale)));
+                    // The live cursor and the press-time offset are both absolute screen positions, so
+                    // the target never depends on where the window currently is. Deriving it from
+                    // AppWindow.Position instead made the drag a feedback loop: the pointer in args was
+                    // measured against the window as it stood when the input was sampled, while the
+                    // position read here had already moved on, and that residue re-entered every
+                    // iteration — visibly diverging at 200%, where each step travels twice as far.
+                    AppWindow.Move(new PointInt32(cursor.X - _dragOffsetX, cursor.Y - _dragOffsetY));
                 }
 
             }
