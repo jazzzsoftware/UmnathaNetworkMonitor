@@ -196,7 +196,7 @@ namespace NetworkMonitor
 #endif
 
                 AppLog.Initialize(loggingEnabled);
-                AppLog.Info($"Application started (version {AppInfo.GetVersion()}, minimized={startMinimized}).");
+                AppLog.Info($"Application started (v{AppInfo.GetVersion()}, minimized={startMinimized}).");
 
                 Settings appSettings = AppHost.Services.GetRequiredService<Settings>();
                 TrafficRateFormatter.Mode = appSettings.RateUnitMode;

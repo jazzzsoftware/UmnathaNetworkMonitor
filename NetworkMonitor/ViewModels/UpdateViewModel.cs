@@ -182,7 +182,7 @@ namespace NetworkMonitor.ViewModels
             {
                 IsBusy = true;
                 DownloadProgress = 0;
-                Message = $"Downloading version {update.NormalizedVersion}…";
+                Message = $"Downloading v{update.NormalizedVersion}…";
                 Severity = InfoBarSeverity.Informational;
 
                 Progress<double> progress = new Progress<double>(fraction =>
@@ -211,7 +211,7 @@ namespace NetworkMonitor.ViewModels
                     IsBusy = false;
                     DownloadProgress = 0;
                     Severity = InfoBarSeverity.Informational;
-                    Message = $"Version {update.NormalizedVersion} is available.";
+                    Message = $"v{update.NormalizedVersion} is available.";
                     IsBannerOpen = true;
                 }
                 catch (Exception)
@@ -266,7 +266,7 @@ namespace NetworkMonitor.ViewModels
                     _pendingUpdate = result.Update;
                     HasPendingUpdate = true;
                     Severity = InfoBarSeverity.Informational;
-                    Message = $"Version {result.Update.NormalizedVersion} is available.";
+                    Message = $"v{result.Update.NormalizedVersion} is available.";
                     IsBannerOpen = true;
                 }
                 else if (result.Availability == UpdateAvailability.CheckFailed)

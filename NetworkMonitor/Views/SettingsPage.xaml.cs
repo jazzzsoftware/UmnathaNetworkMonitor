@@ -22,7 +22,7 @@ namespace NetworkMonitor.Views
             InitializeComponent();
             TabBar.SelectedItem = TabBar.Items[0];
             VersionText.Text = $"v{AppInfo.GetVersion()}";
-            ReleaseNotesVersion.Text = $"Version {AppInfo.GetVersion()}";
+            ReleaseNotesVersion.Text = $"v{AppInfo.GetVersion()}";
             AboutLogo.Source = new BitmapImage(
                 new Uri(Path.Combine(AppContext.BaseDirectory, "Assets", "splash-logo.png")));
             Loaded += OnPageLoaded;

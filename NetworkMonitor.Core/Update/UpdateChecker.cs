@@ -90,7 +90,8 @@ namespace NetworkMonitor.Core.Update
 
                     if (update is null)
                     {
-                        result = UpdateCheckResult.Failed($"Version {versionTag} is available, but its download is incomplete. Please try again later.");
+                        // The tag already carries its own v, so prefixing this read "Version v0.0.9".
+                        result = UpdateCheckResult.Failed($"{versionTag} is available, but its download is incomplete. Please try again later.");
                     }
                     else
                     {
