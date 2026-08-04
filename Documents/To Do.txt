@@ -173,6 +173,13 @@ Done - Rate numbers for Lan not correct
 Done - Test for ex when do manual update for new ver stoppedin logs. Should just be a msg.
 Done - Floating mini graph.
 Done - Online devices only toggle
+Done - Pass - Smoke items 46-48 still need a release newer than 0.0.9 (update download / cancel mid-download / install + relaunch visible). Test these at the next installer build - see Documents/Code Review/2026-07-27/smoke-checklist.md
+
+On a 4k TV connected to my laptop (TV is main monitor at 200% scaling and laptop screen off):
+1. Mini graph way too small on first show.
+2. Dragging the mini graph causes it to fly all over the place.
+
+Wherever version is displayed always use this format: v0.0.10
 
 Github:
 Done - Topics
@@ -182,7 +189,6 @@ Post on Hacker News, Product Hunt, Dev.to and Hashnode
 Jazzz Software logo and tag line.
 
 
-Smoke items 46-48 still need a release newer than 0.0.9 (update download / cancel mid-download / install + relaunch visible). Test these at the next installer build - see Documents/Code Review/2026-07-27/smoke-checklist.md
 
 
 Roadmap:

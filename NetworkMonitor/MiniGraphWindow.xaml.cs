@@ -24,6 +24,11 @@ namespace NetworkMonitor
         private const int DwmwcpRound = 2;
         private const int MinimumWidth = 240;
         private const int MinimumHeight = 120;
+        private const int EdgeMargin = 16;
+        // AppWindow works in physical pixels, every size above is in DIPs.
+        private const double DefaultDpi = 96.0;
+        private const uint MonitorDefaultToNearest = 2;
+        private const int MdtEffectiveDpi = 0;
         private const double ReferenceWidth = 320.0;
         private const double ReferenceHeight = 220.0;
         // The sizes chosen in Settings are the sizes at the widget's minimum, so nothing shrinks below
@@ -160,6 +165,22 @@ namespace NetworkMonitor
         [DllImport("dwmapi.dll")]
         private static extern int DwmSetWindowAttribute(IntPtr hWnd, int attribute, ref int value, int size);
 
+        [DllImport("user32.dll")]
+        private static extern uint GetDpiForWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr MonitorFromPoint(NativePoint point, uint flags);
+
+        [DllImport("shcore.dll")]
+        private static extern int GetDpiForMonitor(IntPtr monitor, int dpiType, out uint dpiX, out uint dpiY);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct NativePoint
+        {
+            public int X;
+            public int Y;
+        }
+
         private void OnWindowClosed(object sender, WindowEventArgs args)
         {
 
@@ -206,17 +227,57 @@ namespace NetworkMonitor
 
             if (_placementRestored && _savePlacementTimer.IsEnabled)
             {
-                SizeInt32 size = AppWindow.Size;
-
-                if (size.Width >= MinimumWidth && size.Height >= MinimumHeight)
-                {
-                    PointInt32 position = AppWindow.Position;
-
-                    _state.SavePlacement(position.X, position.Y, size.Width, size.Height);
-                }
-
+                SaveCurrentPlacement();
             }
 
+        }
+
+        // The size is stored in DIPs so the widget keeps the same apparent size across displays of
+        // different scaling; the position stays in physical pixels because that is the coordinate
+        // space of the virtual desktop that DisplayArea and AppWindow both work in.
+        private void SaveCurrentPlacement()
+        {
+            double scale = GetCurrentScale();
+            SizeInt32 size = AppWindow.Size;
+            int width = (int)Math.Round(size.Width / scale);
+            int height = (int)Math.Round(size.Height / scale);
+
+            if (width >= MinimumWidth && height >= MinimumHeight)
+            {
+                PointInt32 position = AppWindow.Position;
+
+                _state.SavePlacement(position.X, position.Y, width, height);
+            }
+
+        }
+
+        private double GetCurrentScale()
+        {
+            uint dpi = GetDpiForWindow(_hwnd);
+            double scale = dpi > 0 ? dpi / DefaultDpi : 1.0;
+
+            return scale;
+        }
+
+        // The widget is placed before it is ever shown, so its own window cannot be asked for a DPI
+        // yet — the display that the restored position lands on has to be measured directly.
+        private static double GetScaleForPoint(int positionX, int positionY)
+        {
+            NativePoint point = new NativePoint
+            {
+                X = positionX,
+                Y = positionY
+            };
+
+            IntPtr monitor = MonitorFromPoint(point, MonitorDefaultToNearest);
+            double scale = 1.0;
+
+            if (monitor != IntPtr.Zero && GetDpiForMonitor(monitor, MdtEffectiveDpi, out uint dpiX, out uint dpiY) == 0 && dpiX > 0)
+            {
+                scale = dpiX / DefaultDpi;
+            }
+
+            return scale;
         }
 
         private void SetChartsLive(bool isLive)
@@ -271,25 +332,44 @@ namespace NetworkMonitor
 
         private void RestorePlacement()
         {
-            int width = Math.Max(MinimumWidth, _settings.MiniGraphWidth);
-            int height = Math.Max(MinimumHeight, _settings.MiniGraphHeight);
             int positionX = _settings.MiniGraphX;
             int positionY = _settings.MiniGraphY;
-            bool onScreen = false;
+            DisplayArea? saved = null;
 
-            if (_settings.MiniGraphX != int.MinValue && _settings.MiniGraphY != int.MinValue)
+            if (positionX != int.MinValue && positionY != int.MinValue)
             {
-                DisplayArea area = DisplayArea.GetFromPoint(new PointInt32(positionX, positionY), DisplayAreaFallback.None);
-                onScreen = area is not null;
+                saved = DisplayArea.GetFromPoint(new PointInt32(positionX, positionY), DisplayAreaFallback.None);
             }
 
-            if (!onScreen)
+            DisplayArea target = saved ?? DisplayArea.Primary;
+            RectInt32 workArea = target.WorkArea;
+
+            // Without this the stored DIP size went to AppWindow verbatim, so on a 200% display the
+            // widget came up at half the size it was asked for — small enough that the font scale
+            // bottomed out and the sections were unreadable.
+            int scaleSampleX = saved is null ? workArea.X : positionX;
+            int scaleSampleY = saved is null ? workArea.Y : positionY;
+            double scale = GetScaleForPoint(scaleSampleX, scaleSampleY);
+            int width = (int)Math.Round(Math.Max(MinimumWidth, _settings.MiniGraphWidth) * scale);
+            int height = (int)Math.Round(Math.Max(MinimumHeight, _settings.MiniGraphHeight) * scale);
+
+            if (saved is null)
             {
-                DisplayArea primary = DisplayArea.Primary;
-                RectInt32 workArea = primary.WorkArea;
-                positionX = workArea.X + workArea.Width - width - 16;
-                positionY = workArea.Y + workArea.Height - height - 16;
+                int margin = (int)Math.Round(EdgeMargin * scale);
+
+                positionX = workArea.X + workArea.Width - width - margin;
+                positionY = workArea.Y + workArea.Height - height - margin;
             }
+
+            // Only the top-left corner was ever tested against a display, so a widget saved near a
+            // right or bottom edge could come back mostly off-screen — and scaling the size on
+            // restore makes that easier to hit, because the widget can now be wider than it was
+            // when the position was written.
+            int maximumX = Math.Max(workArea.X, workArea.X + workArea.Width - width);
+            int maximumY = Math.Max(workArea.Y, workArea.Y + workArea.Height - height);
+
+            positionX = Math.Clamp(positionX, workArea.X, maximumX);
+            positionY = Math.Clamp(positionY, workArea.Y, maximumY);
 
             AppWindow.MoveAndResize(new RectInt32(positionX, positionY, width, height));
             _placementRestored = true;
@@ -370,12 +450,15 @@ namespace NetworkMonitor
 
         private void ClampMinimumSize()
         {
+            double scale = GetCurrentScale();
+            int minimumWidth = (int)Math.Round(MinimumWidth * scale);
+            int minimumHeight = (int)Math.Round(MinimumHeight * scale);
             SizeInt32 size = AppWindow.Size;
 
-            if (size.Width < MinimumWidth || size.Height < MinimumHeight)
+            if (size.Width < minimumWidth || size.Height < minimumHeight)
             {
-                int width = Math.Max(MinimumWidth, size.Width);
-                int height = Math.Max(MinimumHeight, size.Height);
+                int width = Math.Max(minimumWidth, size.Width);
+                int height = Math.Max(minimumHeight, size.Height);
 
                 AppWindow.Resize(new SizeInt32(width, height));
             }
@@ -385,7 +468,7 @@ namespace NetworkMonitor
         private void OnSavePlacementTimerTick(object? sender, object args)
         {
             _savePlacementTimer.Stop();
-            _state.SavePlacement(AppWindow.Position.X, AppWindow.Position.Y, AppWindow.Size.Width, AppWindow.Size.Height);
+            SaveCurrentPlacement();
         }
 
         private void RootPointerPressed(object sender, PointerRoutedEventArgs args)
