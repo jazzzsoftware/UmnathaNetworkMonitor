@@ -388,7 +388,15 @@ namespace NetworkMonitor
 
             if (positionX != int.MinValue && positionY != int.MinValue)
             {
-                saved = DisplayArea.GetFromPoint(new PointInt32(positionX, positionY), DisplayAreaFallback.None);
+
+                // Nearest rather than None: a widget dragged a few pixels past a screen edge saves a
+                // position that is inside no display at all, and None returns null for it. That sent
+                // the restore down the never-placed path, which repositioned to the work area's
+                // bottom-right corner — so a strip parked on the taskbar came back above it, and the
+                // saved position was lost. Nearest resolves the display anyway, and the existing clamp
+                // below pulls the position back on-screen while keeping where the user put it.
+                saved = DisplayArea.GetFromPoint(new PointInt32(positionX, positionY), DisplayAreaFallback.Nearest);
+
             }
 
             DisplayArea target = saved ?? DisplayArea.Primary;
