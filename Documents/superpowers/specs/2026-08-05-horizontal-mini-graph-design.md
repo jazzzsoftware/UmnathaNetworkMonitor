@@ -65,8 +65,9 @@ would have to reposition it every time.
 - **Width is derived**, never dragged. It is the sum of the visible cells' natural widths plus the
   inter-cell gaps and the strip's padding. Toggling a section on or off resizes the window.
 - **Height is dragged** on the top or bottom edge, and persisted like the vertical widget's size.
-  Clamped to 28–120 DIP; default 40, which clears a 100%-scaling Windows 11 taskbar (48 px) with
-  room either side.
+  Clamped to 40–120 DIP; default 40, which clears a 100%-scaling Windows 11 taskbar (48 px) with
+  room either side. (28 DIP was the original target but proved unreachable — Windows enforces a
+  minimum tracking size on a window with a resize border, and the measured floor was 39 px.)
 
 ### Section order and content
 
@@ -176,8 +177,13 @@ An orientation selector beside the existing mini graph preferences, writing thro
   therefore snaps back. This is a known rough edge, accepted rather than solved.
 - **Orientation change while hidden.** The state change must be applied on next show rather than
   moving a hidden window, so the widget does not reappear somewhere unexpected.
-- **A saved strip position on a display that no longer exists.** Handled by the existing
-  `DisplayArea.GetFromPoint` / `DisplayAreaFallback.None` path and the work-area clamp, unchanged.
+- **A saved strip position on a display that no longer exists.** Originally handled by
+  `DisplayArea.GetFromPoint` / `DisplayAreaFallback.None` and the work-area clamp. `None` also
+  returns null for a position dragged a few pixels past a screen edge — inside no display at all —
+  which sent that case down the never-placed path and dropped the strip in the work area's
+  bottom-right corner instead of restoring it. Changed to `DisplayAreaFallback.Nearest`, which
+  resolves the nearest display for both cases while the existing clamp still pulls the position
+  back on-screen.
 - **Height below 34 px.** The label and peak share a baseline row and the chart needs the remainder.
   The peak figure is dropped below 34 px rather than being allowed to collide with the label.
 - **Alt+F4 on the strip.** Already covered — `OnWindowClosed` tears down and clears
