@@ -94,6 +94,7 @@
     <File Path="Documents/superpowers/specs/2026-07-20-local-traffic-redesign.md" />
     <File Path="Documents/superpowers/specs/2026-07-26-auto-updates-design.md" />
     <File Path="Documents/superpowers/specs/2026-07-31-floating-mini-graph-design.md" />
+    <File Path="Documents/superpowers/specs/2026-08-05-horizontal-mini-graph-design.md" />
   </Folder>
   <Folder Name="/Tools/Installer/">
     <File Path="Tools/Installer/build-installer.ps1" />
