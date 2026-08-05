@@ -893,6 +893,7 @@ namespace NetworkMonitor
             WidgetMenu.Items.Add(BuildSectionItem("Speed test", _state.ShowSpeedTest, value => _state.ShowSpeedTest = value));
             WidgetMenu.Items.Add(BuildSectionItem("Unknown devices", _state.ShowUnknownDevices, value => _state.ShowUnknownDevices = value));
             WidgetMenu.Items.Add(BuildOpacitySubmenu());
+            WidgetMenu.Items.Add(BuildOrientationSubmenu());
             WidgetMenu.Items.Add(new MenuFlyoutSeparator());
 
             MenuFlyoutItem openItem = new MenuFlyoutItem
@@ -955,6 +956,35 @@ namespace NetworkMonitor
             }
 
             return submenu;
+        }
+
+        private MenuFlyoutSubItem BuildOrientationSubmenu()
+        {
+            MenuFlyoutSubItem submenu = new MenuFlyoutSubItem
+            {
+                Text = "Orientation"
+            };
+
+            MiniGraphOrientation current = _state.Orientation;
+
+            submenu.Items.Add(BuildOrientationItem("Vertical", MiniGraphOrientation.Vertical, current));
+            submenu.Items.Add(BuildOrientationItem("Horizontal", MiniGraphOrientation.Horizontal, current));
+
+            return submenu;
+        }
+
+        private RadioMenuFlyoutItem BuildOrientationItem(string text, MiniGraphOrientation orientation, MiniGraphOrientation current)
+        {
+            RadioMenuFlyoutItem item = new RadioMenuFlyoutItem
+            {
+                Text = text,
+                GroupName = "MiniGraphOrientation",
+                IsChecked = orientation == current
+            };
+
+            item.Click += (sender, args) => _state.Orientation = orientation;
+
+            return item;
         }
 
         private void ShowMainWindow(string? trafficTabTag)
