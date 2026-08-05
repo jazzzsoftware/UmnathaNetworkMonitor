@@ -254,7 +254,7 @@ namespace NetworkMonitor
             int height = (int)Math.Round(size.Height / scale);
             PointInt32 position = AppWindow.Position;
 
-            if (_state.IsHorizontal)
+            if (_appliedOrientation == MiniGraphOrientation.Horizontal)
             {
                 _state.SaveStripPlacement(position.X, position.Y, height);
             }
@@ -458,6 +458,8 @@ namespace NetworkMonitor
         {
             SectionsPanel.ColumnDefinitions.Clear();
             SectionsPanel.Padding = new Thickness(4, 4, 4, 0);
+            InternetSection.MinHeight = 40;
+            LocalSection.MinHeight = 40;
 
             GridLength fill = new GridLength(1, GridUnitType.Star);
             GridLength none = new GridLength(0);
@@ -503,6 +505,8 @@ namespace NetworkMonitor
         {
             SectionsPanel.ColumnDefinitions.Clear();
             SectionsPanel.Padding = new Thickness(4);
+            InternetSection.MinHeight = 0;
+            LocalSection.MinHeight = 0;
 
             GridLength single = new GridLength(1, GridUnitType.Star);
 
@@ -627,7 +631,8 @@ namespace NetworkMonitor
         private double DerivedStripWidth()
         {
             double height = AppWindow.Size.Height / GetCurrentScale();
-            double fontScale = HorizontalStripMetrics.FontScale(height);
+            double clampedHeight = HorizontalStripMetrics.ClampHeight(height);
+            double fontScale = HorizontalStripMetrics.FontScale(clampedHeight);
             double width = HorizontalStripMetrics.Width(_state.ShowInternet, _state.ShowLocal, _state.ShowSpeedTest, _state.ShowUnknownDevices, fontScale);
 
             return width;
