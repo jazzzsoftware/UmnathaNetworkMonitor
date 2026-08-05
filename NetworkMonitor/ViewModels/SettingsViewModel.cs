@@ -435,7 +435,6 @@ namespace NetworkMonitor.ViewModels
             }
         }
 
-
         private void PersistAll()
         {
             _settings.SubnetBase = SubnetBase;
