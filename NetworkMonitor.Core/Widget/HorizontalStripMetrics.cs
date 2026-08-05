@@ -5,7 +5,7 @@ namespace NetworkMonitor.Core.Widget
     // the nominal cell widths below are the one place to tune if a string ever overflows.
     public static class HorizontalStripMetrics
     {
-        public const double MinimumHeight = 28.0;
+        public const double MinimumHeight = 40.0;
         public const double MaximumHeight = 120.0;
         public const double DefaultHeight = 40.0;
 

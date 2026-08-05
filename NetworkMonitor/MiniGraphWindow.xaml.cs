@@ -415,15 +415,21 @@ namespace NetworkMonitor
                 positionY = workArea.Y + workArea.Height - height - margin;
             }
 
+            // Sitting over the taskbar is the entire point of the horizontal strip, and the work
+            // area excludes the taskbar by definition, so clamping the strip to it would push a
+            // taskbar-docked position back up above the taskbar every time. The vertical widget is
+            // a floating panel with no such intent, so it keeps clamping to the work area.
+            RectInt32 clampArea = horizontal ? target.OuterBounds : workArea;
+
             // Only the top-left corner was ever tested against a display, so a widget saved near a
             // right or bottom edge could come back mostly off-screen — and scaling the size on
             // restore makes that easier to hit, because the widget can now be wider than it was
             // when the position was written.
-            int maximumX = Math.Max(workArea.X, workArea.X + workArea.Width - width);
-            int maximumY = Math.Max(workArea.Y, workArea.Y + workArea.Height - height);
+            int maximumX = Math.Max(clampArea.X, clampArea.X + clampArea.Width - width);
+            int maximumY = Math.Max(clampArea.Y, clampArea.Y + clampArea.Height - height);
 
-            positionX = Math.Clamp(positionX, workArea.X, maximumX);
-            positionY = Math.Clamp(positionY, workArea.Y, maximumY);
+            positionX = Math.Clamp(positionX, clampArea.X, maximumX);
+            positionY = Math.Clamp(positionY, clampArea.Y, maximumY);
 
             AppWindow.MoveAndResize(new RectInt32(positionX, positionY, width, height));
             _placementRestored = true;
@@ -495,6 +501,13 @@ namespace NetworkMonitor
             LocalSection.Margin = new Thickness(0, 0, 0, 4);
             SpeedTestBand.Margin = new Thickness(0, 0, 0, 4);
             UnknownDevicesBand.Margin = new Thickness(0, 0, 0, 4);
+
+            SpeedTestLine.HorizontalAlignment = HorizontalAlignment.Stretch;
+            SpeedTestLine.VerticalAlignment = VerticalAlignment.Stretch;
+            SpeedTestLine.TextAlignment = TextAlignment.Left;
+            UnknownDevicesLine.HorizontalAlignment = HorizontalAlignment.Stretch;
+            UnknownDevicesLine.VerticalAlignment = VerticalAlignment.Stretch;
+            UnknownDevicesLine.TextAlignment = TextAlignment.Left;
         }
 
         // Every visible section takes a column of its own natural width, in the same order the vertical
@@ -533,6 +546,13 @@ namespace NetworkMonitor
             CloseGlyph.HorizontalAlignment = HorizontalAlignment.Center;
             CloseGlyph.VerticalAlignment = VerticalAlignment.Center;
             CloseGlyph.Margin = new Thickness(0);
+
+            SpeedTestLine.HorizontalAlignment = HorizontalAlignment.Center;
+            SpeedTestLine.VerticalAlignment = VerticalAlignment.Center;
+            SpeedTestLine.TextAlignment = TextAlignment.Center;
+            UnknownDevicesLine.HorizontalAlignment = HorizontalAlignment.Center;
+            UnknownDevicesLine.VerticalAlignment = VerticalAlignment.Center;
+            UnknownDevicesLine.TextAlignment = TextAlignment.Center;
         }
 
         private int PlaceHorizontalCell(FrameworkElement cell, bool isVisible, int column, double nominalWidth)
