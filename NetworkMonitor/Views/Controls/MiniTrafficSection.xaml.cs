@@ -54,7 +54,6 @@ namespace NetworkMonitor.Views.Controls
                 typeof(MiniTrafficSection),
                 new PropertyMetadata(true, OnShowPeakChanged));
 
-
         public MiniTrafficSection()
         {
             InitializeComponent();
@@ -93,7 +92,6 @@ namespace NetworkMonitor.Views.Controls
             get => (bool)GetValue(ShowPeakProperty);
             set => SetValue(ShowPeakProperty, value);
         }
-
 
         private static void OnLabelChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
         {

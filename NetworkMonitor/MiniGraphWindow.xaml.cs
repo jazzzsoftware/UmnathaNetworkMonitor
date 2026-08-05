@@ -7,7 +7,6 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using NetworkMonitor.Core.Widget;
-using NetworkMonitor.Models.Widget;
 using NetworkMonitor.Services.Data;
 using NetworkMonitor.Services.Platform;
 using NetworkMonitor.ViewModels;
@@ -320,8 +319,17 @@ namespace NetworkMonitor
             UnknownDevicesLine.FontSize = FooterFontSize * scale;
             CloseGlyph.FontSize = FooterFontSize * scale;
 
-            InternetSection.ShowPeak = !_state.IsHorizontal || HorizontalStripMetrics.ShowsPeak(args.NewSize.Height);
-            LocalSection.ShowPeak = InternetSection.ShowPeak;
+            bool showPeak = ComputeShowPeak(args.NewSize.Height);
+
+            InternetSection.ShowPeak = showPeak;
+            LocalSection.ShowPeak = showPeak;
+        }
+
+        private bool ComputeShowPeak(double height)
+        {
+            bool showPeak = !_state.IsHorizontal || HorizontalStripMetrics.ShowsPeak(height);
+
+            return showPeak;
         }
 
         private void ConfigureWindow()
@@ -415,6 +423,11 @@ namespace NetworkMonitor
                 ApplyVerticalLayout();
             }
 
+            bool showPeak = ComputeShowPeak(SectionsPanel.ActualHeight);
+
+            InternetSection.ShowPeak = showPeak;
+            LocalSection.ShowPeak = showPeak;
+
             ApplySpeedTestText();
         }
 
@@ -434,6 +447,8 @@ namespace NetworkMonitor
 
             SectionsPanel.RowDefinitions[0].Height = _state.ShowInternet || spacerNeeded ? fill : none;
             SectionsPanel.RowDefinitions[1].Height = _state.ShowLocal ? fill : none;
+            SectionsPanel.RowDefinitions[2].Height = GridLength.Auto;
+            SectionsPanel.RowDefinitions[3].Height = GridLength.Auto;
 
             Grid.SetRow(InternetSection, 0);
             Grid.SetColumn(InternetSection, 0);
@@ -445,6 +460,7 @@ namespace NetworkMonitor
             Grid.SetColumn(UnknownDevicesBand, 0);
 
             Grid.SetRow(CloseGlyph, 0);
+            Grid.SetRowSpan(CloseGlyph, 4);
             Grid.SetColumn(CloseGlyph, 0);
             CloseGlyph.HorizontalAlignment = HorizontalAlignment.Right;
             CloseGlyph.VerticalAlignment = VerticalAlignment.Top;
@@ -474,10 +490,10 @@ namespace NetworkMonitor
 
             int column = 0;
 
-            column = PlaceHorizontalCell(InternetSection, _state.ShowInternet, column);
-            column = PlaceHorizontalCell(LocalSection, _state.ShowLocal, column);
-            column = PlaceHorizontalCell(SpeedTestBand, _state.ShowSpeedTest, column);
-            column = PlaceHorizontalCell(UnknownDevicesBand, _state.ShowUnknownDevices, column);
+            column = PlaceHorizontalCell(InternetSection, _state.ShowInternet, column, HorizontalStripMetrics.InternetCellWidth);
+            column = PlaceHorizontalCell(LocalSection, _state.ShowLocal, column, HorizontalStripMetrics.LocalCellWidth);
+            column = PlaceHorizontalCell(SpeedTestBand, _state.ShowSpeedTest, column, HorizontalStripMetrics.SpeedCellWidth);
+            column = PlaceHorizontalCell(UnknownDevicesBand, _state.ShowUnknownDevices, column, HorizontalStripMetrics.UnknownDevicesCellWidth);
 
             SectionsPanel.ColumnDefinitions.Add(new ColumnDefinition
             {
@@ -485,13 +501,14 @@ namespace NetworkMonitor
             });
 
             Grid.SetRow(CloseGlyph, 0);
+            Grid.SetRowSpan(CloseGlyph, 1);
             Grid.SetColumn(CloseGlyph, column);
             CloseGlyph.HorizontalAlignment = HorizontalAlignment.Center;
             CloseGlyph.VerticalAlignment = VerticalAlignment.Center;
             CloseGlyph.Margin = new Thickness(0);
         }
 
-        private int PlaceHorizontalCell(FrameworkElement cell, bool isVisible, int column)
+        private int PlaceHorizontalCell(FrameworkElement cell, bool isVisible, int column, double nominalWidth)
         {
             int next = column;
 
@@ -499,7 +516,7 @@ namespace NetworkMonitor
             {
                 SectionsPanel.ColumnDefinitions.Add(new ColumnDefinition
                 {
-                    Width = new GridLength(1, GridUnitType.Star)
+                    Width = new GridLength(nominalWidth, GridUnitType.Star)
                 });
 
                 Grid.SetRow(cell, 0);
@@ -533,7 +550,7 @@ namespace NetworkMonitor
 
         private void ApplySpeedTestText()
         {
-            SpeedTestLabel.Text = _state.IsHorizontal ? "Speed " : "Speed Test";
+            SpeedTestLabel.Text = _state.IsHorizontal ? "Speed" : "Speed Test";
             SpeedTestDetail.Text = _state.IsHorizontal ? ViewModel.SpeedTestShortText : ViewModel.SpeedTestText;
         }
 

@@ -11,10 +11,10 @@ namespace NetworkMonitor.Core.Widget
 
         private const double Padding = 4.0;
         private const double Gap = 4.0;
-        private const double InternetCellWidth = 170.0;
-        private const double LocalCellWidth = 170.0;
-        private const double SpeedCellWidth = 196.0;
-        private const double UnknownDevicesCellWidth = 146.0;
+        public const double InternetCellWidth = 170.0;
+        public const double LocalCellWidth = 170.0;
+        public const double SpeedCellWidth = 196.0;
+        public const double UnknownDevicesCellWidth = 146.0;
         private const double CloseCellWidth = 22.0;
         private const double MinimumFontScale = 1.0;
         private const double MaximumFontScale = 2.0;
