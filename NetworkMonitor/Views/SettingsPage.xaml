@@ -661,6 +661,10 @@
 
                         </StackPanel>
 
+                        <CheckBox
+                            Content="Show window border"
+                            IsChecked="{x:Bind ViewModel.MiniGraphShowBorder, Mode=TwoWay}" />
+
                         <StackPanel
                             Spacing="4">
 

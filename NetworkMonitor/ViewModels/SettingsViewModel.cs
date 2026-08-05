@@ -435,6 +435,22 @@ namespace NetworkMonitor.ViewModels
             }
         }
 
+        private bool _miniGraphShowBorder;
+
+        public bool MiniGraphShowBorder
+        {
+            get => _miniGraphShowBorder;
+            set
+            {
+
+                if (SetProperty(ref _miniGraphShowBorder, value))
+                {
+                    _miniGraphState.ShowBorder = value;
+                }
+
+            }
+        }
+
         private void PersistAll()
         {
             _settings.SubnetBase = SubnetBase;
@@ -481,7 +497,8 @@ namespace NetworkMonitor.ViewModels
                 && args.PropertyName != nameof(MiniGraphShowSpeedTest)
                 && args.PropertyName != nameof(MiniGraphShowUnknownDevices)
                 && args.PropertyName != nameof(MiniGraphOpacity)
-                && args.PropertyName != nameof(MiniGraphHorizontal);
+                && args.PropertyName != nameof(MiniGraphHorizontal)
+                && args.PropertyName != nameof(MiniGraphShowBorder);
 
             if (isPersistable)
             {
@@ -500,6 +517,7 @@ namespace NetworkMonitor.ViewModels
             _miniGraphShowUnknownDevices = _miniGraphState.ShowUnknownDevices;
             _miniGraphOpacity = _miniGraphState.Opacity;
             _miniGraphHorizontal = _miniGraphState.IsHorizontal;
+            _miniGraphShowBorder = _miniGraphState.ShowBorder;
 
             OnPropertyChanged(nameof(ShowMiniGraph));
             OnPropertyChanged(nameof(MiniGraphShowInternet));
@@ -508,6 +526,7 @@ namespace NetworkMonitor.ViewModels
             OnPropertyChanged(nameof(MiniGraphShowUnknownDevices));
             OnPropertyChanged(nameof(MiniGraphOpacity));
             OnPropertyChanged(nameof(MiniGraphHorizontal));
+            OnPropertyChanged(nameof(MiniGraphShowBorder));
         }
 
         public async Task<int> PurgeHistoryAsync()

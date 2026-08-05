@@ -99,6 +99,12 @@ namespace NetworkMonitor.Services.Platform
 
         public bool IsHorizontal => _settings.MiniGraphHorizontal;
 
+        public bool ShowBorder
+        {
+            get => _settings.MiniGraphShowBorder;
+            set => Apply(_settings.MiniGraphShowBorder != value, () => _settings.MiniGraphShowBorder = value);
+        }
+
         public bool HasAnySection => ShowInternet || ShowLocal || ShowSpeedTest || ShowUnknownDevices;
 
         public void SavePlacement(int positionX, int positionY, int width, int height)

@@ -275,6 +275,12 @@ namespace NetworkMonitor.Services.Data
             set;
         } = 40;
 
+        public bool MiniGraphShowBorder
+        {
+            get;
+            set;
+        } = false;
+
         public void Save()
         {
             string json = JsonSerializer.Serialize(this, new JsonSerializerOptions

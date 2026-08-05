@@ -25,6 +25,7 @@ namespace NetworkMonitor
         private const int DwmwcpRound = 2;
         private const int DwmwaBorderColor = 34;
         private const int DwmwaColorNone = unchecked((int)0xFFFFFFFE);
+        private const int DwmwaColorDefault = unchecked((int)0xFFFFFFFF);
         private const int MinimumWidth = 240;
         private const int MinimumHeight = 120;
         private const int EdgeMargin = 16;
@@ -369,12 +370,17 @@ namespace NetworkMonitor
 
             DwmSetWindowAttribute(_hwnd, DwmwaWindowCornerPreference, ref cornerPreference, sizeof(int));
 
-            // The frame has to stay: it is what gives the window its resize edges, and dragging the
-            // top or bottom edge is how the strip's height is set. Only its paint is unwanted, and
-            // DWMWA_COLOR_NONE removes that while leaving the frame's hit-testing untouched. This
-            // attribute needs Windows 11 22000+; older builds fail the call and keep the default
-            // border, exactly as the corner preference above already does.
-            int borderColor = DwmwaColorNone;
+            ApplyBorderVisibility();
+        }
+
+        // The frame itself always stays: it is what gives the window its resize edges, and dragging the
+        // top or bottom edge is how the strip's height is set. Only its paint is optional, and
+        // DWMWA_COLOR_NONE removes that while leaving the frame's hit-testing untouched. Both values
+        // need Windows 11 22000+; older builds fail the call and keep the default border, exactly as
+        // the corner preference does.
+        private void ApplyBorderVisibility()
+        {
+            int borderColor = _state.ShowBorder ? DwmwaColorDefault : DwmwaColorNone;
 
             DwmSetWindowAttribute(_hwnd, DwmwaBorderColor, ref borderColor, sizeof(int));
         }
@@ -653,6 +659,7 @@ namespace NetworkMonitor
             }
 
             ApplyRestingOpacity();
+            ApplyBorderVisibility();
         }
 
         private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
@@ -933,6 +940,7 @@ namespace NetworkMonitor
             WidgetMenu.Items.Add(BuildSectionItem("Unknown devices", _state.ShowUnknownDevices, value => _state.ShowUnknownDevices = value));
             WidgetMenu.Items.Add(BuildOpacitySubmenu());
             WidgetMenu.Items.Add(BuildOrientationSubmenu());
+            WidgetMenu.Items.Add(BuildBorderItem());
             WidgetMenu.Items.Add(new MenuFlyoutSeparator());
 
             MenuFlyoutItem openItem = new MenuFlyoutItem
@@ -967,6 +975,19 @@ namespace NetworkMonitor
             };
 
             item.Click += (sender, args) => assign(item.IsChecked);
+
+            return item;
+        }
+
+        private ToggleMenuFlyoutItem BuildBorderItem()
+        {
+            ToggleMenuFlyoutItem item = new ToggleMenuFlyoutItem
+            {
+                Text = "Show border",
+                IsChecked = _state.ShowBorder
+            };
+
+            item.Click += (sender, args) => _state.ShowBorder = item.IsChecked;
 
             return item;
         }
