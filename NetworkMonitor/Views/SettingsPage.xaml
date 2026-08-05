@@ -661,9 +661,20 @@
 
                         </StackPanel>
 
-                        <CheckBox
-                            Content="Show window border"
-                            IsChecked="{x:Bind ViewModel.MiniGraphShowBorder, Mode=TwoWay}" />
+                        <StackPanel
+                            Spacing="4">
+
+                            <CheckBox
+                                Content="Show window border"
+                                IsChecked="{x:Bind ViewModel.MiniGraphShowBorder, Mode=TwoWay}" />
+
+                            <TextBlock
+                                Text="Hiding the border needs Windows 11. On Windows 10 the border is always shown."
+                                FontSize="12"
+                                Opacity="0.65"
+                                TextWrapping="Wrap" />
+
+                        </StackPanel>
 
                         <StackPanel
                             Spacing="4">
@@ -1045,7 +1056,7 @@
                         TextWrapping="Wrap" />
 
                     <TextBlock
-                        Text="• New: Show or hide the mini graph's window border, from the widget's right-click menu or Settings. The border is hidden by default."
+                        Text="• New: Show or hide the mini graph's window border, from the widget's right-click menu or Settings. The border is hidden by default on Windows 11; Windows 10 always shows it."
                         TextWrapping="Wrap" />
 
                     <TextBlock

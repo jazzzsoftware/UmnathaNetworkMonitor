@@ -136,6 +136,18 @@ namespace NetworkMonitor
 
         public void ShowWidget()
         {
+
+            // An orientation change that arrived while the widget was hidden was deliberately not
+            // applied then, to avoid moving a hidden window. This is where that debt is settled,
+            // before the window becomes visible, so it is never seen in the wrong layout.
+            if (_appliedOrientation != _state.Orientation)
+            {
+                _appliedOrientation = _state.Orientation;
+
+                ApplyLayout();
+                RestorePlacement();
+            }
+
             ViewModel.Attach();
             SetChartsLive(true);
             AppWindow.Show();
@@ -581,6 +593,7 @@ namespace NetworkMonitor
         private int PlaceHorizontalCell(FrameworkElement cell, bool isVisible, int column, double nominalWidth)
         {
             int next = column;
+            int cellColumn = isVisible ? column : 0;
 
             if (isVisible)
             {
@@ -589,11 +602,12 @@ namespace NetworkMonitor
                     Width = new GridLength(nominalWidth, GridUnitType.Star)
                 });
 
-                Grid.SetRow(cell, 0);
-                Grid.SetColumn(cell, column);
-                cell.Margin = new Thickness(0, 0, 4, 0);
                 next = column + 1;
             }
+
+            Grid.SetRow(cell, 0);
+            Grid.SetColumn(cell, cellColumn);
+            cell.Margin = isVisible ? new Thickness(0, 0, 4, 0) : new Thickness(0);
 
             return next;
         }
@@ -646,9 +660,19 @@ namespace NetworkMonitor
             if (_appliedOrientation != _state.Orientation)
             {
                 _savePlacementTimer.Stop();
-                _appliedOrientation = _state.Orientation;
-                ApplyLayout();
-                RestorePlacement();
+
+                // Moving a hidden window risks surfacing it, and a hidden XAML island may not run a
+                // layout pass — which would leave the font scale from the orientation being left,
+                // because SectionsPanelSizeChanged is its only writer. _appliedOrientation is left
+                // stale on purpose: it is what tells ShowWidget the relayout is still owed.
+                if (_state.IsVisible)
+                {
+                    _appliedOrientation = _state.Orientation;
+
+                    ApplyLayout();
+                    RestorePlacement();
+                }
+
             }
             else
             {

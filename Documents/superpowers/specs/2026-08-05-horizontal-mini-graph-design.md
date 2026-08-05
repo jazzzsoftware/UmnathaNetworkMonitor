@@ -185,7 +185,9 @@ An orientation selector beside the existing mini graph preferences, writing thro
   resolves the nearest display for both cases while the existing clamp still pulls the position
   back on-screen.
 - **Height below 34 px.** The label and peak share a baseline row and the chart needs the remainder.
-  The peak figure is dropped below 34 px rather than being allowed to collide with the label.
+  The peak figure is dropped below 34 px rather than being allowed to collide with the label. The
+  34 px threshold is retained in code as a guard, but it is unreachable at the current 40 DIP height
+  floor — the strip can never be dragged short enough to trigger it.
 - **Alt+F4 on the strip.** Already covered — `OnWindowClosed` tears down and clears
   `MiniGraphState.IsVisible` regardless of orientation.
 
@@ -202,7 +204,9 @@ Manual verification:
 
 - Switch orientation both ways with the widget open; confirm each form returns to its own saved
   position.
-- Drag the strip's height across 34 (peak appears/disappears) and 74 (chart labels return).
+- Drag the strip's height across 74 (chart labels return). The 34 px peak-drop threshold cannot be
+  exercised this way — the minimum draggable height is 40 DIP, above the threshold — so it is not
+  part of this manual check.
 - Toggle each section and confirm the strip resizes rather than stretching its cells.
 - Repeat placement and drag checks on a 200% display, given the two prior high-DPI defects.
 
