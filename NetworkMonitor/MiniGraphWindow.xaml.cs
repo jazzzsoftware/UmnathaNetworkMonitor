@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using NetworkMonitor.Core.Widget;
+using NetworkMonitor.Models.Widget;
 using NetworkMonitor.Services.Data;
 using NetworkMonitor.Services.Platform;
 using NetworkMonitor.ViewModels;
@@ -51,6 +52,7 @@ namespace NetworkMonitor
         private readonly DispatcherTimer _hoverFallTimer;
         private readonly DispatcherTimer _alphaFadeTimer;
         private readonly IntPtr _hwnd;
+        private MiniGraphOrientation _appliedOrientation;
         private bool _placementRestored;
         private bool _pointerDown;
         private bool _dragging;
@@ -103,6 +105,8 @@ namespace NetworkMonitor
                 Interval = AlphaStepInterval
             };
             _alphaFadeTimer.Tick += OnAlphaFadeTick;
+
+            _appliedOrientation = _state.Orientation;
 
             ConfigureWindow();
             ApplyLayout();
@@ -248,11 +252,14 @@ namespace NetworkMonitor
             SizeInt32 size = AppWindow.Size;
             int width = (int)Math.Round(size.Width / scale);
             int height = (int)Math.Round(size.Height / scale);
+            PointInt32 position = AppWindow.Position;
 
-            if (width >= MinimumWidth && height >= MinimumHeight)
+            if (_state.IsHorizontal)
             {
-                PointInt32 position = AppWindow.Position;
-
+                _state.SaveStripPlacement(position.X, position.Y, height);
+            }
+            else if (width >= MinimumWidth && height >= MinimumHeight)
+            {
                 _state.SavePlacement(position.X, position.Y, width, height);
             }
 
@@ -363,8 +370,9 @@ namespace NetworkMonitor
 
         private void RestorePlacement()
         {
-            int positionX = _settings.MiniGraphX;
-            int positionY = _settings.MiniGraphY;
+            bool horizontal = _state.IsHorizontal;
+            int positionX = horizontal ? _settings.MiniGraphStripX : _settings.MiniGraphX;
+            int positionY = horizontal ? _settings.MiniGraphStripY : _settings.MiniGraphY;
             DisplayArea? saved = null;
 
             if (positionX != int.MinValue && positionY != int.MinValue)
@@ -381,8 +389,23 @@ namespace NetworkMonitor
             int scaleSampleX = saved is null ? workArea.X : positionX;
             int scaleSampleY = saved is null ? workArea.Y : positionY;
             double scale = GetScaleForPoint(scaleSampleX, scaleSampleY);
-            int width = (int)Math.Round(Math.Max(MinimumWidth, _settings.MiniGraphWidth) * scale);
-            int height = (int)Math.Round(Math.Max(MinimumHeight, _settings.MiniGraphHeight) * scale);
+            int width;
+            int height;
+
+            if (horizontal)
+            {
+                double heightInDips = HorizontalStripMetrics.ClampHeight(_settings.MiniGraphStripHeight);
+                double fontScale = HorizontalStripMetrics.FontScale(heightInDips);
+                double widthInDips = HorizontalStripMetrics.Width(_state.ShowInternet, _state.ShowLocal, _state.ShowSpeedTest, _state.ShowUnknownDevices, fontScale);
+
+                width = (int)Math.Round(widthInDips * scale);
+                height = (int)Math.Round(heightInDips * scale);
+            }
+            else
+            {
+                width = (int)Math.Round(Math.Max(MinimumWidth, _settings.MiniGraphWidth) * scale);
+                height = (int)Math.Round(Math.Max(MinimumHeight, _settings.MiniGraphHeight) * scale);
+            }
 
             if (saved is null)
             {
@@ -567,8 +590,26 @@ namespace NetworkMonitor
 
         private void OnStateChanged(object? sender, EventArgs args)
         {
-            DispatcherQueue.TryEnqueue(ApplyLayout);
-            DispatcherQueue.TryEnqueue(ApplyRestingOpacity);
+            DispatcherQueue.TryEnqueue(OnStateChangedOnUiThread);
+        }
+
+        private void OnStateChangedOnUiThread()
+        {
+
+            if (_appliedOrientation != _state.Orientation)
+            {
+                _savePlacementTimer.Stop();
+                _appliedOrientation = _state.Orientation;
+                ApplyLayout();
+                RestorePlacement();
+            }
+            else
+            {
+                ApplyLayout();
+                ClampMinimumSize();
+            }
+
+            ApplyRestingOpacity();
         }
 
         private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
@@ -583,7 +624,47 @@ namespace NetworkMonitor
 
         }
 
+        private double DerivedStripWidth()
+        {
+            double height = AppWindow.Size.Height / GetCurrentScale();
+            double fontScale = HorizontalStripMetrics.FontScale(height);
+            double width = HorizontalStripMetrics.Width(_state.ShowInternet, _state.ShowLocal, _state.ShowSpeedTest, _state.ShowUnknownDevices, fontScale);
+
+            return width;
+        }
+
         private void ClampMinimumSize()
+        {
+
+            if (_state.IsHorizontal)
+            {
+                ClampStripSize();
+            }
+            else
+            {
+                ClampWidgetSize();
+            }
+
+        }
+
+        // Width is derived from the visible sections rather than dragged, and the presenter cannot lock
+        // one axis while leaving the other free, so a side-edge drag is undone here on the next change.
+        private void ClampStripSize()
+        {
+            double scale = GetCurrentScale();
+            SizeInt32 size = AppWindow.Size;
+            double heightInDips = HorizontalStripMetrics.ClampHeight(size.Height / scale);
+            int height = (int)Math.Round(heightInDips * scale);
+            int width = (int)Math.Round(DerivedStripWidth() * scale);
+
+            if (size.Width != width || size.Height != height)
+            {
+                AppWindow.Resize(new SizeInt32(width, height));
+            }
+
+        }
+
+        private void ClampWidgetSize()
         {
             double scale = GetCurrentScale();
             int minimumWidth = (int)Math.Round(MinimumWidth * scale);
