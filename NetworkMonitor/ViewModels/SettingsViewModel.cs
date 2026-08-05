@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.UI.Dispatching;
 using NetworkMonitor.Services.Data;
 using NetworkMonitor.Models.Formatting;
+using NetworkMonitor.Models.Widget;
 using NetworkMonitor.Services.Platform;
 
 namespace NetworkMonitor.ViewModels
@@ -418,6 +419,22 @@ namespace NetworkMonitor.ViewModels
             }
         }
 
+        private bool _miniGraphHorizontal;
+
+        public bool MiniGraphHorizontal
+        {
+            get => _miniGraphHorizontal;
+            set
+            {
+
+                if (SetProperty(ref _miniGraphHorizontal, value))
+                {
+                    _miniGraphState.Orientation = value ? MiniGraphOrientation.Horizontal : MiniGraphOrientation.Vertical;
+                }
+
+            }
+        }
+
 
         private void PersistAll()
         {
@@ -464,7 +481,8 @@ namespace NetworkMonitor.ViewModels
                 && args.PropertyName != nameof(MiniGraphShowLocal)
                 && args.PropertyName != nameof(MiniGraphShowSpeedTest)
                 && args.PropertyName != nameof(MiniGraphShowUnknownDevices)
-                && args.PropertyName != nameof(MiniGraphOpacity);
+                && args.PropertyName != nameof(MiniGraphOpacity)
+                && args.PropertyName != nameof(MiniGraphHorizontal);
 
             if (isPersistable)
             {
@@ -482,6 +500,7 @@ namespace NetworkMonitor.ViewModels
             _miniGraphShowSpeedTest = _miniGraphState.ShowSpeedTest;
             _miniGraphShowUnknownDevices = _miniGraphState.ShowUnknownDevices;
             _miniGraphOpacity = _miniGraphState.Opacity;
+            _miniGraphHorizontal = _miniGraphState.IsHorizontal;
 
             OnPropertyChanged(nameof(ShowMiniGraph));
             OnPropertyChanged(nameof(MiniGraphShowInternet));
@@ -489,6 +508,7 @@ namespace NetworkMonitor.ViewModels
             OnPropertyChanged(nameof(MiniGraphShowSpeedTest));
             OnPropertyChanged(nameof(MiniGraphShowUnknownDevices));
             OnPropertyChanged(nameof(MiniGraphOpacity));
+            OnPropertyChanged(nameof(MiniGraphHorizontal));
         }
 
         public async Task<int> PurgeHistoryAsync()

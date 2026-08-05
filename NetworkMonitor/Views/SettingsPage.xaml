@@ -647,6 +647,23 @@
                         <StackPanel
                             Spacing="4">
 
+                            <ToggleSwitch
+                                Header="Horizontal strip"
+                                OffContent="Vertical"
+                                OnContent="Horizontal"
+                                IsOn="{x:Bind ViewModel.MiniGraphHorizontal, Mode=TwoWay}" />
+
+                            <TextBlock
+                                Text="Lays the sections out side by side in a short, wide strip that fits on the taskbar. Its width follows whichever sections you have switched on; drag its top or bottom edge to set the height."
+                                FontSize="12"
+                                Opacity="0.65"
+                                TextWrapping="Wrap" />
+
+                        </StackPanel>
+
+                        <StackPanel
+                            Spacing="4">
+
                             <TextBlock
                                 Text="Resting opacity (%)" />
 
