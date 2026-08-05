@@ -23,6 +23,8 @@ namespace NetworkMonitor
         private const uint LwaAlpha = 0x00000002;
         private const int DwmwaWindowCornerPreference = 33;
         private const int DwmwcpRound = 2;
+        private const int DwmwaBorderColor = 34;
+        private const int DwmwaColorNone = unchecked((int)0xFFFFFFFE);
         private const int MinimumWidth = 240;
         private const int MinimumHeight = 120;
         private const int EdgeMargin = 16;
@@ -366,6 +368,15 @@ namespace NetworkMonitor
             int cornerPreference = DwmwcpRound;
 
             DwmSetWindowAttribute(_hwnd, DwmwaWindowCornerPreference, ref cornerPreference, sizeof(int));
+
+            // The frame has to stay: it is what gives the window its resize edges, and dragging the
+            // top or bottom edge is how the strip's height is set. Only its paint is unwanted, and
+            // DWMWA_COLOR_NONE removes that while leaving the frame's hit-testing untouched. This
+            // attribute needs Windows 11 22000+; older builds fail the call and keep the default
+            // border, exactly as the corner preference above already does.
+            int borderColor = DwmwaColorNone;
+
+            DwmSetWindowAttribute(_hwnd, DwmwaBorderColor, ref borderColor, sizeof(int));
         }
 
         private void RestorePlacement()
