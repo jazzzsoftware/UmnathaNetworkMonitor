@@ -1,3 +1,5 @@
+using NetworkMonitor.Core.Widget;
+using NetworkMonitor.Models.Widget;
 using NetworkMonitor.Services.Data;
 
 namespace NetworkMonitor.Services.Platform
@@ -84,6 +86,19 @@ namespace NetworkMonitor.Services.Platform
             }
         }
 
+        public MiniGraphOrientation Orientation
+        {
+            get => _settings.MiniGraphHorizontal ? MiniGraphOrientation.Horizontal : MiniGraphOrientation.Vertical;
+            set
+            {
+                bool horizontal = value == MiniGraphOrientation.Horizontal;
+
+                Apply(_settings.MiniGraphHorizontal != horizontal, () => _settings.MiniGraphHorizontal = horizontal);
+            }
+        }
+
+        public bool IsHorizontal => _settings.MiniGraphHorizontal;
+
         public bool HasAnySection => ShowInternet || ShowLocal || ShowSpeedTest || ShowUnknownDevices;
 
         public void SavePlacement(int positionX, int positionY, int width, int height)
@@ -92,6 +107,17 @@ namespace NetworkMonitor.Services.Platform
             _settings.MiniGraphY = positionY;
             _settings.MiniGraphWidth = width;
             _settings.MiniGraphHeight = height;
+            _settings.Save();
+        }
+
+        // The strip and the floating widget keep separate positions. Sharing one would drop a 700-wide
+        // strip at the floating widget's coordinates on every orientation change, and the user would
+        // have to reposition it each time.
+        public void SaveStripPlacement(int positionX, int positionY, int height)
+        {
+            _settings.MiniGraphStripX = positionX;
+            _settings.MiniGraphStripY = positionY;
+            _settings.MiniGraphStripHeight = (int)Math.Round(HorizontalStripMetrics.ClampHeight(height));
             _settings.Save();
         }
 

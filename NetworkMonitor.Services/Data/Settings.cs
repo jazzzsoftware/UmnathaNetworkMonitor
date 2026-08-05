@@ -251,6 +251,30 @@ namespace NetworkMonitor.Services.Data
             set;
         } = 100;
 
+        public bool MiniGraphHorizontal
+        {
+            get;
+            set;
+        } = false;
+
+        public int MiniGraphStripX
+        {
+            get;
+            set;
+        } = int.MinValue;
+
+        public int MiniGraphStripY
+        {
+            get;
+            set;
+        } = int.MinValue;
+
+        public int MiniGraphStripHeight
+        {
+            get;
+            set;
+        } = 40;
+
         public void Save()
         {
             string json = JsonSerializer.Serialize(this, new JsonSerializerOptions
