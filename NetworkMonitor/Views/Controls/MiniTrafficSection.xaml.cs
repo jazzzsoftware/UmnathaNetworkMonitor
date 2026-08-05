@@ -47,6 +47,13 @@ namespace NetworkMonitor.Views.Controls
                 typeof(MiniTrafficSection),
                 new PropertyMetadata(1.0, OnFontScaleChanged));
 
+        public static readonly DependencyProperty ShowPeakProperty =
+            DependencyProperty.Register(
+                nameof(ShowPeak),
+                typeof(bool),
+                typeof(MiniTrafficSection),
+                new PropertyMetadata(true, OnShowPeakChanged));
+
 
         public MiniTrafficSection()
         {
@@ -81,6 +88,12 @@ namespace NetworkMonitor.Views.Controls
             set => SetValue(FontScaleProperty, value);
         }
 
+        public bool ShowPeak
+        {
+            get => (bool)GetValue(ShowPeakProperty);
+            set => SetValue(ShowPeakProperty, value);
+        }
+
 
         private static void OnLabelChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
         {
@@ -108,6 +121,13 @@ namespace NetworkMonitor.Views.Controls
             MiniTrafficSection section = (MiniTrafficSection)sender;
 
             section.ApplyFontScale((double)args.NewValue);
+        }
+
+        private static void OnShowPeakChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
+        {
+            MiniTrafficSection section = (MiniTrafficSection)sender;
+
+            section.PeakLabel.Visibility = (bool)args.NewValue ? Visibility.Visible : Visibility.Collapsed;
         }
 
         // Also called from the constructor: a widget that opens at the reference size never changes the

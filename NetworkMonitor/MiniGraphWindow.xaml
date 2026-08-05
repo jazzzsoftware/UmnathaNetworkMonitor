@@ -26,9 +26,24 @@
 
         <Grid
             x:Name="SectionsPanel"
-            RowDefinitions="*,*,Auto,Auto"
             Padding="4,4,4,0"
             SizeChanged="SectionsPanelSizeChanged">
+
+            <Grid.RowDefinitions>
+
+                <RowDefinition
+                    Height="*" />
+
+                <RowDefinition
+                    Height="*" />
+
+                <RowDefinition
+                    Height="Auto" />
+
+                <RowDefinition
+                    Height="Auto" />
+
+            </Grid.RowDefinitions>
 
             <controls:MiniTrafficSection
                 x:Name="InternetSection"
@@ -64,6 +79,7 @@
                     DoubleTapped="SpeedLineDoubleTapped">
 
                     <Run
+                        x:Name="SpeedTestLabel"
                         FontWeight="Bold"
                         Text="Speed Test" />
 
@@ -92,6 +108,19 @@
 
             </Border>
 
+            <Button
+                x:Name="CloseGlyph"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                Margin="0,2,2,0"
+                Padding="6,2"
+                FontSize="11"
+                Background="Transparent"
+                BorderThickness="0"
+                Opacity="0"
+                Content="&#x2715;"
+                Click="CloseGlyphClick" />
+
         </Grid>
 
         <TextBlock
@@ -105,19 +134,6 @@
             VerticalAlignment="Center"
             Visibility="Collapsed"
             Text="Right-click to choose what to show" />
-
-        <Button
-            x:Name="CloseGlyph"
-            HorizontalAlignment="Right"
-            VerticalAlignment="Top"
-            Margin="0,2,2,0"
-            Padding="6,2"
-            FontSize="11"
-            Background="Transparent"
-            BorderThickness="0"
-            Opacity="0"
-            Content="&#x2715;"
-            Click="CloseGlyphClick" />
 
     </Grid>
 

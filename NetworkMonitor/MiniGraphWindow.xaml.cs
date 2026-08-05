@@ -6,6 +6,8 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using NetworkMonitor.Core.Widget;
+using NetworkMonitor.Models.Widget;
 using NetworkMonitor.Services.Data;
 using NetworkMonitor.Services.Platform;
 using NetworkMonitor.ViewModels;
@@ -294,17 +296,32 @@ namespace NetworkMonitor
 
         // Every size the widget can be dragged to is a legitimate one, and text fixed at 12 point looks
         // cramped at 600 wide and swamps the charts at 240. The reference size is the default placement.
+        // Horizontal takes its scale from the height alone: the strip's width grows with every section
+        // switched on, so a width term would inflate the text as sections were added.
         private void SectionsPanelSizeChanged(object sender, SizeChangedEventArgs args)
         {
-            double widthScale = args.NewSize.Width / ReferenceWidth;
-            double heightScale = args.NewSize.Height / ReferenceHeight;
-            double scale = Math.Clamp(Math.Min(widthScale, heightScale), MinimumFontScale, MaximumFontScale);
+            double scale;
+
+            if (_state.IsHorizontal)
+            {
+                scale = HorizontalStripMetrics.FontScale(args.NewSize.Height);
+            }
+            else
+            {
+                double widthScale = args.NewSize.Width / ReferenceWidth;
+                double heightScale = args.NewSize.Height / ReferenceHeight;
+
+                scale = Math.Clamp(Math.Min(widthScale, heightScale), MinimumFontScale, MaximumFontScale);
+            }
 
             InternetSection.FontScale = scale;
             LocalSection.FontScale = scale;
             SpeedTestLine.FontSize = FooterFontSize * scale;
             UnknownDevicesLine.FontSize = FooterFontSize * scale;
             CloseGlyph.FontSize = FooterFontSize * scale;
+
+            InternetSection.ShowPeak = !_state.IsHorizontal || HorizontalStripMetrics.ShowsPeak(args.NewSize.Height);
+            LocalSection.ShowPeak = InternetSection.ShowPeak;
         }
 
         private void ConfigureWindow()
@@ -389,6 +406,23 @@ namespace NetworkMonitor
             UnknownDevicesBand.Visibility = _state.ShowUnknownDevices ? Visibility.Visible : Visibility.Collapsed;
             EmptyHint.Visibility = _state.HasAnySection ? Visibility.Collapsed : Visibility.Visible;
 
+            if (_state.IsHorizontal)
+            {
+                ApplyHorizontalLayout();
+            }
+            else
+            {
+                ApplyVerticalLayout();
+            }
+
+            ApplySpeedTestText();
+        }
+
+        private void ApplyVerticalLayout()
+        {
+            SectionsPanel.ColumnDefinitions.Clear();
+            SectionsPanel.Padding = new Thickness(4, 4, 4, 0);
+
             GridLength fill = new GridLength(1, GridUnitType.Star);
             GridLength none = new GridLength(0);
 
@@ -400,6 +434,81 @@ namespace NetworkMonitor
 
             SectionsPanel.RowDefinitions[0].Height = _state.ShowInternet || spacerNeeded ? fill : none;
             SectionsPanel.RowDefinitions[1].Height = _state.ShowLocal ? fill : none;
+
+            Grid.SetRow(InternetSection, 0);
+            Grid.SetColumn(InternetSection, 0);
+            Grid.SetRow(LocalSection, 1);
+            Grid.SetColumn(LocalSection, 0);
+            Grid.SetRow(SpeedTestBand, 2);
+            Grid.SetColumn(SpeedTestBand, 0);
+            Grid.SetRow(UnknownDevicesBand, 3);
+            Grid.SetColumn(UnknownDevicesBand, 0);
+
+            Grid.SetRow(CloseGlyph, 0);
+            Grid.SetColumn(CloseGlyph, 0);
+            CloseGlyph.HorizontalAlignment = HorizontalAlignment.Right;
+            CloseGlyph.VerticalAlignment = VerticalAlignment.Top;
+            CloseGlyph.Margin = new Thickness(0, 2, 2, 0);
+
+            InternetSection.Margin = new Thickness(0, 0, 0, 4);
+            LocalSection.Margin = new Thickness(0, 0, 0, 4);
+            SpeedTestBand.Margin = new Thickness(0, 0, 0, 4);
+            UnknownDevicesBand.Margin = new Thickness(0, 0, 0, 4);
+        }
+
+        // Every visible section takes a column of its own natural width, in the same order the vertical
+        // widget stacks them, and the close glyph takes a narrow trailing column. Left floating over the
+        // top-right corner it would land on the unknown-devices text: the 26px right reserve inside
+        // MiniTrafficSection's header does not apply to the plain Border bands.
+        private void ApplyHorizontalLayout()
+        {
+            SectionsPanel.ColumnDefinitions.Clear();
+            SectionsPanel.Padding = new Thickness(4);
+
+            GridLength single = new GridLength(1, GridUnitType.Star);
+
+            SectionsPanel.RowDefinitions[0].Height = single;
+            SectionsPanel.RowDefinitions[1].Height = new GridLength(0);
+            SectionsPanel.RowDefinitions[2].Height = new GridLength(0);
+            SectionsPanel.RowDefinitions[3].Height = new GridLength(0);
+
+            int column = 0;
+
+            column = PlaceHorizontalCell(InternetSection, _state.ShowInternet, column);
+            column = PlaceHorizontalCell(LocalSection, _state.ShowLocal, column);
+            column = PlaceHorizontalCell(SpeedTestBand, _state.ShowSpeedTest, column);
+            column = PlaceHorizontalCell(UnknownDevicesBand, _state.ShowUnknownDevices, column);
+
+            SectionsPanel.ColumnDefinitions.Add(new ColumnDefinition
+            {
+                Width = GridLength.Auto
+            });
+
+            Grid.SetRow(CloseGlyph, 0);
+            Grid.SetColumn(CloseGlyph, column);
+            CloseGlyph.HorizontalAlignment = HorizontalAlignment.Center;
+            CloseGlyph.VerticalAlignment = VerticalAlignment.Center;
+            CloseGlyph.Margin = new Thickness(0);
+        }
+
+        private int PlaceHorizontalCell(FrameworkElement cell, bool isVisible, int column)
+        {
+            int next = column;
+
+            if (isVisible)
+            {
+                SectionsPanel.ColumnDefinitions.Add(new ColumnDefinition
+                {
+                    Width = new GridLength(1, GridUnitType.Star)
+                });
+
+                Grid.SetRow(cell, 0);
+                Grid.SetColumn(cell, column);
+                cell.Margin = new Thickness(0, 0, 4, 0);
+                next = column + 1;
+            }
+
+            return next;
         }
 
         private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs args)
@@ -413,7 +522,9 @@ namespace NetworkMonitor
             // The label half of this line is a bold Run and the readings are a second Run, so the text
             // is assigned here rather than bound: a Run is not a FrameworkElement and carries no
             // binding of its own.
-            if (args.PropertyName is null || args.PropertyName == nameof(MiniGraphViewModel.SpeedTestText))
+            if (args.PropertyName is null
+                || args.PropertyName == nameof(MiniGraphViewModel.SpeedTestText)
+                || args.PropertyName == nameof(MiniGraphViewModel.SpeedTestShortText))
             {
                 DispatcherQueue.TryEnqueue(ApplySpeedTestText);
             }
@@ -422,7 +533,8 @@ namespace NetworkMonitor
 
         private void ApplySpeedTestText()
         {
-            SpeedTestDetail.Text = ViewModel.SpeedTestText;
+            SpeedTestLabel.Text = _state.IsHorizontal ? "Speed " : "Speed Test";
+            SpeedTestDetail.Text = _state.IsHorizontal ? ViewModel.SpeedTestShortText : ViewModel.SpeedTestText;
         }
 
         private void ApplyUnknownDevicesBrush()

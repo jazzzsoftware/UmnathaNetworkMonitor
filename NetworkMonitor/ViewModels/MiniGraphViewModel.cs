@@ -49,6 +49,14 @@ namespace NetworkMonitor.ViewModels
             private set => SetProperty(ref _speedTestText, value);
         }
 
+        private string _speedTestShortText = "not run yet";
+
+        public string SpeedTestShortText
+        {
+            get => _speedTestShortText;
+            private set => SetProperty(ref _speedTestShortText, value);
+        }
+
         private string _unknownDevicesText = "✓ no unknown devices";
 
         public string UnknownDevicesText
@@ -113,6 +121,7 @@ namespace NetworkMonitor.ViewModels
             }
 
             SpeedTestText = MiniGraphFormatter.SpeedTest(_feed.LatestSpeedTest, mode);
+            SpeedTestShortText = MiniGraphFormatter.SpeedTestShort(_feed.LatestSpeedTest, mode);
             UnknownDevicesText = MiniGraphFormatter.UnknownDevices(_feed.UnapprovedDeviceCount);
             HasUnknownDevices = _feed.UnapprovedDeviceCount > 0;
         }
