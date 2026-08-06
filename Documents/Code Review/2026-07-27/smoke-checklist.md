@@ -43,9 +43,9 @@ P = Pass, F = Fail, [ ] = Not Tested
 ## Update path
 
 - [P] **Check for updates** from Settings with no update available — the card shows "up to date", no error.
-- [ ] With an update available: banner appears → **Download** shows whole-percent progress → **Cancel** mid-download leaves no error state and no partial file in the Updates folder.
-- [ ] Download again to completion, then **Install**. The app performs its graceful exit (window placement saved, tray icon removed) and the installer runs.
-- [ ] After the silent install the app returns **visible**, not hidden in the tray.
+- [P] With an update available: banner appears → **Download** shows whole-percent progress → **Cancel** mid-download leaves no error state and no partial file in the Updates folder.
+- [P] Download again to completion, then **Install**. The app performs its graceful exit (window placement saved, tray icon removed) and the installer runs.
+- [P] After the silent install the app returns **visible**, not hidden in the tray.
 - [P] Launch once with no network — the check fails with a connection message rather than reporting "up to date".
 
 ## Storage retention
