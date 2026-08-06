@@ -182,6 +182,8 @@ Done - double clicking horiz mini graph restores app but does dot restore its si
 Done - vert/horiz switch does not retore horiz position correctly. slightly off
 Done - Taskbar version of Mini graph.
 
+Done - Redo blur for HorizontalMiniGraphInTaskBar.png, Only blur above taskbar.
+
 Github:
 Done - Topics
 Post on Reddit

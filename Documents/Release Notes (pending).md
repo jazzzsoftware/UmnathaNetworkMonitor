@@ -29,19 +29,4 @@ mislabelled as shipped, because nothing unreleased is in the dialog at all.
 
 ## Next release
 
-- New: Horizontal mini graph. The mini graph can now be laid out as a short, wide strip instead of
-  a panel — short enough to sit over the taskbar if you drag it there. Its width follows whichever
-  sections you have switched on, and you set its height by dragging its top or bottom edge. Switch
-  between the two layouts from the widget's right-click menu or Settings; each remembers its own
-  position on screen.
-- New: Show or hide the mini graph's window border, from the widget's right-click menu or Settings.
-  The border is shown by default; hiding it needs Windows 11, as Windows 10 always shows it.
-- The horizontal strip shortens the speed test line to the rates and ping so it does not crowd out
-  the charts, and centres the speed and unknown-device readings in their cells.
-- Fixed the mini graph forgetting where you left it if you had dragged it slightly past the edge of
-  the screen — it would reappear in the corner of the desktop instead. This affected the floating
-  panel as well as the new strip.
-- Known issue: after your PC resumes from sleep, Windows can draw the taskbar over the mini graph
-  and over the tray menu, even though both are correctly positioned above it. This is a Windows
-  display problem rather than a fault in the app — the tray menu is affected the same way.
-  Restarting Umnatha Network Monitor does not clear it; it takes a Windows restart.
+_Nothing pending — the previous entries shipped in v0.0.11._
