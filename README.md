@@ -73,6 +73,10 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md) for coding conventions and how to run t
 
 Everything lives locally in `%LOCALAPPDATA%\UmnathaNetworkMonitor\` — there's no cloud sync, telemetry, or account. Optional diagnostic logging (off by default) never records MAC addresses, IP addresses, or hostnames. See the *Data storage* and *Diagnostic logging* sections of [`Documents/Overview.md`](Documents/Overview.md) for exact file layouts.
 
+## Known issues
+
+- **After resuming from sleep, the mini graph or the tray menu can appear behind the taskbar.** Windows draws the taskbar over them even though both windows are correctly ordered above it — confirmed by a z-order dump showing the widget above `Shell_TrayWnd` while it was still hidden from view. The tray menu is affected identically despite sharing no code with the mini graph, which points at the Windows compositor rather than the app. Restarting the app does not clear it; a Windows restart does.
+
 ## Roadmap
 
 Ideas being explored, in no particular order and with no committed timeline:

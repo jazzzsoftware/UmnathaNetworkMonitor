@@ -1068,6 +1068,10 @@
                         TextWrapping="Wrap" />
 
                     <TextBlock
+                        Text="• Known issue: after your PC resumes from sleep, Windows can draw the taskbar over the mini graph and over the tray menu, even though both are correctly positioned above it. This is a Windows display problem rather than a fault in the app — the tray menu is affected the same way. Restarting Umnatha Network Monitor does not clear it; it takes a Windows restart."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
                         Text="v0.0.10"
                         FontWeight="SemiBold"
                         FontSize="16"
