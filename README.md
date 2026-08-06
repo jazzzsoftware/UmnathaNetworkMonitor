@@ -30,6 +30,18 @@ This app is a Windows desktop app that watches your local network: it scans cont
   <em>The floating mini graph — live throughput, last speed test and unknown devices, always on top</em>
 </p>
 
+<p align="center">
+  <img src="Documents/Images/HorizontalMiniGraph.png" alt="The mini graph as a horizontal strip" width="820">
+  <br>
+  <em>The same widget as a short, wide strip — Internet, Local, speed test and unknown devices side by side</em>
+</p>
+
+<p align="center">
+  <img src="Documents/Images/HorizontalMiniGraphInTaskBar.png" alt="The mini graph strip sitting on the taskbar" width="820">
+  <br>
+  <em>Narrowed to a single section and dragged onto the taskbar, beside Start and Search</em>
+</p>
+
 ## What it does
 
 - **Scans the network** on a configurable interval (default: every 5 minutes) using ICMP ping, ARP table parsing, and reverse DNS lookup.
