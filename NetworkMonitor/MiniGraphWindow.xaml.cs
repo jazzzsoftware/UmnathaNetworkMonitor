@@ -55,6 +55,7 @@ namespace NetworkMonitor
         private readonly DispatcherTimer _hoverFallTimer;
         private readonly DispatcherTimer _alphaFadeTimer;
         private readonly IntPtr _hwnd;
+        private readonly TaskbarTopmostGuard _topmostGuard;
         private MiniGraphOrientation _appliedOrientation;
         private bool _placementRestored;
         private bool _pointerDown;
@@ -82,6 +83,7 @@ namespace NetworkMonitor
             };
 
             _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+            _topmostGuard = new TaskbarTopmostGuard(_hwnd);
 
             _savePlacementTimer = new DispatcherTimer
             {
@@ -241,6 +243,7 @@ namespace NetworkMonitor
             _hoverRiseTimer.Stop();
             _hoverFallTimer.Stop();
             _alphaFadeTimer.Stop();
+            _topmostGuard.Dispose();
             _state.Changed -= OnStateChanged;
             ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
             ViewModel.Detach();
