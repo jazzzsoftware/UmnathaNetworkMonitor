@@ -24,6 +24,7 @@ namespace NetworkMonitor
         private const int DwmwaWindowCornerPreference = 33;
         private const int DwmwcpRound = 2;
         private const int DwmwaBorderColor = 34;
+        private const int DwmwaExtendedFrameBounds = 9;
         private const int DwmwaColorNone = unchecked((int)0xFFFFFFFE);
         private const int DwmwaColorDefault = unchecked((int)0xFFFFFFFF);
         private const int MinimumWidth = 240;
@@ -189,6 +190,13 @@ namespace NetworkMonitor
         [DllImport("dwmapi.dll")]
         private static extern int DwmSetWindowAttribute(IntPtr hWnd, int attribute, ref int value, int size);
 
+        [DllImport("dwmapi.dll")]
+        private static extern int DwmGetWindowAttribute(IntPtr hWnd, int attribute, out NativeRect value, int size);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool GetWindowRect(IntPtr hWnd, out NativeRect rect);
+
         [DllImport("user32.dll")]
         private static extern uint GetDpiForWindow(IntPtr hWnd);
 
@@ -207,6 +215,15 @@ namespace NetworkMonitor
         {
             public int X;
             public int Y;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct NativeRect
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
         }
 
         private void OnWindowClosed(object sender, WindowEventArgs args)
@@ -457,7 +474,16 @@ namespace NetworkMonitor
             // area excludes the taskbar by definition, so clamping the strip to it would push a
             // taskbar-docked position back up above the taskbar every time. The vertical widget is
             // a floating panel with no such intent, so it keeps clamping to the work area.
-            RectInt32 clampArea = horizontal ? target.OuterBounds : workArea;
+            RectInt32 bounds = horizontal ? target.OuterBounds : workArea;
+
+            // The window carries an invisible resize border — 7px on left, right and bottom at 96 DPI —
+            // that GetWindowRect and AppWindow both count but nobody can see. Clamping the raw rect to
+            // the display therefore refused any position that put the *visible* strip flush with the
+            // bottom of the screen, and dragged it up by exactly the overhang. Worse, the restore's own
+            // MoveAndResize then triggered the debounced save, writing the clamped position back and
+            // destroying the one the user chose. Growing the clamp by the insets keeps the test on what
+            // is actually visible.
+            RectInt32 clampArea = ExpandByFrameInsets(bounds);
 
             // Only the top-left corner was ever tested against a display, so a widget saved near a
             // right or bottom edge could come back mostly off-screen — and scaling the size on
@@ -471,6 +497,37 @@ namespace NetworkMonitor
 
             AppWindow.MoveAndResize(new RectInt32(positionX, positionY, width, height));
             _placementRestored = true;
+        }
+
+        // DWM is asked rather than GetSystemMetrics because the two disagree: the metrics come to 8 at
+        // 96 DPI where the frame actually measures 7, and a clamp that is a pixel out is the whole
+        // defect. A failed call leaves the area untouched, which is the behaviour this had before.
+        private RectInt32 ExpandByFrameInsets(RectInt32 area)
+        {
+            RectInt32 expanded = area;
+
+            if (DwmGetWindowAttribute(_hwnd, DwmwaExtendedFrameBounds, out NativeRect visible, Marshal.SizeOf<NativeRect>()) == 0
+                && GetWindowRect(_hwnd, out NativeRect outer))
+            {
+                int left = visible.Left - outer.Left;
+                int top = visible.Top - outer.Top;
+                int right = outer.Right - visible.Right;
+                int bottom = outer.Bottom - visible.Bottom;
+
+                // A window that has never been composed can report a degenerate frame, and negative
+                // insets would push the clamp inwards rather than out.
+                if (left >= 0 && top >= 0 && right >= 0 && bottom >= 0)
+                {
+                    expanded = new RectInt32(
+                        area.X - left,
+                        area.Y - top,
+                        area.Width + left + right,
+                        area.Height + top + bottom);
+                }
+
+            }
+
+            return expanded;
         }
 
         private void ApplyLayout()

@@ -178,8 +178,9 @@ Done - On a 4k TV connected to my laptop (TV is main monitor at 200% scaling and
 Done - Mini graph way too small on first show.
 Done - Dragging the mini graph causes it to fly all over the place.
 Done - Wherever version is displayed always use this format: v0.0.10
-
-Testing -Taskbar version of Mini graph.
+Done - double clicking horiz mini graph restores app but does dot restore its size.
+Done - vert/horiz switch does not retore horiz position correctly. slightly off
+Done - Taskbar version of Mini graph.
 
 Github:
 Done - Topics
