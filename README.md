@@ -37,7 +37,7 @@ This app is a Windows desktop app that watches your local network: it scans cont
 </p>
 
 <p align="center">
-  <img src="Documents/Images/HorizontalMiniGraphInTaskBar.png" alt="The mini graph strip sitting on the taskbar" width="820">
+  <img src="Documents/Images/HorizontalMiniGraphInTaskBar.png" alt="The mini graph strip sitting on the taskbar" width="409">
   <br>
   <em>Narrowed to a single section and dragged onto the taskbar, beside Start and Search</em>
 </p>
