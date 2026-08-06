@@ -30,6 +30,8 @@
   <Folder Name="/Documents/Images/">
     <File Path="Documents/Images/Devices.png" />
     <File Path="Documents/Images/DigestReport.png" />
+    <File Path="Documents/Images/HorizontalMiniGraph.png" />
+    <File Path="Documents/Images/HorizontalMiniGraphInTaskBar.png" />
     <File Path="Documents/Images/Internet.png" />
     <File Path="Documents/Images/Local.png" />
     <File Path="Documents/Images/MiniGraph.png" />

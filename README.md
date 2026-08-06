@@ -55,6 +55,8 @@ See [`Documents/Overview.md`](Documents/Overview.md) for the full feature tour, 
 - [Floating mini graph](Documents/Images/MiniGraph.png) — the always-on-top widget: live Internet and Local throughput, last speed test, unknown devices.
 - [Speed test](Documents/Images/Speedtest.png) — hourly Cloudflare download/upload/latency/jitter history.
 - [Daily digest](Documents/Images/DigestReport.png) — a summary report of device activity and traffic, exportable to PDF.
+- [Horizontal mini graph](Documents/Images/HorizontalMiniGraph.png) — the same widget laid out as a short, wide strip: Internet and Local throughput, the last speed test and the unknown-device count side by side.
+- [Mini graph on the taskbar](Documents/Images/HorizontalMiniGraphInTaskBar.png) — the strip narrowed to a single section and dragged onto the taskbar, sitting alongside Start and Search.
 
 ## Requirements
 
