@@ -84,7 +84,7 @@ Ideas being explored, in no particular order and with no committed timeline:
 - ~~**Automatic updates** — in-app update checks and one-click upgrades.~~ Shipped in v0.0.9.
 - **Chart colour schemes** — selectable palettes for the traffic and speed charts.
 - ~~**Floating mini-graph** — a small always-on-top live throughput window.~~ Shipped in v0.0.10.
-- ~~**Horizontal mini-graph strip** — a short, wide layout for the mini graph that will sit over the taskbar.~~ Shipped in v0.0.11.
+- **Horizontal mini-graph** — a horizontal version of the mini graph that can be placed on top of the taskbar.
 
 ## License
 

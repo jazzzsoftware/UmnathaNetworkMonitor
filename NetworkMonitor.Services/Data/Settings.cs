@@ -279,7 +279,7 @@ namespace NetworkMonitor.Services.Data
         {
             get;
             set;
-        } = false;
+        } = true;
 
         public void Save()
         {

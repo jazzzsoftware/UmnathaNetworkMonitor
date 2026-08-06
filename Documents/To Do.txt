@@ -179,7 +179,7 @@ Done - Mini graph way too small on first show.
 Done - Dragging the mini graph causes it to fly all over the place.
 Done - Wherever version is displayed always use this format: v0.0.10
 
-Sys tray version of Mini graph.
+Testing -Taskbar version of Mini graph.
 
 Github:
 Done - Topics
@@ -192,4 +192,5 @@ Jazzz Software logo and tag line.
 Roadmap:
 Done - Auto update
 Done - Floating mini graph.
+Taskbar version of Mini graph
 Chart colour schemes

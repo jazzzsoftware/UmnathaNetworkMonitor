@@ -1056,7 +1056,7 @@
                         TextWrapping="Wrap" />
 
                     <TextBlock
-                        Text="• New: Show or hide the mini graph's window border, from the widget's right-click menu or Settings. The border is hidden by default on Windows 11; Windows 10 always shows it."
+                        Text="• New: Show or hide the mini graph's window border, from the widget's right-click menu or Settings. The border is shown by default; hiding it needs Windows 11, as Windows 10 always shows it."
                         TextWrapping="Wrap" />
 
                     <TextBlock
