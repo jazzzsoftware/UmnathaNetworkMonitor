@@ -719,6 +719,14 @@ namespace NetworkMonitor
 
             if (_appliedOrientation != _state.Orientation)
             {
+
+                // A placement still sitting in the 400ms debounce belongs to the orientation being
+                // left, and stopping the timer bare threw it away — resize the strip's height and
+                // switch layout straight afterwards and the new height was lost. Flushing first is
+                // what HideWidget and Teardown already do. Order matters: _appliedOrientation is
+                // still the outgoing orientation here, so the write lands in the right slot.
+                FlushPlacement();
+
                 _savePlacementTimer.Stop();
 
                 // Moving a hidden window risks surfacing it, and a hidden XAML island may not run a
