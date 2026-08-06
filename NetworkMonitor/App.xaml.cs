@@ -32,6 +32,7 @@ namespace NetworkMonitor
         private const string ActivationEventName = "NetworkMonitor.App.SingleInstance.Event";
         private const int SwRestore = 9;
         private const int SwHide = 0;
+        private const int SwShow = 5;
 
         private static Mutex? _instanceMutex;
         private static EventWaitHandle? _activationEvent;
@@ -367,12 +368,24 @@ namespace NetworkMonitor
             _miniGraphVisible = false;
         }
 
+        // Closing to the tray hides the window with SW_HIDE, which leaves its maximized state intact —
+        // a hidden window is still a maximized one. SW_RESTORE un-maximizes by definition, so showing it
+        // again that way brought a maximized window back at its pre-maximized size. SW_SHOW displays the
+        // window in whatever state it already holds. SW_RESTORE stays correct for a genuinely minimized
+        // window, where it returns to the state held before minimising, maximized included.
         internal static void ShowMainWindow()
         {
 
             if (_mainWindowHwnd != IntPtr.Zero)
             {
-                ShowWindow(_mainWindowHwnd, SwRestore);
+                int command = SwShow;
+
+                if (IsIconic(_mainWindowHwnd))
+                {
+                    command = SwRestore;
+                }
+
+                ShowWindow(_mainWindowHwnd, command);
                 SetForegroundWindow(_mainWindowHwnd);
             }
 
@@ -380,6 +393,9 @@ namespace NetworkMonitor
 
         [DllImport("user32.dll")]
         private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+        [DllImport("user32.dll")]
+        private static extern bool IsIconic(IntPtr hWnd);
 
         [DllImport("user32.dll")]
         private static extern bool SetForegroundWindow(IntPtr hWnd);
@@ -480,11 +496,9 @@ namespace NetworkMonitor
                 {
                     _activationEvent.WaitOne();
 
-                    if (_mainWindowHwnd != IntPtr.Zero)
-                    {
-                        ShowWindow(_mainWindowHwnd, SwRestore);
-                        SetForegroundWindow(_mainWindowHwnd);
-                    }
+                    // Launching a second copy activates the running one, and it lost the maximized
+                    // state for the same reason the mini graph's double-click did.
+                    ShowMainWindow();
                 }
                 catch (ObjectDisposedException)
                 {
