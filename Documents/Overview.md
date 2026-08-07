@@ -10,11 +10,13 @@ Network Monitor (Umnatha Network Monitor) is a Windows desktop application that 
 - **Identifies vendors** from the IEEE OUI database using the first three octets of each MAC address.
 - **Enriches names via mDNS** — a per-scan mDNS/DNS-SD (Bonjour) discovery pass fills a friendly name and hardware model for devices that OUI vendor and reverse-DNS can't identify (chiefly randomized-MAC devices), stored in dedicated fields that never overwrite a name you've set.
 - **Measures per-application traffic** — captures upload/download bytes per process directly from the Windows kernel and charts it live, in separate **Internet** (WAN) and **Local** (LAN) views, with a live throughput badge on whatever's actively transferring.
+- **Floats a mini graph** — an optional always-on-top widget showing live Internet and Local throughput, the last speed test and any unknown devices, without the main window open. It can be a small panel or a short, wide strip you can drag onto the taskbar.
 - **Measures internet speed** — an hourly (or on-demand) download/upload/latency/jitter test against Cloudflare (no account needed), using parallel connections so the numbers line up with speedtest.net; charts the history.
 - **Generates a daily digest** — a once-a-day report summarising device activity and traffic, viewable in-app and exportable to PDF or CSV.
 - **Alerts via toast notifications** (Windows notifications plus an in-app banner) when a device appears or disappears; can be limited to unknown devices only.
 - **Maintains history** of every appearance and disappearance event, with automatic purging of old records.
 - **Backs itself up** — a timestamped database snapshot and approved-device CSV every 24 hours, pruned after a few days.
+- **Updates itself** — checks GitHub for a new release, then downloads, verifies and installs it on your say-so.
 - **Optional diagnostic logging** — a privacy-safe daily log of app events and errors you can share for troubleshooting.
 - **Lives in the system tray** and can start automatically with Windows, minimised out of the way.
 
@@ -26,15 +28,15 @@ The app runs **as administrator** — capturing per-process traffic uses a kerne
 
 | Page | Purpose |
 |---|---|
-| **Traffic** | Live per-application network usage with a stacked area chart and a sortable grid of download/upload bytes, split into **Internet** (WAN) and **Local** (LAN, with By-app/By-device lenses) tabs, plus a live throughput badge. The default page on launch. |
-| **Devices** | A host page with four tabs: **Devices** (everything seen in the last 24 hours; amber rows are unknown), **Approved** (devices you've identified — set a friendly name, type and notes), **Unapproved** (unknown devices awaiting approval), and **History** (per-device appeared/disappeared log). |
+| **Traffic** | A host page with three tabs — **Internet** (WAN per application), **Local** (LAN, with By-app/By-device lenses) and **Speed Test** — plus a **Mini graph** toggle in its toolbar. The default page on launch. |
+| **Devices** | A host page with four tabs: **Devices** (everything seen in the last 24 hours; amber rows are unknown, with an **Online only** toggle), **Approved** (devices you've identified — set a friendly name, type and notes), **Unapproved** (unknown devices awaiting approval), and **History** (per-device appeared/disappeared log). |
 | **Reports** | The daily digest viewer: see the latest report, browse past reports, generate one on demand, and export to PDF or CSV. |
-| **Speed Test** | Internet speed history — run a test on demand or hourly; download/upload throughput (Mb/s & MB/s), latency and jitter shown as charts and a sortable grid, exportable to CSV. |
-| **Settings** | Scan parameters, traffic, speed-test and digest options, notification preferences, history retention, start-with-Windows, a manual purge button, a Data Folder section, and Release Notes. |
+| **Speed Test** | The third Traffic tab: internet speed history — run a test on demand or hourly; download/upload throughput (Mb/s & MB/s), latency and jitter shown as charts and a sortable grid, exportable to CSV. |
+| **Settings** | Three tabs — **Traffic**, **Devices** and **Other** — covering scan parameters, traffic and speed-test options, data retention with manual purge buttons, startup, notifications, software updates, the floating mini graph, digest options, diagnostics, a Data folder section, and About / Release Notes. |
 
 ## Traffic monitoring
 
-The Traffic page shows which applications are using the network right now, with a live stacked area chart and a grid of per-process download/upload totals over a selectable time window. Data is captured from the kernel, so it reflects real per-process usage rather than per-adapter totals. It has two tabs:
+The Traffic page shows which applications are using the network right now, with a live stacked area chart and a grid of per-process download/upload totals over a selectable time window. Data is captured from the kernel, so it reflects real per-process usage rather than per-adapter totals. Two of its three tabs cover traffic (the third is the Speed Test, below):
 
 - **Internet** — traffic to the wider internet (WAN), per application.
 - **Local** — traffic on your own LAN (this PC to other devices on your network). Toggle **By app** (which apps are talking to the LAN) or **By device** (which devices your PC is talking to, and the apps behind each). The *By device* lens makes a large transfer obvious — for example a NAS backup climbs to the top as a big upload, tagged **SMB**, listed under **System** (Windows performs file-share copies in the kernel, so they're always credited to System rather than the app that started them). Background chatter — the constant device-discovery pings from browsers and antivirus — is folded into a single collapsible **"discovery only"** row so it doesn't drown out real transfers.
@@ -48,6 +50,38 @@ Pick a time range (last 5 minutes, hour, 6 hours, 24 hours or 7 days) with the r
 ## Internet speed test
 
 The Speed Test page measures your internet connection against Cloudflare's free service (no account or API key needed). To measure accurately on fast connections it opens **several parallel connections** and records the sustained speed over a few seconds — the same approach speedtest.net and Cloudflare's own web test use — so the numbers match them instead of reading low. A test runs automatically every hour and can be run on demand. Each result records download and upload throughput (shown in both Mb/s and MB/s), latency and jitter, with the nearest Cloudflare data centre as the server. History is shown as stacked throughput and latency charts plus a sortable grid, and can be exported to CSV. **Note:** an accurate test transfers roughly 750 MB, so the hourly schedule uses about 18 GB/day — turn it off in Settings if you're on a metered connection.
+
+## Floating mini graph
+
+An optional always-on-top widget that shows live activity without the main window open. Switch it on from the **tray icon**, the **Mini graph** button on the Traffic page toolbar, or **Settings → Other → Floating mini graph** — all three stay in sync with each other.
+
+It shows up to four sections, each of which can be switched off individually:
+
+- **Internet** — live WAN throughput with its peak over the window.
+- **Local** — live LAN throughput with its peak.
+- **Last speed test** — download, upload and latency from the most recent test.
+- **Unknown devices** — a count of devices awaiting approval.
+
+The widget opens with the last five minutes already drawn rather than an empty chart, because the data behind it is collected from the moment the app starts whether the widget is open or not.
+
+**Two layouts.** The default is a small floating panel. Switching to **Horizontal strip** lays the same sections out side by side in a short, wide strip — short enough to sit over the taskbar if you drag it there, beside Start and Search. Its width follows whichever sections you have switched on, and you set its height by dragging its top or bottom edge. Each layout remembers its own position on screen, so switching back and forth returns each one to where you left it. Switch layouts from the widget's right-click menu or from Settings.
+
+**Using it:**
+
+- **Hover** to bring it to full opacity; it settles back to your chosen resting opacity (50–100%) when you move away.
+- **Double-click** any section to open the matching page in the main window.
+- **Right-click** for the menu: open the main window, choose which sections are shown, show or hide the window border, set the opacity, switch orientation, or close the widget.
+- **Drag** it anywhere, including across monitors of different scaling; **drag an edge** to resize.
+
+Hiding the window border needs Windows 11 — on Windows 10 the border is always shown.
+
+## Automatic updates
+
+The app checks GitHub for a newer release **10 seconds after startup and then once every 24 hours**, as long as **Settings → Other → Software updates → Automatically check for updates** is on. There is also a **Check for updates** button there for an immediate check.
+
+When a newer version is found, a banner appears at the top of the window. Choosing **Update now** downloads the installer with a progress bar (cancellable at any point), verifies it against the SHA-256 checksum published alongside the release, and only then runs it silently. The app shuts down cleanly first — the same path as tray → Exit, so pending traffic is flushed and the database checkpointed — and the installer relaunches it when it finishes. Choosing **Later** dismisses the banner until the next check.
+
+If the download does not match the published checksum it is discarded and nothing is installed.
 
 ## Daily digest
 
@@ -87,30 +121,53 @@ Enable **Start with Windows** in Settings to launch the app automatically at log
 
 ## Settings
 
+Settings are split across three tabs.
+
+### Traffic
+
+| Setting                   | Description                                                                                                                                              | Default                    |
+|---------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------|
+| Scan Interval (seconds)   | How often traffic counters are flushed and the live charts advance.                                                                                       | 1                          |
+| Chart smooth scrolling    | When on, the Internet and Local charts scroll continuously; when off they redraw in place (classic style, lighter on CPU).                                | On                         |
+| Speed units               | Show speeds as Mb/s, MB/s or both — applies to rate badges, chart axes, the Speed Test page, digest reports and toasts. CSV exports always include both. | Both                       |
+| Run periodic speed tests  | Run an hourly Cloudflare download/upload/latency/jitter test (Speed Test tab).                                                                            | On                         |
+| Purge traffic older than  | Per-minute traffic rollups and speed-test results older than this many days are deleted automatically (maximum 7; 0 disables). **Purge Now** runs it immediately. | 7                     |
+
+### Devices
+
 | Setting                   | Description                                                                                                                                              | Default                    |
 |---------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------|
 | Auto-detect subnet        | Follow the active network connection; a network change re-detects the subnet, triggers a scan and shows a toast. Turn off to scan a fixed subnet.        | On                         |
 | Subnet Base               | First three octets of your network (e.g. `192.168.1`).                                                                                                   | Auto-detected on first run |
 | Start / End Host          | Host range to scan.                                                                                                                                      | 1 – 254                    |
-| Scan Interval             | How often a full scan runs, in minutes.                                                                                                                  | 5                          |
-| Ping Timeout              | How long to wait for each ping reply, in milliseconds.                                                                                                   | 150                        |
+| Scan Interval (minutes)   | How often a full device scan runs.                                                                                                                       | 5                          |
+| Ping Timeout (ms)         | How long to wait for each ping reply.                                                                                                                    | 150                        |
 | Max Parallel Pings        | Concurrency limit for the ping sweep.                                                                                                                    | 50                         |
-| Purge history older than  | Device events older than this many days are deleted automatically. Set to 0 to disable.                                                                  | 30                         |
-| Traffic time range        | Default time window shown on the Traffic chart.                                                                                                          | Last 5 minutes             |
-| Traffic sample interval   | How often traffic counters are flushed, in seconds.                                                                                                      | 1                          |
-| Purge traffic older than  | Traffic samples, per-minute rollups and speed-test results older than this many days are deleted automatically.                                          | 7                          |
-| Smooth chart scrolling    | Toggle animated scrolling on the Traffic chart.                                                                                                          | On                         |
-| Speed units               | Show speeds as Mb/s, MB/s or both — applies to rate badges, chart axes, the Speed Test page, digest reports and toasts. CSV exports always include both. | Both                       |
-| Run periodic speed tests  | Run an hourly Cloudflare download/upload/latency speed test (Speed Test page).                                                                           | On                         |
-| Digest generation hour    | Hour of day (0–23) the daily digest is generated.                                                                                                        | 6                          |
-| Purge reports older than  | Digest reports older than this many days are deleted automatically.                                                                                      | 30                         |
-| Notify on new digest      | Show a Windows toast when a daily digest is ready.                                                                                                       | On                         |
-| Show Toast Notifications  | Master switch for device toast alerts.                                                                                                                   | On                         |
-| Unknown devices only      | When enabled, toasts fire only for unrecognised devices.                                                                                                 | Off                        |
-| Start with Windows        | Launch automatically (minimised to tray) at logon.                                                                                                       | Off                        |
-| Enable diagnostic logging | Write a daily diagnostic log (app events + errors, no device/network identifiers) to the Logs folder.                                                    | Off                        |
+| Purge history older than  | Device events older than this many days are deleted automatically. Set to 0 to disable. **Purge Now** runs it immediately.                                | 30                         |
 
-First-run defaults for the scan settings are seeded from `appsettings.json` (the subnet is then auto-detected from the active network adapter); everything else starts from the built-in defaults above. All values live in `settings.json` thereafter.
+### Other
+
+| Setting                       | Description                                                                                                                                          | Default |
+|-------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|---------|
+| Run at Windows startup        | Launch automatically (minimised to tray) at logon, elevated and without a UAC prompt, via a Windows scheduled task.                                   | Off     |
+| Show Toast Notifications      | Master switch for device toast alerts.                                                                                                                | On      |
+| Unapproved devices only       | When enabled, toasts fire only for unrecognised devices.                                                                                              | Off     |
+| Automatically check for updates | Check GitHub for a newer release 10 s after startup, then every 24 hours. **Check for updates** runs one immediately.                                | On      |
+| Show floating mini graph      | Show the always-on-top widget.                                                                                                                        | Off     |
+| Mini graph sections           | Which of Internet chart / Local chart / Last speed test / Unknown devices the widget shows.                                                            | All on  |
+| Horizontal strip              | Lay the widget out as a short, wide strip instead of a panel. Each layout keeps its own position.                                                      | Vertical |
+| Show window border            | Show or hide the widget's window border (hiding it needs Windows 11).                                                                                 | On      |
+| Resting opacity (%)           | Widget opacity when you are not hovering it (50–100).                                                                                                 | 100     |
+| Daily digest generation time  | Hour of day (0–23) the daily digest is generated.                                                                                                     | 6       |
+| Keep digests for (days)       | Digest reports older than this many days are deleted automatically.                                                                                   | 30      |
+| Notify when a daily digest is ready | Show a Windows toast when a digest has been generated.                                                                                          | On      |
+| Enable diagnostic logging     | Write a daily diagnostic log (app events + errors, no device/network identifiers) to the Logs folder. Always on in Debug builds.                      | Off     |
+
+The **Data folder** section of this tab lists every file the app keeps and what each one holds, with a link to open the folder, and the **About** and **Release Notes** buttons sit at the bottom of the page.
+
+Some state is remembered from the page it belongs to rather than from Settings: the Internet and Local chart time ranges, the Local by-app/by-device lens, the Devices **Online only** toggle, each grid's column sort, and the main window's size and position.
+
+First-run defaults for the scan settings are seeded from `appsettings.json` (the subnet is then auto-detected from the active network adapter); everything else starts from the built-in defaults above. All values live in `settings.json` thereafter, and each change is saved the moment you make it.
 
 ## Data storage
 
@@ -126,7 +183,7 @@ Backups\            Automatic daily database snapshots + approved-device CSV exp
 
 The in-app **Settings → Data Folder** section lists these files and has a link to open the folder.
 
-Traffic is stored twice: as raw per-interval rows, which feed only the live 5-minute view and are kept for an hour, and as per-minute rollups, which feed every longer range and the daily digest and are kept for the **History retention** period set in Settings.
+Traffic is stored twice: as raw per-interval rows, which feed only the live 5-minute view and are kept for **one hour**, and as per-minute rollups, which feed every longer range and the daily digest and are kept for the **Purge traffic older than** period set in Settings → Traffic (default 7 days).
 
 The database is checkpointed on clean exit (tray → Exit), making the `.db` file safe to copy as a backup without needing the companion WAL files.
 

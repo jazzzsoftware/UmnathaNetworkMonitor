@@ -110,7 +110,10 @@ Solution-folder layout: the five projects are grouped under `/App/` (NetworkMoni
 | `NetworkMonitor/ViewModels/InternetViewModel.cs` | WAN per-app grid + area chart + live rate badge |
 | `NetworkMonitor/ViewModels/LocalViewModel.cs` | LAN app/device lenses, in-place row reconcile, live rate badge |
 | `NetworkMonitor/Views/LocalPage.xaml` | Local traffic grid (lens toggle, service/discovery/rate chips, drill-down) |
-| `NetworkMonitor/MiniGraphWindow.xaml` | Frameless always-on-top widget: Internet + Local charts, speed and unknown-device strips, hover-to-opaque |
+| `NetworkMonitor/MiniGraphWindow.xaml` | Always-on-top widget: Internet + Local charts, speed and unknown-device strips, hover-to-opaque; one window in two orientations (panel / horizontal strip) |
+| `NetworkMonitor.Core/Widget/HorizontalStripMetrics.cs` | Pure derived width (sum of enabled cells), font scale, height clamp and peak-visibility threshold for the strip |
+| `NetworkMonitor.Services/Platform/MiniGraphState.cs` | Shared widget state — visibility, sections, opacity, orientation, per-orientation placement; written by the tray, the toolbar and Settings alike |
+| `NetworkMonitor.Services/Update/UpdateService.cs` | Update check / download / SHA-256 verify / silent install; 20s check deadline |
 
 ## Git Workflow
 

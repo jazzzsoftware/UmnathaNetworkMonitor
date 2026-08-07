@@ -8,12 +8,13 @@
 | Runtime | .NET 10 |
 | MVVM | CommunityToolkit.Mvvm (`ObservableObject`, `[RelayCommand]`) |
 | Data grid | CommunityToolkit.WinUI.UI.Controls.DataGrid 7.x |
-| ORM | EF Core 10 + SQLite (`EnsureCreated`, no migrations) |
+| ORM | EF Core 10 + SQLite (schema currently created by `EnsureCreated`; see [Data model](#data-model)) |
 | DI / hosting | Microsoft.Extensions.Hosting, BackgroundService |
 | Per-process traffic | ETW kernel network provider (Microsoft.Diagnostics.Tracing / TraceEvent) |
-| Chart rendering (reports) | Win2D (Microsoft.Graphics.Canvas) |
+| Chart rendering (reports + widget) | Win2D (Microsoft.Graphics.Canvas) |
 | PDF export | QuestPDF (Community licence) |
 | Notifications | Windows toast notifications + in-app toast banner |
+| Updates | GitHub Releases API + Inno Setup silent install |
 
 ## Process model
 
@@ -38,38 +39,52 @@ NetworkMonitor.Models/   (class library, net10.0 — referenced by the app AND t
 ├── Charting/            ChartPoint, ChartSeries, ChartValue — chart primitives
 ├── Devices/             Device, DeviceEvent, DeviceEventType, DeviceType
 ├── Digest/              DigestReport, DigestSummary + per-section summary rows (New/Unapproved device, hourly)
-├── Formatting/          TrafficRateFormatter, ByteSizeFormatter, RateUnitMode — shared unit formatting
+├── Formatting/          TrafficRateFormatter, ByteSizeFormatter, RateUnitMode, MiniGraphFormatter
 ├── Scanning/            ScanSession — metadata for each completed scan run
 ├── SpeedTest/           SpeedTestResult, SpeedTestRowSummary
-└── Traffic/             Traffic/LocalTraffic entities + rollups, app/device row models, per-app summaries
+├── Traffic/             Traffic/LocalTraffic entities + rollups, app/device row models, per-app summaries
+├── Update/              AvailableUpdate, UpdateAvailability, UpdateCheckResult
+└── Widget/              MiniGraphOrientation (Vertical | Horizontal)
 
 NetworkMonitor.Core/     (class library, net10.0 — pure, UI-free service logic; referenced by the app AND the tests;
 │                         each sub-folder is its own namespace, e.g. NetworkMonitor.Core.Traffic)
+├── Charting/            AxisScale — the 1/2/5/10 × 10ⁿ "nice maximum" axis ladder
 ├── Common/              Watchdog (timeout wrapper), CollectionReconciler (in-place list reconcile)
 ├── Csv/                 CsvField, DeviceCsvExporter, DeviceCsvImporter, SpeedTestCsvExporter
 ├── Data/                OuiDatabase — loads oui.txt → MAC prefix → vendor name
 ├── Digest/              DigestSummaryBuilder, DigestSchedule, DigestCsvExporter
 ├── Scanning/            MacNormalizer, MdnsInfo, MdnsEnrichment, MdnsResponseParser
 ├── SpeedTest/           SpeedTestMath, SpeedTestMessage
-└── Traffic/             LanClassifier, LocalFlowClassifier, LocalTrafficGrouper, TrafficWindow,
-                         LocalTrafficNameResolver, flow/minute records, LocalLens
+├── Traffic/             LanClassifier, LocalFlowClassifier, LocalTrafficGrouper, TrafficWindow,
+│                        LocalTrafficNameResolver, LiveRateBuffer, FlushSpread, RateWindow,
+│                        WellKnownPids, flow/minute records, LocalLens
+├── Update/              UpdateChecker, ReleaseInfoParser, SemanticVersion, UpdateDecision,
+│                        UpdateDownloader, UpdateDownloadStream, ChecksumVerifier
+└── Widget/              HorizontalStripMetrics — the strip's derived width, font scale, height clamp
 
 NetworkMonitor.Services/ (class library, net10.0-windows — background/platform services; UseWinUI for the Win2D
 │                         digest renderer; each sub-folder is its own namespace, e.g. NetworkMonitor.Services.Traffic)
 ├── Data/
 │   ├── AppDbContext.cs       EF Core context; DbPath → LocalApplicationData; schema via EnsureCreated
-│   ├── Settings.cs           Scan, traffic, digest, notification and window settings; persisted to settings.json
+│   ├── Settings.cs           Scan, traffic, digest, notification, update, widget and window settings → settings.json
 │   ├── SortPreference.cs     Per-page sort state persisted to LocalApplicationData
+│   ├── DatabaseCheckpoint.cs WAL checkpoint (TRUNCATE) on clean exit
 │   └── AppPaths.cs / AtomicFile.cs  App-data folder resolution + atomic file writes
 ├── Scanning/
 │   ├── NetworkScanner.cs        Ping sweep + ARP parse + DNS resolve → ScannedDevice list
+│   ├── MdnsProbe.cs             Per-scan DNS-SD query/listen pass feeding MdnsEnrichment
 │   ├── DeviceTracker.cs         Merges scan results into the database
-│   ├── ScanWorker.cs            PeriodicTimer scan loop; daily history auto-purge
+│   ├── ScanWorker.cs            PeriodicTimer scan loop; daily history/traffic auto-purge
 │   └── DeviceNotification.cs    DTO carrying notification data between services and UI
 ├── Traffic/
 │   ├── TrafficCollector.cs      ETW kernel TCP/UDP session → per-PID byte counters (BackgroundService)
 │   ├── TrafficTracker.cs        Periodic flush of counters → process name/path → TrafficEntries + TrafficRollups
+│   ├── LiveTrafficFeed.cs       Always-on IHostedService feeding the mini graph (see Floating mini graph)
 │   └── TrafficFlushedEventArgs.cs  Carries the just-flushed entries to the Traffic page
+├── Update/
+│   ├── UpdateService.cs         Check / download / verify / launch orchestration + 20 s check deadline
+│   ├── UpdateCheckWorker.cs     Startup check after 10 s, then every 24 h (BackgroundService)
+│   └── InstallerLauncher.cs     Runs the verified installer silently (IInstallerLauncher)
 ├── Digest/
 │   ├── DigestGenerator.cs       Builds + persists a DigestReport for a period; raises ReportGenerated
 │   ├── DigestWorker.cs          Daily digest loop, catch-up, report purge (BackgroundService)
@@ -85,35 +100,52 @@ NetworkMonitor.Services/ (class library, net10.0-windows — background/platform
 │   └── DatabaseBackupWorker.cs  Daily timestamped DB backup + approved-devices CSV (BackgroundService)
 └── Platform/
     ├── AppLog.cs                Opt-in diagnostic file logger (app/scan events + exceptions, no PII)
+    ├── AppInfo.cs               Installed version, resolved once for the About box and update check
     ├── InAppNotificationService.cs  Raises in-app toast-banner messages
-    ├── TrayIconService.cs       Win32 system tray icon + context menu (Show / Exit)
+    ├── TrayIconService.cs       Win32 system tray icon + context menu (Mini graph / Show / Exit)
+    ├── MiniGraphState.cs        Shared widget state — visibility, sections, opacity, orientation, placement
+    ├── TaskbarTopmostGuard.cs   Re-asserts HWND_TOPMOST when the taskbar takes foreground
     ├── WindowsStartupService.cs Enable/disable "start with Windows" via schtasks onlogon task
+    ├── ShellLauncher.cs         Opens folders and URLs through the shell
     └── OpenFileDialog.cs / Win32FileSaveDialog.cs  Win32 file pickers (open + IFileDialog save)
 
 NetworkMonitor/           (the WinUI app — pure UI shell)
-├── App.xaml.cs               Elevation + single-instance, IHost build, DI, DB init, startup window handling
-├── MainWindow.xaml.cs        NavigationView shell, tray icon, toast/digest dispatch, window-placement persistence
+├── App.xaml.cs               Elevation + single-instance, IHost build, DI, DB init, startup window handling,
+│                             mini graph window lifetime (ShowMiniGraph / CloseMiniGraph)
+├── MainWindow.xaml.cs        NavigationView shell, tray icon, toast/digest dispatch, update banner,
+│                             window-placement persistence, ShutdownForUpdate
+├── MiniGraphWindow.xaml(.cs) Always-on-top widget window, both orientations (see Floating mini graph)
 ├── SplashWindow.xaml.cs      Startup splash (suppressed when launched minimized)
 │
 ├── ViewModels/
-│   ├── AllDevicesViewModel.cs      Devices grid (last 24h), scan command, mark-known logic
+│   ├── AllDevicesViewModel.cs      Devices grid (last 24h), Online-only filter, scan command, mark-known logic
 │   ├── UnapprovedDevicesViewModel.cs  Unknown-device grid + approve actions
 │   ├── DeviceHistoryViewModel.cs   Per-device event history + search
-│   ├── InternetViewModel.cs        Live per-process internet traffic + area chart state
+│   ├── InternetViewModel.cs        Live per-process WAN traffic + area chart state + rate badges
+│   ├── LocalViewModel.cs           LAN app/device lenses, in-place row reconcile, rate badges
+│   ├── SpeedTestViewModel.cs       Speed-test history, tiles, charts, run-now, CSV export
+│   ├── MiniGraphViewModel.cs       Widget state: live WAN/LAN series, last speed test, unknown count
+│   ├── UpdateViewModel.cs          Update banner state, download progress, Update now / Later
 │   ├── ReportsViewModel.cs         Digest list, latest/selected summaries, generate/delete/export
-│   └── SettingsViewModel.cs        Settings load/save, manual purge, startup toggle
+│   └── SettingsViewModel.cs        Settings load/save, manual purge, startup and widget toggles
 │
 └── Views/
+    ├── TrafficHostPage.xaml(.cs)    Host with a SelectorBar: Internet | Local | Speed Test, plus the
+    │                                Mini graph toolbar toggle
     ├── DevicesHostPage.xaml(.cs)     Host with a SelectorBar: Devices | Approved | Unapproved | History
     ├── AllDevicesPage.xaml(.cs)      Live device grid (last 24 hours)
     ├── ApprovedDevicesPage.xaml(.cs) Known/approved devices with edit/delete
     ├── UnapprovedDevicesPage.xaml(.cs) Unapproved devices with approve action
     ├── DeviceHistoryPage.xaml(.cs)   Per-device appeared/disappeared event log
     ├── InternetPage.xaml(.cs)        Live per-process internet traffic grid + area chart
+    ├── LocalPage.xaml(.cs)           LAN traffic grid: lens toggle, service/discovery/rate chips, drill-down
+    ├── SpeedTestPage.xaml(.cs)       Speed-test tiles, throughput/latency charts and history grid
     ├── ReportsPage.xaml(.cs)         Daily digest viewer + history + PDF/CSV export
-    ├── SettingsPage.xaml(.cs)        Settings form with sticky Save footer
+    ├── SettingsPage.xaml(.cs)        Settings form (Traffic / Devices / Other tabs) with sticky Save footer
     └── Controls/
-        ├── TrafficAreaChart.xaml(.cs)  Live stacked area chart with smooth scrolling
+        ├── TrafficAreaChart.xaml(.cs)  Live stacked area chart with smooth scrolling + a compact mode
+        ├── MiniTrafficSection.xaml(.cs) One labelled chart cell of the mini graph
+        ├── SpeedTrendChart.xaml(.cs)   Speed-test throughput/latency trend chart
         └── DigestReportView.xaml(.cs)  Reusable digest renderer (charts + tables) for the Reports page
 
 NetworkMonitor.Tests/     (xunit — ProjectReference to Models + Core only; no source links,
@@ -138,16 +170,18 @@ folders. Those are virtual groupings only — nothing moves on disk.
 
 ## Shell & navigation
 
-`MainWindow` hosts a `NavigationView` with four destinations:
+`MainWindow` hosts a `NavigationView` with three menu destinations plus the built-in settings item (`IsSettingsVisible="True"`):
 
 | Nav item | Page | Notes |
 |---|---|---|
-| Traffic | `TrafficHostPage` | Inner `SelectorBar`: Internet / Speed Test. Default page on launch |
+| Traffic | `TrafficHostPage` | Inner `SelectorBar`: Internet / Local / Speed Test, plus a **Mini graph** toolbar toggle. Default page on launch |
 | Devices | `DevicesHostPage` | Inner `SelectorBar`: Devices / Approved / Unapproved / History |
 | Reports | `ReportsPage` | Daily digest viewer |
-| Settings | `SettingsPage` | |
+| ⚙ (footer) | `SettingsPage` | The `NavigationView`'s own settings item |
 
-`DevicesHostPage` lazy-navigates each inner frame on first selection. `MainWindow.NavigateToHistory(mac)` deep-links from any device into its history tab.
+`DevicesHostPage` lazy-navigates each inner frame on first selection; `TrafficHostPage` navigates the Internet frame up front (it is the landing page) and the Local and Speed Test frames on first selection. `MainWindow.NavigateToHistory(mac)` deep-links from any device into its history tab, and `MainWindow.NavigateTo(...)` is what the mini graph's double-click drill-in targets.
+
+An `InfoBar` docked above the content frame carries the **update banner** (`UpdateViewModel`) — availability message, download progress with Cancel, then **Update now** / **Later**.
 
 ## Scanning pipeline
 
@@ -203,8 +237,8 @@ Reading `saddr` on TCP recv (i.e. our own IP) makes every download look like sel
 
 **SMB / file shares are attributed to System (PID 4).** A copy to/from a NAS is done by the kernel SMB redirector, so the socket is owned by `System`, not the app that started it (e.g. Macrium). This is a Windows fact shared by Resource Monitor and every host tool; the Local page surfaces it honestly (below).
 
-- **TrafficEntries / LocalTrafficEntries** hold raw per-flush rows, purged per `TrafficPurgeDays` (default 7).
-- **TrafficRollups / LocalTrafficRollups** hold per-minute aggregates and are the long-lived source for the grids and digest. `LocalTrafficRollups` additionally carry `Protocol` + `RemotePort` (unique key `(MinuteEpoch, ProcessName, RemoteIp, Protocol, RemotePort)`).
+- **TrafficEntries / LocalTrafficEntries** hold raw per-flush rows. They serve the live 5-minute window and nothing else, so `TrafficTracker` purges them on a **1-hour** retention (`RawEntryRetention`), rate-limited to once every 5 minutes on the flush loop. Keeping per-second rows for `TrafficPurgeDays` wrote days of data to answer a five-minute question; `ScanWorker`'s purge deliberately no longer touches these tables.
+- **TrafficRollups / LocalTrafficRollups** hold per-minute aggregates and are the long-lived source for the grids and digest, purged per `TrafficPurgeDays` (default 7). `LocalTrafficRollups` additionally carry `Protocol` + `RemotePort` (unique key `(MinuteEpoch, ProcessName, RemoteIp, Protocol, RemotePort)`).
 
 ### Internet page — live vs paused
 
@@ -233,7 +267,7 @@ Auto-resume on scroll-to-top is deliberately **not** implemented: a programmatic
 - `MainWindow.NavViewLoaded` selects the first nav item (which already navigates to `TrafficHostPage`) and only calls `ContentFrame.Navigate` if the frame is still empty — preventing a duplicate host/page at startup.
 - `InternetPage` subscribes to `Flushed` on `Loaded` and unsubscribes on `Unloaded` (not `OnNavigatedTo`/`OnNavigatedFrom`, which do **not** fire for a page hosted in an inner `Frame` when its outer host is swapped). Any orphaned page detaches the moment it leaves the visual tree, which also covers the repeated Traffic⇄Devices navigation leak.
 
-Because the inner tab switch (Internet ⇄ Speed Test) only toggles `Frame.Visibility` and does not navigate, `TrafficHostPage` explicitly calls `InternetPage.ResetToLive()` when leaving the Internet tab so it returns Live.
+Because an inner tab switch (Internet ⇄ Local ⇄ Speed Test) only toggles `Frame.Visibility` after the first navigation, `TrafficHostPage` explicitly calls `ResetToLive()` on the Internet and Local pages when leaving their tabs, so each returns Live.
 
 ### Chart axis scaling
 
@@ -318,6 +352,52 @@ Three details make it work:
 
 Throughput is reported in **decimal** Mb/s / MB/s (÷1,000,000) — the ISP/speedtest.net convention, and the same base-1000 units used everywhere else in the app. An accurate run transfers **~750 MB** (~18 GB/day at the hourly cadence); Settings warns about this so metered users can disable it.
 
+## Floating mini graph
+
+An optional always-on-top widget showing live Internet and Local throughput, the last speed test and the unknown-device count, without the main window open. It is one `Window` (`MiniGraphWindow`) in two layouts, not two widgets.
+
+```
+LiveTrafficFeed (IHostedService, always on)
+    ├─ startup: TWO database reads (last 5 min of rollups, latest speed test) — none after
+    ├─ TrafficTracker.Flushed      → LiveRateBuffer (WAN) + LiveRateBuffer (LAN)
+    ├─ SpeedTestWorker.SpeedTestCompleted → LatestSpeedTest
+    ├─ ScanWorker.ScanCompleted    → UnapprovedDeviceCount
+    └─ raises Updated → MiniGraphViewModel → MiniTrafficSection charts
+
+MiniGraphState (singleton)   IsVisible · sections · Opacity · Orientation · placement
+    ├─ tray menu "Mini graph"    ─┐
+    ├─ Traffic toolbar toggle     ├─ all three write the same state; the window,
+    ├─ Settings → Floating mini graph ─┘  the toolbar and Settings all follow it
+    └─ persisted through Settings → settings.json
+```
+
+**Why the feed runs from startup.** The widget must open with five minutes already drawn rather than an empty chart, so `LiveTrafficFeed` is registered whether or not the widget is ever shown. The cost is bounded and known: roughly 15 KB held permanently in two `LiveRateBuffer` rings and exactly two DB reads at startup. Every handler is wrapped, because a fault here must never propagate into the flush loop or the scan loop the rest of the app depends on.
+
+**`LiveRateBuffer`** (Core, unit-tested) is a fixed ring of one-second buckets. It zero-fills idle gaps — a widget that has been idle shows a flat line, not a stale one — and spreads each flush across the interval it was collected in, the same `FlushSpread` reasoning the main charts use.
+
+### Window mechanics
+
+- **Opacity is a layered window, not XAML opacity.** `WS_EX_LAYERED` + `SetLayeredWindowAttributes` is what makes the resting opacity mean anything: fading the XAML root only blends the content toward the window's own opaque surface, so 50% looked like a dimmed widget rather than a see-through one. With the style set, DWM composites the whole window — charts included — against whatever is behind it. Hover rises to full opacity (150 ms rise / 300 ms fall delay, stepped by hand at 16 ms because a layered window's alpha has no animation behind it).
+- **The frame always stays.** It supplies the resize edges — dragging the top or bottom edge is how the strip's height is set. Only its *paint* is optional: `DWMWA_BORDER_COLOR = DWMWA_COLOR_NONE` removes it while leaving hit-testing intact. That, and the rounded-corner preference, need Windows 11 22000+; older builds fail the call and keep the default border.
+- **Sizes are DIPs, positions are physical pixels.** The size is stored in DIPs so the widget keeps its apparent size across displays of different scaling; the position stays in physical pixels because that is the coordinate space `DisplayArea` and `AppWindow` both work in. Restoring a position measures the target display's DPI directly, because the window cannot be asked for its own DPI before it is first shown.
+- **Placement is debounced** (400 ms) and flushed explicitly before a hide, an orientation switch or an exit — otherwise a drag followed immediately by any of those stops the timer before it fires and loses the new position.
+- **`MonitorFromPoint(..., NEAREST)`, not `DisplayArea.GetFromPoint(..., None)`.** A widget dragged a few pixels past a screen edge saves a position inside no display at all; `None` returns null for it, which sent the restore down the never-placed path and dumped the widget in the work area's bottom-right corner. Nearest resolves a display anyway and the existing clamp pulls it back on-screen while keeping where the user put it.
+- **Alt+F4 is handled.** The widget carries a resize border, so Alt+F4 destroys it behind the app's back; `OnWindowClosed` clears the shared state, or the tray item, the toolbar toggle and Settings all keep reporting a dead window as visible.
+
+### Orientation
+
+`MiniGraphState.Orientation` (`Vertical | Horizontal`) relayouts the **same** window in place — `ApplyLayout` swaps `RowDefinitions` for `ColumnDefinitions` and reassigns `Grid.Row`/`Grid.Column` on the existing children. There is no second window class and no duplicate `MiniTrafficSection` instances. Each orientation stores its **own** placement (`MiniGraphX/Y/Width/Height` vs `MiniGraphStripX/Y/StripHeight`), so switching back and forth returns each layout to where it was left.
+
+`HorizontalStripMetrics` (Core, unit-tested) owns everything derived about the strip:
+
+- **Width is not draggable** — it is the sum of the cells currently switched on (Internet 170, Local 170, speed 196, unknown devices 146, close 22, plus padding/gaps). Nominal constants rather than runtime text measurement: the strings are fixed-format, and measuring would make the width untestable and give the window two competing sources of truth for its own size.
+- **Height clamps to 40–120** and drives the font scale (1.0–2.0). Horizontal takes its scale from height alone — a width term would inflate the text as sections were switched on.
+- **Below 34 px the peak label is dropped** rather than allowed to collide with the section label.
+
+**Taskbar placement carries no taskbar logic.** The strip is simply a topmost window the user can drag onto the taskbar; there is no docking, snapping, auto-hide tracking or Explorer coupling (a real in-taskbar band would need a deprecated deskband or `SetParent` into `Shell_TrayWnd`). Two consequences are handled explicitly: the horizontal strip clamps to the **display**, not the work area — the work area excludes the taskbar by definition, so clamping there would push a taskbar-docked strip back up every time — and `TaskbarTopmostGuard` re-asserts `HWND_TOPMOST` (with `SWP_NOACTIVATE`) on foreground changes, because the taskbar shares the topmost band and activating it would otherwise bury the strip until the widget was toggled off and on.
+
+**Interaction.** Double-clicking a section drills into the matching page (`MainWindow.NavigateTo`, restoring the window at its previous maximized state); the right-click menu carries Open, section toggles, border, an opacity radio submenu and the orientation submenu; a ✕ glyph closes the widget. While hidden, `AppWindow.Hide` leaves the XAML tree loaded, so `IsLive` is what stops the charts rendering frames nobody can see, and a relayout requested while hidden is deferred until just before it is shown.
+
 ## Daily digest pipeline
 
 ```
@@ -374,18 +454,19 @@ The **PDF export never had this problem**: QuestPDF places the PNG into a fixed 
 ```
 Device
   Id, MacAddress (unique index), IpAddress, Hostname
-  FriendlyName, Vendor, Type, Notes
-  IsApproved, IsOnline, FirstSeen, LastSeen
+  FriendlyName, MdnsName, Vendor, Model, Type, Notes
+  IsApproved (index), IsHost, IsOnline (index), FirstSeen, LastSeen
+  DisplayName => FriendlyName ?? MdnsName ?? Hostname ?? IpAddress
 
 DeviceEvent
   Id, DeviceId (FK → Device, cascade delete)
-  EventType (Appeared | Disappeared), Timestamp
+  EventType (Appeared | Disappeared), Timestamp (index)
 
 ScanSession
   Id, StartedAt, CompletedAt
   DevicesFound, NewDevices, DevicesGone
 
-TrafficEntry            (raw, 7-day retention)
+TrafficEntry            (raw, 1-hour retention)
   Id, Timestamp, ProcessName, ProcessPath
   BytesUploaded, BytesDownloaded
   index (Timestamp, ProcessName)
@@ -395,8 +476,8 @@ TrafficRollups          (per-minute WAN aggregate; long-lived)
   BytesUploaded, BytesDownloaded
   unique index (MinuteEpoch, ProcessName)
 
-LocalTrafficEntry       (raw LAN, 7-day retention)
-  Id, Timestamp, ProcessName, ProcessPath
+LocalTrafficEntry       (raw LAN, 1-hour retention)
+  Id, Timestamp (index), ProcessName, ProcessPath
   RemoteIp, Protocol, RemotePort
   BytesUploaded, BytesDownloaded
 
@@ -407,24 +488,26 @@ LocalTrafficRollups     (per-minute LAN aggregate; long-lived)
   unique index (MinuteEpoch, ProcessName, RemoteIp, Protocol, RemotePort)
 
 SpeedTestResult
-  Id, Timestamp, Server
+  Id, Timestamp (index), Server
   DownloadMbps, UploadMbps, LatencyMs, JitterMs
   Success, Error
 
 DigestReport
-  Id, PeriodStart, PeriodEnd, GeneratedAt
-  Headline, SummaryJson, IsScheduled
+  Id, PeriodStart, PeriodEnd (index), GeneratedAt
+  Headline, SummaryJson, IsScheduled (index)
 ```
 
-The database uses `EnsureCreated` (no EF migrations) as the **sole** schema source: every table — including `TrafficRollups` — is an EF entity, so `EnsureCreated` builds the full schema on a fresh database. There is no hand-written DDL, no `CREATE TABLE IF NOT EXISTS` guards, and no in-place `ALTER`/rename migrations. A breaking schema change means deleting the database and letting `EnsureCreated` rebuild it. WAL mode is enabled on startup. The only raw SQL remaining is the retention `DELETE`s and the per-minute rollup upsert (`INSERT … ON CONFLICT`).
+Every table is an EF entity — there is no hand-written DDL, no `CREATE TABLE IF NOT EXISTS` guards and no in-place `ALTER`/rename. WAL mode is enabled on startup. The only raw SQL is the retention `DELETE`s and the per-minute rollup upsert (`INSERT … ON CONFLICT`).
+
+> **Schema changes now require an EF Core migration.** `App.OnLaunched` still calls `EnsureCreatedAsync` — the one remaining such call, and the reason this section used to say "a breaking schema change means deleting the database". That is no longer an acceptable answer: the app is publicly released, so a user's `networkmonitor.db` holds the only copy of their device and traffic history. Every schema change (a new `DbSet`, a new property on an existing entity, a changed key or index) ships a migration in the same commit, and the startup path needs converting from `EnsureCreatedAsync` to `MigrateAsync`. Because v0.0.8-era databases were created by `EnsureCreated` and therefore have no `__EFMigrationsHistory` table, the first migration has to be **baselined** against the existing schema rather than replayed. See the *Database* section of [`CLAUDE.md`](../CLAUDE.md).
 
 ## Data retention
 
 | Data | Default retention | Configurable | Mechanism |
 |---|---|---|---|
 | Device history (`DeviceEvents`, `ScanSessions`) | 30 days | ✅ `Settings.HistoryPurgeDays` (Settings → Devices) | `ScanWorker` 24h purge loop (0 = disabled) |
-| Traffic — raw rows (`TrafficEntries`) | 7 days | ✅ `Settings.TrafficPurgeDays` (Settings → Traffic) | `ScanWorker` purge loop |
-| Traffic — per-minute rollups (`TrafficRollups`) | 7 days | ✅ `Settings.TrafficPurgeDays` | `ScanWorker` purge loop |
+| Traffic — raw rows (`TrafficEntries`, `LocalTrafficEntries`) | 1 hour | ❌ `TrafficTracker.RawEntryRetention` const | `TrafficTracker` flush loop, rate-limited to once per 5 min |
+| Traffic — per-minute rollups (`TrafficRollups`, `LocalTrafficRollups`) | 7 days | ✅ `Settings.TrafficPurgeDays` (Settings → Traffic) | `ScanWorker` purge loop |
 | Speed test results (`SpeedTestResults`) | 7 days | ✅ `Settings.TrafficPurgeDays` (folded into traffic purge) | `ScanWorker` purge loop |
 | Daily digests (`DigestReports`) | 30 days | ✅ `Settings.DigestPurgeDays` (Settings → Other) | `DigestWorker` purge |
 | Database backups (`.db` + approved-devices `.csv`) | 3 days | ❌ `DatabaseBackupWorker.RetentionDays` const | pruned after each successful backup (retention is by **age**, not count — see note below) |
@@ -445,7 +528,7 @@ The check also carries its own **20-second deadline** (`UpdateService.CheckTimeo
 
 ## Settings persistence
 
-`Settings` is loaded from `settings.json` at startup (falling back to `appsettings.json` defaults, with subnet auto-detection, if the file does not exist) and registered as a singleton. Settings changes persist **immediately**: `SettingsViewModel` writes the singleton back to `settings.json` on any property change (atomic temp-file + rename via `AtomicFile`). The Settings page Save button re-saves but is redundant. Scan changes take effect on the next scan cycle — no restart required. Window placement (`WindowX/Y/Width/Height`, `WindowMaximized`) is also persisted in `settings.json` and restored on launch.
+`Settings` is loaded from `settings.json` at startup (falling back to `appsettings.json` defaults, with subnet auto-detection, if the file does not exist) and registered as a singleton. Settings changes persist **immediately**: `SettingsViewModel` writes the singleton back to `settings.json` on any property change (atomic temp-file + rename via `AtomicFile`). The Settings page Save button re-saves but is redundant. Scan changes take effect on the next scan cycle — no restart required. Window placement (`WindowX/Y/Width/Height`, `WindowMaximized`) is also persisted in `settings.json` and restored on launch, as is the mini graph's per-orientation placement, section selection, opacity, border and orientation, and the per-page state that is set from the page rather than from Settings (`InternetTimeRangeHours`, `LocalTimeRangeHours`, `LocalLens`, `DevicesOnlineOnly`).
 
 ## Registry usage
 
@@ -463,10 +546,12 @@ Registered as hosted services on the IHost:
 
 - **ScanWorker** — scan loop (immediate, then every `IntervalMinutes`) and a 24-hour purge loop that deletes `DeviceEvents`/`ScanSessions` older than `HistoryPurgeDays` (0 = disabled). `ScanNowAsync` triggers an out-of-schedule scan. When `Settings.AutoDetectSubnet` is on (default), every scan first re-detects the subnet (`Settings.TryDetectSubnetBase`, persisted on change) so a laptop that moves networks keeps scanning the right range, and `NetworkChange.NetworkAddressChanged` triggers a debounced (5 s) immediate scan on top of the schedule. A subnet change raises `NetworkChanged`, which `MainWindow` surfaces as an in-app banner plus a Windows toast (when toasts are enabled). Detection failure (no network) never overwrites the stored subnet.
 - **TrafficCollector** — owns the ETW kernel network session.
-- **TrafficTracker** — flushes counters every `TrafficIntervalSeconds`. Traffic retention (both `TrafficEntries` and `TrafficRollups`, per `TrafficPurgeDays`) is handled by `ScanWorker`'s purge loop, not here.
+- **TrafficTracker** — flushes counters every `TrafficIntervalSeconds`, and purges the raw entry tables on their 1-hour retention (rate-limited to once every 5 min). Rollup retention (`TrafficPurgeDays`) is handled by `ScanWorker`'s purge loop, not here.
+- **LiveTrafficFeed** — `IHostedService`, always on: keeps the mini graph's two one-second ring buffers, the latest speed test and the unknown-device count fed from the other workers' events (see [Floating mini graph](#floating-mini-graph)).
 - **SpeedTestWorker** — hourly Cloudflare speed test (on the hour), stored in `SpeedTestResults`; `RunNowAsync` triggers one on demand.
 - **DigestWorker** — daily digest generation, missed-window catch-up, and report purge (`DigestPurgeDays`).
 - **DatabaseBackupWorker** — every 24 hours, snapshots the database and exports the approved-devices list (see Database backup).
+- **UpdateCheckWorker** — GitHub release check 10 s after startup then every 24 h, while `AutoCheckForUpdates` is on (see [Automatic updates](#automatic-updates)).
 
 Each worker is an **independent** `BackgroundService` on its own loop and shares no lock with the others, so a stall in one can never freeze another (e.g. speed tests keep running while a scan is stuck).
 
@@ -491,7 +576,8 @@ Every **iterative** worker wraps its per-cycle work in `Common/Watchdog.RunAsync
 
 - **Close** is intercepted (`AppWindow.Closing`): instead of exiting, the window is hidden (`SW_HIDE`) — the app keeps running in the tray.
 - **Tray double-click / "Show"** restores and foregrounds the window.
-- **Tray "Exit"** sets `_exitRequested`, checkpoints the database, disposes the tray icon and closes for real.
+- **Tray "Mini graph"** toggles `MiniGraphState.IsVisible` and shows a check mark when the widget is up — the same state the Traffic toolbar toggle and Settings write, so all three stay in sync.
+- **Tray "Exit"** sets `_exitRequested`, checkpoints the database, disposes the tray icon and closes for real. `MainWindow.ShutdownForUpdate` deliberately routes through this same path.
 
 ### Start with Windows / start minimized
 
@@ -501,6 +587,34 @@ Every **iterative** worker wraps its per-cycle work in `Common/Watchdog.RunAsync
 - **Flag absent** (manual double-click or VS debug) → normal startup with splash and a visible window.
 
 The `--minimized` flag is also forwarded through the elevated self-relaunch so the behaviour survives the admin elevation step.
+
+## Automatic updates
+
+```
+UpdateCheckWorker (BackgroundService, only while Settings.AutoCheckForUpdates)
+    └─ 10 s after startup, then every 24 h ─► UpdateService.CheckAsync (20 s deadline)
+            └─ GET api.github.com/repos/jazzzsoftware/UmnathaNetworkMonitor/releases/latest
+                 ├─ ReleaseInfoParser  → tag_name + one .exe asset + one .sha256 asset
+                 ├─ SemanticVersion / UpdateDecision → compare against AppInfo's installed version
+                 └─ UpdateCheckResult → UpdateViewModel → InfoBar banner in MainWindow
+
+"Update now"
+    └─ UpdateDownloader → UpdateDownloadStream (progress, cancellable)
+    └─ ChecksumVerifier  → SHA-256 must match the .sha256 asset, or the file is discarded
+    └─ MainWindow.ShutdownForUpdate() — the SAME graceful path as a tray Exit
+    └─ InstallerLauncher: installer.exe /SILENT /SUPPRESSMSGBOXES /NORESTART
+```
+
+Points that are easy to get wrong and were:
+
+- **The installer launch must not bypass the host shutdown.** An earlier version exited around `StopHost`, losing the pending traffic flush, the WAL checkpoint, the tray icon and the window placement. `ShutdownForUpdate` runs the same route as a tray Exit before the installer starts.
+- **An unreadable installed version must not read as "up to date".** `AppInfo` failing to resolve a version once meant the app reported itself current forever; the decision now distinguishes "no update" from "cannot tell".
+- **A check that completes before the window exists must not be lost.** `UpdateService.LastResult` holds the outcome so a result arriving during startup is still shown, rather than being dropped for 24 hours.
+- **The download is cancellable** and partial files are cleaned up (`CleanUpDownloads`).
+- **No Authenticode check.** Deliberate (`won't-fix`, 2026-07-27 review C1-6): the build is not code-signed, so a publisher check would reject every update rather than protect one. Until signing lands, the trust anchor is the GitHub release itself plus the SHA-256 match. Revisit when the installer is signed.
+- **Timeouts and logging** — see [Diagnostic logging](#diagnostic-logging) for why the 20-second check deadline is separate from the shared client's 10-minute download timeout, and why an unreachable server logs Info rather than Error.
+
+The release shape this expects (tag `vX.Y.Z`, one `.exe` asset, one `.exe.sha256` asset) is documented for maintainers in [`CONTRIBUTING.md`](../CONTRIBUTING.md).
 
 ## Database backup
 

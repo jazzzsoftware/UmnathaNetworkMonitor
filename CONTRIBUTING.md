@@ -11,11 +11,17 @@ Thanks for your interest in improving Network Monitor.
 
 ## Running tests
 
-The `NetworkMonitor.Tests` project covers device tracking, CSV import/export, digest scheduling, and other non-UI logic:
+The `NetworkMonitor.Tests` project covers device tracking, CSV import/export, digest scheduling, traffic classification and grouping, the update checker, and other non-UI logic:
 
 ```
 dotnet test NetworkMonitor.Tests
 ```
+
+It references **`NetworkMonitor.Models` and `NetworkMonitor.Core` only**, by `ProjectReference`, with no source links. That is deliberate: anything in `NetworkMonitor.Services` or the app project cannot be unit tested, so **new pure logic that needs tests belongs in Core**, not Services. The layering is Models ← Core ← Services ← App.
+
+## Database changes
+
+The app is publicly released, and a user's `networkmonitor.db` holds the only copy of their device and traffic history. **Every schema change ships an EF Core migration in the same commit as the change** — a new `DbSet`, a new property on an existing entity, a changed key or index all count. "Delete the database and let it rebuild" is not an acceptable upgrade path. Prefer additive migrations (a nullable column with a sensible default) over a destructive rewrite. Changes to `settings.json` preferences, UI or pure runtime behaviour are not schema changes and need no migration.
 
 ## Coding conventions
 
