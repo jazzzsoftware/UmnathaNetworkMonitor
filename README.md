@@ -83,6 +83,20 @@ See [`Documents/Overview.md`](Documents/Overview.md) for the full feature tour, 
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for coding conventions and how to run the test suite.
 
+## Development practice
+
+This project is an experiment in agentic engineering, but the process around it is deliberate — nothing substantial is written straight from a prompt. Every non-trivial feature goes design → plan → implementation → review, and each stage leaves a document behind in the repository.
+
+**A design spec comes first.** Features start as a dated spec in [`Documents/superpowers/specs/`](Documents/superpowers/specs), written and approved before any code exists. A spec states the problem, the alternatives considered and why they were rejected, the behaviour at the edges, and the database impact. The [horizontal mini graph spec](Documents/superpowers/specs/2026-08-05-horizontal-mini-graph-design.md) is representative: it opens by establishing that the originally requested approach — genuinely docking into the Windows 11 taskbar — has no supported API, compares the three routes that remain, and explains the trade-off behind the one chosen.
+
+**Then an implementation plan.** The approved spec becomes a task-by-task plan in [`Documents/superpowers/plans/`](Documents/superpowers/plans): the file-by-file structure, the ordering, the conventions and layering rules that apply, a measured test-count baseline no later task may fall below, and an explicit statement of whether the change needs an EF Core migration. Schema changes ship their migration in the same commit — a released app's database holds the only copy of a user's history, so "delete the database and let it rebuild" is never the answer.
+
+**Structured code review.** Reviews follow a repeatable procedure ([`code-review-procedure.md`](Documents/Code%20Review/code-review-procedure.md)). The codebase is split into chunks ordered by risk, and each chunk is examined for correctness, concurrency and async behaviour, resource lifetime, error handling, and convention compliance. During the review nothing is fixed — findings are recorded only, each with an ID, a severity tag, a `file:line`, a proposed fix and a status, and each chunk pauses for the maintainer to add their own findings before the next one starts. Fixes come afterwards, batched by theme, every batch built clean on x64 with the full test suite green. Two full rounds are recorded so far: [2026-06-23](Documents/Code%20Review/2026-06-23/summary.md) — 54 findings, all resolved — and [2026-07-27](Documents/Code%20Review/2026-07-27/summary.md) — 46 findings, 44 fixed, 2 won't-fix.
+
+**Performance review.** A separate [performance review](Documents/Performance%20Review/2026-07-01/performance-review.md) covers data access, the ETW capture pipeline, the scanning pipeline, and the UI/rendering layer, ranking findings by severity and by how hot the path is. Findings deliberately *not* taken are recorded with the reasoning, so the decision can be revisited later rather than rediscovered.
+
+**Conventions and tests.** Coding conventions are documented in [`CLAUDE.md`](CLAUDE.md), enforced mechanically by `.editorconfig` where tooling can do it and on review where it can't. Logic that can be tested without a UI lives in the Models and Core class libraries specifically so the xunit suite can reach it, and that suite is run at every task boundary and every fix batch rather than only before a release.
+
 ## Data & privacy
 
 Everything lives locally in `%LOCALAPPDATA%\UmnathaNetworkMonitor\` — there's no cloud sync, telemetry, or account. Optional diagnostic logging (off by default) never records MAC addresses, IP addresses, or hostnames. See the *Data storage* and *Diagnostic logging* sections of [`Documents/Overview.md`](Documents/Overview.md) for exact file layouts.

@@ -181,8 +181,9 @@ Done - Wherever version is displayed always use this format: v0.0.10
 Done - double clicking horiz mini graph restores app but does dot restore its size.
 Done - vert/horiz switch does not retore horiz position correctly. slightly off
 Done - Taskbar version of Mini graph.
-
 Done - Redo blur for HorizontalMiniGraphInTaskBar.png, Only blur above taskbar.
+
+Done - Add section to readme to mention following professional design practices, code/security/performance reviews. All process to design new features with spec/plans.
 
 Github:
 Done - Topics
