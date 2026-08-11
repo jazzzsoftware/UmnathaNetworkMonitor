@@ -151,7 +151,7 @@ Line 250 fires and forgets; line 259 passes `CancellationToken.None`. A scan com
 
 **Fix.** Pass the hosted-service token via a linked CTS.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 3. `LiveTrafficFeed` now holds a `_stopping` `CancellationTokenSource` cancelled in `StopAsync`; its token goes to both `CreateDbContextAsync` and `CountUnapprovedAsync`, and `OperationCanceledException`/`ObjectDisposedException` are caught quietly so the expected shutdown race stops filing errors in the log.
 
 ---
 

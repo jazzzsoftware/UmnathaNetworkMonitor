@@ -39,6 +39,15 @@ namespace NetworkMonitor.Services.Platform
                 0,
                 0,
                 WinEventOutOfContext | WinEventSkipOwnProcess);
+
+            // A failed hook leaves the guard doing nothing forever, and the symptom — the strip
+            // buried under the taskbar — is exactly the bug this class exists to prevent. Silence
+            // here is indistinguishable from that bug.
+            if (_hook == IntPtr.Zero)
+            {
+                AppLog.Info("TaskbarTopmostGuard: SetWinEventHook returned a null handle; the widget will not be restored above the taskbar.");
+            }
+
         }
 
         private delegate void WinEventDelegate(

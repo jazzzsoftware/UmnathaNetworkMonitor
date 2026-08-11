@@ -4,11 +4,11 @@
 
 ---
 
-## Status: CO-REVIEW COMPLETE — fix phase ready to start
+## Status: FIX PHASE IN PROGRESS — batches 1–3 of 9 done
 
-All five chunks reviewed and co-reviewed. **50 findings (50 reviewer + 0 user) — 2 fixed, 48 open.** Fix phase in progress: batches 1–2 of 9 complete.
+All five chunks reviewed and co-reviewed. **50 findings (50 reviewer + 0 user) — 6 fixed, 44 open.** Fix phase in progress: batches 1–3 of 9 complete.
 
-Co-review ran 2026-08-11, one chunk at a time. **Every finding in all five chunks was confirmed for fixing.** None rejected, none deferred, none marked `won't-fix`, no `U`-IDs added. That includes the findings each report flagged as candidates to close — C1-4, C1-9, C1-10 (not currently reachable) and C4-8 (does not breach the documented rule) — which the user chose to fix anyway. Nothing has been fixed yet.
+Co-review ran 2026-08-11, one chunk at a time. **Every finding in all five chunks was confirmed for fixing.** None rejected, none deferred, none marked `won't-fix`, no `U`-IDs added. That includes the findings each report flagged as candidates to close — C1-4, C1-9, C1-10 (not currently reachable) and C4-8 (does not breach the documented rule) — which the user chose to fix anyway.
 
 **Count corrected at co-review.** This ledger previously said 49. `chunk-4-conventions-db-hygiene.md` contains nine findings (C4-1…C4-9, 2 RISK + 7 CLEANUP) but its header claimed eight, and that undercount was carried into the chunk table and the total. Verified by counting the `## C<n>-<n>` headings in all five files: 10 + 11 + 11 + 9 + 9 = **50**. By tag: 7 BUG · 14 RISK · 3 PERF · 26 CLEANUP.
 
@@ -49,11 +49,11 @@ Chunked by review dimension rather than by subsystem, because the feature is one
 
 | # | Chunk | State | Findings | Actioned |
 |---|-------|-------|----------|----------|
-| 1 | Window lifetime, state & threading | complete · **co-reviewed** · all 10 confirmed | 10 (1 BUG · 4 RISK · 5 CLEANUP) | 1 (C1-3) |
+| 1 | Window lifetime, state & threading | complete · **co-reviewed** · all 10 confirmed | 10 (1 BUG · 4 RISK · 5 CLEANUP) | 2 (C1-3, C1-7) |
 | 2 | DPI, geometry & multi-monitor | complete · **co-reviewed** · all 11 confirmed | 11 (3 BUG · 3 RISK · 5 CLEANUP) | 0 |
-| 3 | Traffic data pipeline & concurrency | complete · **co-reviewed** · all 11 confirmed | 11 (2 BUG · 1 RISK · 8 CLEANUP/PERF) | 0 |
-| 4 | Conventions, DB & project hygiene | complete · **co-reviewed** · all 9 confirmed | 9 (0 BUG · 2 RISK · 7 CLEANUP) | 1 (C4-1) |
-| 5 | Tests & incidentally-touched code | complete · **co-reviewed** · all 9 confirmed | 9 (2 BUG · 5 RISK · 1 PERF · 1 CLEANUP) | 0 |
+| 3 | Traffic data pipeline & concurrency | complete · **co-reviewed** · all 11 confirmed | 11 (2 BUG · 1 RISK · 8 CLEANUP/PERF) | 1 (C3-9) |
+| 4 | Conventions, DB & project hygiene | complete · **co-reviewed** · all 9 confirmed | 9 (0 BUG · 2 RISK · 7 CLEANUP) | 2 (C4-1, C4-2) |
+| 5 | Tests & incidentally-touched code | complete · **co-reviewed** · all 9 confirmed | 9 (2 BUG · 5 RISK · 1 PERF · 1 CLEANUP) | 1 (C5-1) |
 
 **50 findings total.** IDs: `C<chunk>-<n>` reviewer, `U<chunk>-<n>` user.
 
@@ -155,11 +155,28 @@ The repo had no `Migrations/` folder at all and `App.xaml.cs` called `EnsureCrea
 
 **DB impact: this batch is the DB change.** No entity, property or index was altered — `InitialCreate` is generated from the model exactly as it stands, so the schema is unchanged. What changes is that the database gains `__EFMigrationsHistory` (with one row) and `__EFMigrationsLock`. No user needs to delete anything, and no history is lost.
 
+## Fix phase — batch 3: silent-failure paths (C5-1, C4-2, C1-7, C3-9)
+
+**2026-08-11. All four `fixed`. Build x64 clean, 0 warnings. 309/309 tests pass** (308 plus one new).
+
+The theme: four places that fail without saying so, where the absence of a log line is indistinguishable from working.
+
+- **C5-1 — `ReleaseInfoParser` / `UpdateChecker` / `UpdateCheckerTests`.** Took the harder of the two fixes the report offered. `TryParseVersionTag` gained a three-argument overload reporting *why* it failed — malformed JSON, valid JSON with no `tag_name`, a tag that will not version-compare, or an empty body — with the two-argument form kept as a wrapper. `Evaluate` logs that through `_logError` on the branch it previously took silently, so a corrupt payload, an HTML error page or a rate-limit body now leaves evidence. The test that was named `AnUnreadableResponseIsStillLoggedAsAnError` and asserted nothing about logging now asserts it; a second test covers the valid-JSON-no-tag case.
+- **C4-2 — `DatabaseCheckpoint`.** `ExecuteNonQuery` replaced by `ExecuteReader`, so the `(busy, log, checkpointed)` row `PRAGMA wal_checkpoint(TRUNCATE)` returns is actually read; `busy != 0` is logged with all three figures. Connection string built with `SqliteConnectionStringBuilder` and `Mode = ReadWrite` rather than the `Data Source=` default of `ReadWriteCreate`, so a wrong `DbPath` fails loudly instead of silently creating an empty database. `ClearAllPools()` added after close, matching `RetentionProbe`.
+- **C1-7 — `TaskbarTopmostGuard`.** Logs when `SetWinEventHook` returns a null handle. A failed hook leaves the guard inert forever, and the symptom is exactly the buried-strip bug the class exists to prevent.
+- **C3-9 — `LiveTrafficFeed`.** A `_stopping` `CancellationTokenSource`, cancelled in `StopAsync`, now feeds both `CreateDbContextAsync` and `CountUnapprovedAsync` in place of `CancellationToken.None`. `OperationCanceledException` and `ObjectDisposedException` are caught quietly, so a scan landing during shutdown stops filing an error for an expected condition.
+
+**One thing worth knowing for future tests.** `Assert.IsType<T>` in xUnit v3 is an exact-type match, and `JsonDocument.Parse` throws the derived `JsonReaderException` — the first version of the C5-1 test failed on that. `Assert.IsAssignableFrom<JsonException>` is the correct assertion.
+
+**DB impact: none.** `DatabaseCheckpoint` runs a `PRAGMA`, not DDL; the connection-mode change affects how the file is opened, not its schema. No entity, column or index touched, so no migration.
+
 ## Next step
 
-**Batches 1 and 2 are done.** C4-1 no longer gates schema work — the baseline exists and is verified, so the next entity change can ship a migration normally (generate it through `Tools/MigrationVerify`, then run that tool).
+**Batches 1–3 are done.** C4-1 no longer gates schema work — the baseline exists and is verified, so the next entity change can ship a migration normally (generate it through `Tools/MigrationVerify`, then run that tool).
 
-Next is **batch 3 — silent-failure paths**: C5-1 (auto-update logs nothing on a garbage response, and its test asserts nothing), C4-2 (WAL checkpoint cannot report a busy result), C1-7 (`SetWinEventHook` return value unchecked), C3-9 (unbounded, uncancellable refresh). Then batches 4–9 in order.
+Next is **batch 4 — live-chart correctness & always-on cost**: C3-1 with C5-9's stale-flush item (backward clock step), C5-2 (stale `_lastFlushUtc` across navigation), C3-4 (long-gap compression), C3-5 (live edge reads low), C3-2 (widget ignores `ChartSmoothScrolling`), C3-10 (`SeedAsync` on the UI thread), C5-8 (digest worker re-scans empty windows), C3-8 (torn count read).
+
+Note the ordering constraint recorded at co-review: **C4-3 (batch 7) should be done before C3-4**, so the bucket-spread defect is fixed once in Core rather than twice in the UI project. Either pull C4-3 forward into batch 4 or defer C3-4 to batch 7. Then batches 5–9.
 
 For each batch: apply the fixes, build x64 (`dotnet build NetworkMonitor.slnx -p:Platform=x64`) with 0 errors, run `dotnet test` green, state the DB impact explicitly even when it is "none", add a `## Fix phase — <name>` entry here recording what changed and why, then commit and push with a subject line the user has approved.
 

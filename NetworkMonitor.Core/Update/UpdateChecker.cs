@@ -70,8 +70,12 @@ namespace NetworkMonitor.Core.Update
             try
             {
 
-                if (!ReleaseInfoParser.TryParseVersionTag(releaseJson, out string versionTag))
+                if (!ReleaseInfoParser.TryParseVersionTag(releaseJson, out string versionTag, out Exception parseFailure))
                 {
+                    // The server answered, so this is a fault worth recording — the parser handles
+                    // malformed JSON internally and never throws, so without this the one realistic
+                    // corrupt-payload case reached no log line at all.
+                    _logError?.Invoke("UpdateChecker.Evaluate", parseFailure);
                     result = UpdateCheckResult.Failed("The latest release could not be read.");
                 }
                 else if (!SemanticVersion.TryParse(currentVersion, out SemanticVersion _))

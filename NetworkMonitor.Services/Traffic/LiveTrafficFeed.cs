@@ -34,6 +34,7 @@ namespace NetworkMonitor.Services.Traffic
         private readonly LiveRateBuffer _wanBuffer = new LiveRateBuffer(WindowSeconds);
         private readonly LiveRateBuffer _lanBuffer = new LiveRateBuffer(WindowSeconds);
         private readonly object _gate = new object();
+        private readonly CancellationTokenSource _stopping = new CancellationTokenSource();
         private DateTime _lastFlushUtc = DateTime.MinValue;
 
         public event EventHandler? Updated;
@@ -86,6 +87,8 @@ namespace NetworkMonitor.Services.Traffic
             _tracker.Flushed -= OnFlushed;
             _speedTestWorker.SpeedTestCompleted -= OnSpeedTestCompleted;
             _scanWorker.ScanCompleted -= OnScanCompleted;
+
+            _stopping.Cancel();
 
             Task completed = Task.CompletedTask;
 
@@ -255,8 +258,10 @@ namespace NetworkMonitor.Services.Traffic
 
             try
             {
-                await using AppDbContext db = await _dbFactory.CreateDbContextAsync();
-                int count = await CountUnapprovedAsync(db, CancellationToken.None);
+                CancellationToken cancellationToken = _stopping.Token;
+
+                await using AppDbContext db = await _dbFactory.CreateDbContextAsync(cancellationToken);
+                int count = await CountUnapprovedAsync(db, cancellationToken);
 
                 lock (_gate)
                 {
@@ -264,6 +269,14 @@ namespace NetworkMonitor.Services.Traffic
                 }
 
                 Updated?.Invoke(this, EventArgs.Empty);
+            }
+            catch (OperationCanceledException)
+            {
+                // A scan landing during shutdown. Expected, and previously logged as an error every
+                // time it happened because the read raced the context factory's disposal.
+            }
+            catch (ObjectDisposedException)
+            {
             }
             catch (Exception exception)
             {

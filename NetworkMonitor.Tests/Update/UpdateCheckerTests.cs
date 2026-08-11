@@ -1,4 +1,5 @@
 using System;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
@@ -142,14 +143,48 @@ namespace NetworkMonitor.Tests.Update
         public async Task AnUnreadableResponseIsStillLoggedAsAnError()
         {
             string loggedError = string.Empty;
+            Exception? loggedException = null;
             UpdateChecker checker = new UpdateChecker(
                 (url, token) => Task.FromResult("{ \"tag_name\": "),
-                (source, exception) => loggedError = source);
+                (source, exception) =>
+                {
+                    loggedError = source;
+                    loggedException = exception;
+                });
 
             UpdateCheckOutcome outcome = await checker.CheckAsync("https://example/latest", "0.0.8", TestContext.Current.CancellationToken);
 
             Assert.False(outcome.Cancelled);
             Assert.Equal(UpdateAvailability.CheckFailed, outcome.Result.Availability);
+
+            // This is the assertion the test was named for and never made. A publicly auto-updating
+            // client that receives a corrupt payload must leave evidence behind.
+            Assert.NotEmpty(loggedError);
+            Assert.IsAssignableFrom<JsonException>(loggedException);
+        }
+
+        [Fact]
+        public async Task AResponseWithNoTagNameIsLoggedAsAnError()
+        {
+            string loggedError = string.Empty;
+            Exception? loggedException = null;
+            UpdateChecker checker = new UpdateChecker(
+                (url, token) => Task.FromResult("{ \"message\": \"API rate limit exceeded\" }"),
+                (source, exception) =>
+                {
+                    loggedError = source;
+                    loggedException = exception;
+                });
+
+            UpdateCheckOutcome outcome = await checker.CheckAsync("https://example/latest", "0.0.8", TestContext.Current.CancellationToken);
+
+            Assert.Equal(UpdateAvailability.CheckFailed, outcome.Result.Availability);
+
+            // Valid JSON, no usable tag — a different fault from malformed JSON, and the reason the
+            // parser reports why it failed instead of just returning false.
+            Assert.NotEmpty(loggedError);
+            Assert.NotNull(loggedException);
+            Assert.False(loggedException is JsonException);
         }
     }
 }

@@ -136,7 +136,7 @@ If the hook fails to install, `_hook` is `IntPtr.Zero`, the guard silently does 
 
 **Fix.** One `AppLog` call when the returned handle is zero.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 3. `TaskbarTopmostGuard`'s constructor logs when `SetWinEventHook` returns `IntPtr.Zero`, saying the widget will not be restored above the taskbar.
 
 ---
 

@@ -10,10 +10,26 @@ namespace NetworkMonitor.Core.Update
         // a release we are already running must not raise an error just because it lacks a checksum.
         public static bool TryParseVersionTag(string releaseJson, out string versionTag)
         {
+            bool parsed = TryParseVersionTag(releaseJson, out versionTag, out Exception _);
+
+            return parsed;
+        }
+
+        // The failure reason is reported rather than swallowed so the caller can tell a server that
+        // answered garbage — a corrupt payload, an HTML error page, a rate-limit body — from one that
+        // answered valid JSON carrying no usable tag. Both leave the user without an update; only the
+        // first is worth an error in the log, and without this it produced no log line at all.
+        public static bool TryParseVersionTag(string releaseJson, out string versionTag, out Exception parseFailure)
+        {
             versionTag = string.Empty;
+            parseFailure = null!;
             bool parsed = false;
 
-            if (!string.IsNullOrWhiteSpace(releaseJson))
+            if (string.IsNullOrWhiteSpace(releaseJson))
+            {
+                parseFailure = new InvalidOperationException("The release response was empty.");
+            }
+            else
             {
 
                 try
@@ -32,13 +48,22 @@ namespace NetworkMonitor.Core.Update
                             versionTag = tag;
                             parsed = true;
                         }
+                        else
+                        {
+                            parseFailure = new InvalidOperationException($"The release tag '{tag}' is not a version this app can compare.");
+                        }
 
+                    }
+                    else
+                    {
+                        parseFailure = new InvalidOperationException("The release response is JSON but carries no usable tag_name.");
                     }
 
                 }
-                catch (JsonException)
+                catch (JsonException exception)
                 {
                     versionTag = string.Empty;
+                    parseFailure = exception;
                 }
 
             }

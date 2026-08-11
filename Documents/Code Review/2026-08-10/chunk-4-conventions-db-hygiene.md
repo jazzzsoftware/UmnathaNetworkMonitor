@@ -76,7 +76,7 @@ Assessing each aspect:
 
 **Fix.** Use `ExecuteScalar` / a reader and log when `busy != 0`. Build the connection string with `SqliteConnectionStringBuilder` and set `Mode = ReadWrite` so a wrong path fails loudly.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 3. `ExecuteNonQuery` replaced by `ExecuteReader`, reading the `(busy, log, checkpointed)` row and logging all three when `busy != 0`, plus a line for the no-row case. Connection string built with `SqliteConnectionStringBuilder` and `Mode = ReadWrite`, so a wrong `DbPath` now fails instead of silently creating an empty database. `SqliteConnection.ClearAllPools()` added after the connection closes, matching `RetentionProbe`.
 
 ---
 

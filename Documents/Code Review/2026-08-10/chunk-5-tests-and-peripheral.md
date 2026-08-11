@@ -35,7 +35,7 @@ Worse, if it *did* assert, it would fail. `ReleaseInfoParser.TryParseVersionTag`
 
 **Fix.** Either assert `Assert.NotEmpty(loggedError)` and make the malformed-JSON path actually log — distinguishing "not JSON" from "no `tag_name`" in `TryParseVersionTag` — or rename the test to what it checks and delete the dead `loggedError` capture. The first is the right fix.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 3. Took the harder fix. `TryParseVersionTag` gained a three-argument overload reporting *why* it failed (malformed JSON, no `tag_name`, an uncomparable tag, or an empty body); `UpdateChecker.Evaluate` logs that through `_logError` on the false branch it previously took silently. The test now asserts `NotEmpty(loggedError)` plus `IsAssignableFrom<JsonException>` — note `JsonDocument.Parse` throws the derived `JsonReaderException`, so exact-type assertions fail. A second test covers the valid-JSON-no-tag case (a GitHub rate-limit body), which logs a non-`JsonException`.
 
 ---
 
