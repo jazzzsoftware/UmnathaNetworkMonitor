@@ -186,4 +186,10 @@ Not a leak — both `MiniGraphViewModel` and `MiniGraphState` are DI singletons 
 
 ## User findings
 
-_(to be filled in at co-review — assign `U1-n` IDs)_
+None. Co-reviewed 2026-08-11 — no `U1-n` IDs assigned.
+
+## Co-review outcome
+
+**All 10 findings confirmed for fixing.** None rejected, none deferred, none marked `won't-fix` — including C1-4, C1-9 and C1-10, which this report itself describes as not currently reachable.
+
+They stay `open` because nothing has been fixed yet; the fix phase runs once every chunk is co-reviewed. C1-6 remains subordinate to C2-3 and is fixed there, not here.

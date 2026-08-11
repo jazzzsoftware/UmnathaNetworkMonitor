@@ -181,4 +181,17 @@ Specific untested edge cases, per production file. Ordered roughly by value.
 
 ## User findings
 
-_(to be filled in at co-review — assign `U5-n` IDs)_
+None. Co-reviewed 2026-08-11 — no `U5-n` IDs assigned.
+
+## Co-review outcome
+
+**All 9 findings confirmed for fixing.** None rejected, none deferred, none marked `won't-fix`.
+
+**The coverage-gap inventory above is in scope too**, not merely a record. Highest value first, per that section: `FlushSpread` has no coverage at all for `bucketSeconds != 1.0`, while production passes `_windowBucketSeconds` — 60+ on wide ranges — and both C3-4 and C5-2 are defects in exactly that path. Close that gap before or alongside those two fixes.
+
+Two notes carried into the fix phase:
+
+- **C5-1 takes the harder of the two fixes offered.** Make the malformed-JSON path actually log — distinguishing "not JSON" from "no `tag_name`" in `ReleaseInfoParser.TryParseVersionTag` — and then assert `Assert.NotEmpty(loggedError)`. Renaming the test to match what it currently checks would close the finding while leaving a publicly auto-updating client silent on corrupt payloads.
+- **C5-9 is three unrelated items** (`_manualResult` never cleared, unguarded `int.Parse`, `AddInterval` silently dropping bytes on a stale flush). The third is related to C3-1 and should be fixed with it, not with the other two.
+
+They stay `open` because nothing has been fixed yet; the fix phase begins now that all five chunks are co-reviewed.

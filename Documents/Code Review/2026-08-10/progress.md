@@ -4,11 +4,13 @@
 
 ---
 
-## Status: REVIEW RECORDED — fix phase not started
+## Status: CO-REVIEW COMPLETE — fix phase ready to start
 
-All five chunks reviewed. **49 findings (49 reviewer + 0 user) — 0 fixed, 49 open.**
+All five chunks reviewed and co-reviewed. **50 findings (50 reviewer + 0 user) — 0 fixed, 50 open.**
 
-Co-review with the user has **not** happened yet: no `U`-IDs assigned, no findings confirmed or rejected. Nothing has been fixed.
+Co-review ran 2026-08-11, one chunk at a time. **Every finding in all five chunks was confirmed for fixing.** None rejected, none deferred, none marked `won't-fix`, no `U`-IDs added. That includes the findings each report flagged as candidates to close — C1-4, C1-9, C1-10 (not currently reachable) and C4-8 (does not breach the documented rule) — which the user chose to fix anyway. Nothing has been fixed yet.
+
+**Count corrected at co-review.** This ledger previously said 49. `chunk-4-conventions-db-hygiene.md` contains nine findings (C4-1…C4-9, 2 RISK + 7 CLEANUP) but its header claimed eight, and that undercount was carried into the chunk table and the total. Verified by counting the `## C<n>-<n>` headings in all five files: 10 + 11 + 11 + 9 + 9 = **50**. By tag: 7 BUG · 14 RISK · 3 PERF · 26 CLEANUP.
 
 Baseline state at the time of review: **307 tests green**, clean build.
 
@@ -47,13 +49,13 @@ Chunked by review dimension rather than by subsystem, because the feature is one
 
 | # | Chunk | State | Findings | Actioned |
 |---|-------|-------|----------|----------|
-| 1 | Window lifetime, state & threading | complete · **not** co-reviewed | 10 (1 BUG · 4 RISK · 5 CLEANUP) | 0 |
-| 2 | DPI, geometry & multi-monitor | complete · **not** co-reviewed | 11 (3 BUG · 3 RISK · 5 CLEANUP) | 0 |
-| 3 | Traffic data pipeline & concurrency | complete · **not** co-reviewed | 11 (2 BUG · 1 RISK · 8 CLEANUP/PERF) | 0 |
-| 4 | Conventions, DB & project hygiene | complete · **not** co-reviewed | 8 (0 BUG · 2 RISK · 6 CLEANUP) | 0 |
-| 5 | Tests & incidentally-touched code | complete · **not** co-reviewed | 9 (2 BUG · 4 RISK · 3 CLEANUP/PERF) | 0 |
+| 1 | Window lifetime, state & threading | complete · **co-reviewed** · all 10 confirmed | 10 (1 BUG · 4 RISK · 5 CLEANUP) | 0 |
+| 2 | DPI, geometry & multi-monitor | complete · **co-reviewed** · all 11 confirmed | 11 (3 BUG · 3 RISK · 5 CLEANUP) | 0 |
+| 3 | Traffic data pipeline & concurrency | complete · **co-reviewed** · all 11 confirmed | 11 (2 BUG · 1 RISK · 8 CLEANUP/PERF) | 0 |
+| 4 | Conventions, DB & project hygiene | complete · **co-reviewed** · all 9 confirmed | 9 (0 BUG · 2 RISK · 7 CLEANUP) | 0 |
+| 5 | Tests & incidentally-touched code | complete · **co-reviewed** · all 9 confirmed | 9 (2 BUG · 5 RISK · 1 PERF · 1 CLEANUP) | 0 |
 
-**49 findings total.** IDs: `C<chunk>-<n>` reviewer, `U<chunk>-<n>` user.
+**50 findings total.** IDs: `C<chunk>-<n>` reviewer, `U<chunk>-<n>` user.
 
 No finding is Critical in the "data loss at rest" sense. The closest to it is **C1-3**, which can leave the app unable to start.
 
@@ -79,14 +81,17 @@ The ~96 new lines in `NetworkMonitor.Services/Data/Settings.cs` (`DevicesOnlineO
 
 ## Suggested fix batches
 
-1. **Startup integrity** — C1-3 alone. It is the only finding that can leave a user unable to launch the app.
-2. **Silent-failure paths** — C5-1 (auto-update logs nothing on a garbage response), C4-2 (WAL checkpoint can't report a busy result), C1-7.
-3. **Always-on cost & live-chart correctness** — C3-2, C3-1, C5-2, C3-4, C3-5.
-4. **Widget lifetime** — C1-1, C1-2, C1-4, C5-6, C5-8.
-5. **Geometry** — C2-1, C2-2, C2-3, C2-4, C2-5, C2-6, C1-5, C1-6.
-6. **Testability & layering** — C5-3, C4-3, C2-11, plus the coverage gaps in `chunk-5-tests-and-peripheral.md`.
-7. **Public-repo hygiene** — C5-10, C5-11, C5-12.
-8. **Conventions and docs last** — C4-4 … C4-9, C2-7, C3-11, and the remaining CLEANUPs.
+Rebuilt at co-review on 2026-08-11. The previous list referenced three IDs that do not exist (`C5-10`, `C5-11`, `C5-12` — chunk 5 stops at C5-9), filed C5-6 and C5-8 under "widget lifetime" when they are the username leak and a digest-worker perf issue, and **omitted C4-1 entirely**. Every one of the 50 findings now appears in exactly one batch.
+
+1. **Startup integrity** — C1-3 alone. The only finding that can leave a user unable to launch the app. Ships first, on its own.
+2. **Migration baseline** — C4-1 alone. Pre-existing debt this range did not cause, but it must land **before** the next entity change, never alongside one. Its own commit.
+3. **Silent-failure paths** — C5-1 (auto-update logs nothing on a garbage response), C4-2 (WAL checkpoint can't report a busy result), C1-7 (`SetWinEventHook` result unchecked), C3-9 (unbounded, uncancellable refresh).
+4. **Live-chart correctness & always-on cost** — C3-1 + C5-9's stale-flush item (backward clock step), C5-2 (stale `_lastFlushUtc` across navigation), C3-4 (long-gap compression), C3-5 (live edge reads low), C3-2 (widget ignores `ChartSmoothScrolling`), C3-10 (`SeedAsync` on the UI thread), C5-8 (digest worker re-scans empty windows), C3-8 (torn count read).
+5. **Widget lifetime** — C1-1 (`Bindings.StopTracking`), C1-2 (queued dispatcher callbacks), C1-4 (unmarshalled `Changed` handler), C5-4 (`_miniGraphVisible` set too early), C5-5 (`DigestReportView` never unsubscribes), C1-9, C1-10.
+6. **Geometry** — C2-1, C2-2, C2-3, C2-4, C2-5, C2-6, C2-8, C2-9, C2-10, C1-5, C1-6. C2-2 and C2-5 cannot be closed on a green build alone — see *Manual verification*.
+7. **Testability & layering** — C2-11 (`PlacementMath` into Core), C5-3 (widget filters + last-section invariant into Core), C4-3 (`SpreadAcrossBuckets` into Core), plus the coverage-gap inventory in `chunk-5-tests-and-peripheral.md`. **Do C4-3 before C3-4**, so that defect is fixed once in a tested place rather than twice in the UI project. The `bucketSeconds != 1.0` gap is the highest-value item here.
+8. **Public-repo hygiene** — C5-6 (`RetentionProbe` prints the user's Windows username), C5-7 (delete guard is a bare prefix compare), C5-9's `int.Parse` item, C4-6 (`RetentionProbe` conventions).
+9. **Conventions and docs last** — C1-8, C3-3, C3-6, C3-7, C3-11, C2-7, C4-4, C4-5, C4-7, C4-8, C4-9, and C5-9's `_manualResult` item.
 
 ## Manual verification that will be needed
 
@@ -103,6 +108,18 @@ Not covered by unit tests; all of it needs the real app on real hardware.
 
 - **2026-08-10** — Review opened at the user's request; scope agreed as `c07260c..HEAD` (option 1 of three offered). Five read-only auditors dispatched in parallel, one per dimension, each given the range and a dimension-specific brief. All five returned. **49 findings, no Critical.** Two findings raised in the coordinator's own first pass were **withdrawn on verification**: (a) an alleged double-count of the shared boundary second in `LiveRateBuffer.AddInterval` — the intervals tile exactly, because each flush's start *is* the previous flush's end and `Advance` never zeroes below `_lastEpoch + 1`; (b) an alleged member-order violation on `LiveRateBuffer._capacity` — it backs the `Capacity` property, so its position is what CLAUDE.md requires. Recorded here because both were reported to the user before being checked.
 
+- **2026-08-11** — Co-review opened and completed in one session, one chunk at a time. **All five chunks confirmed in full: 50 of 50 findings accepted for fixing**, no user findings added, nothing rejected, deferred or marked `won't-fix`. The user accepted the four findings their own reports offered as candidates to close (C1-4, C1-9, C1-10 as not currently reachable; C4-8 as not breaching the documented rule), and put the chunk-5 coverage-gap inventory in scope as work rather than as a record. Fixes were deliberately **not** applied per chunk, so the cross-chunk batches stay intact.
+- **2026-08-11** — Two ledger defects found and corrected while closing co-review, both in this file rather than in the code. (a) **The finding total was wrong**: `chunk-4`'s header claimed 8 findings against the 9 it actually contains, and the undercount propagated here — the true total is **50**, verified by counting `## C<n>-<n>` headings across all five chunk files. (b) **The suggested-fix-batch list was unusable**: it named three IDs that do not exist (`C5-10`…`C5-12`), mis-filed C5-6 and C5-8 under "widget lifetime", and left out **C4-1**, the migration baseline — the most consequential finding in the review. The list was rebuilt from scratch so every one of the 50 findings appears in exactly one batch.
+
 ## Next step
 
-Co-review. Per `../code-review-procedure.md` §5 the user reads each chunk, adds their own findings (assigned `U`-IDs), and confirms or rejects the reviewer findings — **before** any fix phase begins. The 2026-07-27 review skipped the per-chunk pause at the user's request and co-reviewed all four at the end; that option applies here too.
+**Co-review is complete.** Per `../code-review-procedure.md` §6 the fix phase now begins, working through *Suggested fix batches* above in order — batch 1 (C1-3, startup integrity) first, then batch 2 (C4-1, migration baseline).
+
+For each batch: apply the fixes, build x64 (`dotnet build NetworkMonitor.slnx -p:Platform=x64`) with 0 errors, run `dotnet test` green, state the DB impact explicitly even when it is "none", add a `## Fix phase — <name>` entry here recording what changed and why, then commit and push with a subject line the user has approved.
+
+Baseline to beat: **308 tests green** at `22aadfe` (307 at review time, plus one added since for the digest CSV speed-test columns).
+
+Two standing constraints:
+
+- **Batch 2 (C4-1) is the gate on all future schema work.** Until the baseline migration exists and `App.xaml.cs` calls `MigrateAsync`, no entity change can ship safely to the v0.0.8–v0.0.11 databases in the field.
+- **C2-2 and C2-5 stay `open` after their code fix lands**, until the mixed-DPI multi-monitor walkthrough in *Manual verification* is actually performed. A green build does not close them.

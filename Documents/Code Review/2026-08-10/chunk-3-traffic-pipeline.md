@@ -195,4 +195,15 @@ All three mutators plus `Snapshot` touch `_lastEpoch` and the arrays with no loc
 
 ## User findings
 
-_(to be filled in at co-review — assign `U3-n` IDs)_
+None. Co-reviewed 2026-08-11 — no `U3-n` IDs assigned.
+
+## Co-review outcome
+
+**All 11 findings confirmed for fixing.** None rejected, none deferred, none marked `won't-fix`.
+
+Two notes carried into the fix phase:
+
+- **C3-2 is two changes, not one.** Binding `SmoothScrolling` through `MiniTrafficSection` to `Settings.ChartSmoothScrolling` closes the finding. The snapshot decimation suggested in the same fix note (roughly one point per 2px, max-of-window) is a separate, larger optimisation and is not required to mark C3-2 `fixed`.
+- **C3-6 and C3-11 are contract findings, not defects.** Neither is reachable today. Both are satisfied by making the intent explicit — agreeing the two negative-total behaviours, and recording `LiveRateBuffer`'s "caller holds the gate" requirement — rather than by adding synchronisation the type does not currently need.
+
+They stay `open` because nothing has been fixed yet; the fix phase runs once every chunk is co-reviewed.

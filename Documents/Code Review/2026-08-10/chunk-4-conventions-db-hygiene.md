@@ -2,7 +2,9 @@
 
 Range `c07260c..b215581`. Ledger: `progress.md`.
 
-**8 findings — 0 BUG · 2 RISK · 6 CLEANUP. All `open`.**
+**9 findings — 0 BUG · 2 RISK · 7 CLEANUP. All `open`.**
+
+> Corrected at co-review on 2026-08-11: this header previously read "8 findings … 6 CLEANUP". The file has always contained nine findings, C4-1 through C4-9. The undercount propagated into `progress.md`'s chunk table and its "49 findings total"; the true total is **50**.
 
 ## What was verified as correct
 
@@ -174,4 +176,15 @@ Every added and changed `.cs` and `.xaml` file in the range, plus:
 
 ## User findings
 
-_(to be filled in at co-review — assign `U4-n` IDs)_
+None. Co-reviewed 2026-08-11 — no `U4-n` IDs assigned.
+
+## Co-review outcome
+
+**All 8 findings confirmed for fixing.** None rejected, none deferred, none marked `won't-fix` — including **C4-8**, which this report concludes does not break the documented attribute-order rule and was offered as a candidate to close. The user chose consistency with the rest of the codebase over leaving it.
+
+Two notes carried into the fix phase:
+
+- **C4-1 ships as its own commit.** The migration baseline is pre-existing debt that this range did not cause, and it must land *before* the next entity change rather than alongside one. Generate `InitialCreate` from the current model, switch `App.xaml.cs:219` from `EnsureCreatedAsync` to `MigrateAsync`, and baseline it so the v0.0.8–v0.0.11 databases already in the field — which have no `__EFMigrationsHistory` table — are treated as already at the initial migration rather than replayed onto.
+- **C4-3 and chunk 3's C3-4 touch the same code.** C4-3 moves `SpreadAcrossBuckets` out of the two view models into Core; C3-4 is a defect in that exact path. Fix C4-3 first so C3-4 lands once, in one tested place, instead of twice in the UI project.
+
+They stay `open` because nothing has been fixed yet; the fix phase runs once every chunk is co-reviewed.

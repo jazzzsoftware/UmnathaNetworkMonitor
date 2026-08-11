@@ -188,4 +188,14 @@ For a touch or pen contact the mouse cursor is stale, so `_dragOffsetX/Y` is cap
 
 ## User findings
 
-_(to be filled in at co-review — assign `U2-n` IDs)_
+None. Co-reviewed 2026-08-11 — no `U2-n` IDs assigned.
+
+## Co-review outcome
+
+**All 11 findings confirmed for fixing.** None rejected, none deferred, none marked `won't-fix`.
+
+That includes **C2-11**, so the `PlacementMath` extraction into `NetworkMonitor.Core/Widget` is in scope — C2-1, C2-3 and C2-6 get pinned by tests rather than by a manual multi-monitor walkthrough.
+
+**C2-2 and C2-5 cannot be closed by code alone.** Both turn on WinUI's own `WM_DPICHANGED` handling, and the DPI *transition* path has never been walked on real hardware (`8023ffa` was verified on a primary 4K at 200%, where no transition occurs). The fix may be applied and the tests may pass, but neither finding moves to `fixed` until the mixed-DPI multi-monitor check in the ledger's *Manual verification* section is done.
+
+They stay `open` because nothing has been fixed yet; the fix phase runs once every chunk is co-reviewed.
