@@ -506,11 +506,12 @@ namespace NetworkMonitor
             // right or bottom edge could come back mostly off-screen — and scaling the size on
             // restore makes that easier to hit, because the widget can now be wider than it was
             // when the position was written.
-            int maximumX = Math.Max(clampArea.X, clampArea.X + clampArea.Width - width);
-            int maximumY = Math.Max(clampArea.Y, clampArea.Y + clampArea.Height - height);
+            PlacementRect clamped = PlacementMath.ClampToArea(
+                new PlacementRect(positionX, positionY, width, height),
+                new PlacementRect(clampArea.X, clampArea.Y, clampArea.Width, clampArea.Height));
 
-            positionX = Math.Clamp(positionX, clampArea.X, maximumX);
-            positionY = Math.Clamp(positionY, clampArea.Y, maximumY);
+            positionX = clamped.X;
+            positionY = clamped.Y;
 
             AppWindow.MoveAndResize(new RectInt32(positionX, positionY, width, height));
 
@@ -526,7 +527,7 @@ namespace NetworkMonitor
             // makes the outcome the same either way and closes C2-2 with the same three lines.
             double liveScale = GetCurrentScale();
 
-            if (Math.Abs(liveScale - scale) > ScaleReconcileTolerance)
+            if (PlacementMath.NeedsScaleReconcile(scale, liveScale, ScaleReconcileTolerance))
             {
                 SizeInt32 reconciled = ComputeRestoreSize(horizontal, liveScale);
 
@@ -547,9 +548,10 @@ namespace NetworkMonitor
                 double heightInDips = HorizontalStripMetrics.ClampHeight(_settings.MiniGraphStripHeight);
                 double fontScale = HorizontalStripMetrics.FontScale(heightInDips);
                 double widthInDips = HorizontalStripMetrics.Width(_state.ShowInternet, _state.ShowLocal, _state.ShowSpeedTest, _state.ShowUnknownDevices, fontScale);
+                PlacementRect sized = PlacementMath.SizeFromDips(widthInDips, heightInDips, scale, insets);
 
-                width = (int)Math.Round(widthInDips * scale) + insets.Horizontal;
-                height = (int)Math.Round(heightInDips * scale) + insets.Vertical;
+                width = sized.Width;
+                height = sized.Height;
             }
             else
             {
@@ -609,11 +611,8 @@ namespace NetworkMonitor
         private RectInt32 ExpandByFrameInsets(RectInt32 area, double targetScale)
         {
             FrameInsets insets = MeasureFrameInsets(targetScale);
-            RectInt32 expanded = new RectInt32(
-                area.X - insets.Left,
-                area.Y - insets.Top,
-                area.Width + insets.Left + insets.Right,
-                area.Height + insets.Top + insets.Bottom);
+            PlacementRect expandedRect = PlacementMath.ExpandByInsets(new PlacementRect(area.X, area.Y, area.Width, area.Height), insets);
+            RectInt32 expanded = new RectInt32(expandedRect.X, expandedRect.Y, expandedRect.Width, expandedRect.Height);
 
             return expanded;
         }
@@ -885,7 +884,7 @@ namespace NetworkMonitor
         {
             double scale = GetCurrentScale();
             FrameInsets insets = MeasureFrameInsets(scale);
-            double panelHeight = (AppWindow.Size.Height - insets.Vertical) / scale;
+            double panelHeight = PlacementMath.PanelHeightInDips(AppWindow.Size.Height, scale, insets);
             double clampedHeight = HorizontalStripMetrics.ClampHeight(panelHeight);
             double fontScale = HorizontalStripMetrics.FontScale(clampedHeight);
             double width = HorizontalStripMetrics.Width(_state.ShowInternet, _state.ShowLocal, _state.ShowSpeedTest, _state.ShowUnknownDevices, fontScale);
@@ -930,7 +929,7 @@ namespace NetworkMonitor
             SizeInt32 size = AppWindow.Size;
             PointInt32 position = AppWindow.Position;
             FrameInsets insets = MeasureFrameInsets(scale);
-            double panelHeightInDips = (size.Height - insets.Vertical) / scale;
+            double panelHeightInDips = PlacementMath.PanelHeightInDips(size.Height, scale, insets);
             double clampedPanelHeight = HorizontalStripMetrics.ClampHeight(panelHeightInDips);
             int height = (int)Math.Round(clampedPanelHeight * scale) + insets.Vertical;
             int width = DerivedStripWindowWidth(scale);
@@ -948,12 +947,12 @@ namespace NetworkMonitor
                 //
                 // Holding the bottom edge keeps the dock, and holding the right edge means a
                 // left-edge drag ends where it started.
-                int bottom = position.Y + size.Height;
-                int right = position.X + size.Width;
-                int positionY = bottom - height;
-                int positionX = right - width;
+                PlacementRect resized = PlacementMath.ResizeHoldingBottomRight(
+                    new PlacementRect(position.X, position.Y, size.Width, size.Height),
+                    width,
+                    height);
 
-                AppWindow.MoveAndResize(new RectInt32(positionX, positionY, width, height));
+                AppWindow.MoveAndResize(new RectInt32(resized.X, resized.Y, resized.Width, resized.Height));
             }
 
         }

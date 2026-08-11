@@ -4,9 +4,9 @@
 
 ---
 
-## Status: FIX PHASE IN PROGRESS — batches 1–6 done, 7–9 remaining
+## Status: FIX PHASE IN PROGRESS — batches 1–7 done, 8–9 remaining
 
-All five chunks reviewed and co-reviewed. **50 findings (50 reviewer + 0 user) — 32 fixed, 18 open.** Fix phase in progress: batches 1–6 complete. Two of the 18 (C2-2, C2-5) are code-complete and awaiting hardware verification, not unstarted.
+All five chunks reviewed and co-reviewed. **50 findings (50 reviewer + 0 user) — 34 fixed, 16 open.** Fix phase in progress: batches 1–7 complete. Two of the 16 (C2-2, C2-5) are code-complete and awaiting hardware verification, not unstarted.
 
 Co-review ran 2026-08-11, one chunk at a time. **Every finding in all five chunks was confirmed for fixing.** None rejected, none deferred, none marked `won't-fix`, no `U`-IDs added. That includes the findings each report flagged as candidates to close — C1-4, C1-9, C1-10 (not currently reachable) and C4-8 (does not breach the documented rule) — which the user chose to fix anyway.
 
@@ -50,10 +50,10 @@ Chunked by review dimension rather than by subsystem, because the feature is one
 | # | Chunk | State | Findings | Actioned |
 |---|-------|-------|----------|----------|
 | 1 | Window lifetime, state & threading | complete · **co-reviewed** · all 10 confirmed | 10 (1 BUG · 4 RISK · 5 CLEANUP) | 9 (all but C1-8) |
-| 2 | DPI, geometry & multi-monitor | complete · **co-reviewed** · all 11 confirmed | 11 (3 BUG · 3 RISK · 5 CLEANUP) | 7 fixed + 2 pending hardware (C2-2, C2-5) |
+| 2 | DPI, geometry & multi-monitor | complete · **co-reviewed** · all 11 confirmed | 11 (3 BUG · 3 RISK · 5 CLEANUP) | 8 fixed + 2 pending hardware (C2-2, C2-5) |
 | 3 | Traffic data pipeline & concurrency | complete · **co-reviewed** · all 11 confirmed | 11 (2 BUG · 1 RISK · 8 CLEANUP/PERF) | 8 (C3-1 … C3-5, C3-8, C3-9, C3-10) |
 | 4 | Conventions, DB & project hygiene | complete · **co-reviewed** · all 9 confirmed | 9 (0 BUG · 2 RISK · 7 CLEANUP) | 3 (C4-1, C4-2, C4-3) |
-| 5 | Tests & incidentally-touched code | complete · **co-reviewed** · all 9 confirmed | 9 (2 BUG · 5 RISK · 1 PERF · 1 CLEANUP) | 5 (C5-1, C5-2, C5-4, C5-5, C5-8) |
+| 5 | Tests & incidentally-touched code | complete · **co-reviewed** · all 9 confirmed | 9 (2 BUG · 5 RISK · 1 PERF · 1 CLEANUP) | 6 (C5-1 … C5-5, C5-8) |
 
 **50 findings total.** IDs: `C<chunk>-<n>` reviewer, `U<chunk>-<n>` user.
 
@@ -244,6 +244,25 @@ Cross-cutting theme 2 of this review — "geometry is derived from three differe
 
 **DB impact: none.** Window geometry and pointer handling only. No entity, column or index touched, so no migration.
 
+## Fix phase — batch 7: testability & layering (C2-11, C5-3)
+
+**2026-08-11. Two `fixed`. Build x64 clean, 0 warnings. 347/347 tests pass — 28 new.**
+
+Cross-cutting theme 6 — "what makes the widget *correct* was placed where it cannot be tested" — closed. This is the batch that pays back the previous six: everything fixed in batches 4a and 6 was fixed in code no test could reach, and the only verification available was a manual walkthrough.
+
+- **C2-11** — new `NetworkMonitor.Core/Widget/PlacementMath.cs` and `PlacementRect.cs`, joining `FrameInsets.cs` from batch 6. `MiniGraphWindow` calls into them for the DIP→window size conversion, the panel-height inverse, the inset expansion, the clamp, the bottom-right resize anchor and the scale-reconcile test. The extraction is **wired**, not parallel code sitting beside the original.
+- **C5-3** — `WidgetTrafficTotals.Wan/Lan` now hold the two filters that keep the widget's numbers in step with the Internet and Local tabs; `SectionVisibility.CountVisible/CanApply` hold the last-section invariant. `LiveTrafficFeed.OnFlushed` and `MiniGraphState` call into them.
+
+**`PlacementRect` exists for a specific reason.** `Windows.Graphics.RectInt32` is a Windows SDK projection and is unavailable to a `net10.0` library — which is exactly why this arithmetic was stranded in the app project in the first place. A plain record struct at the boundary is what makes the layering rule satisfiable here.
+
+**One type moved.** `LocalTrafficDelta` went from `NetworkMonitor.Services.Traffic` to `NetworkMonitor.Models.Traffic`: Core cannot reference Services, and per CLAUDE.md a plain data record belongs in Models regardless. All three existing consumers already imported `Models.Traffic`, so no using directives changed.
+
+**28 new tests**, the largest single addition of the fix phase. `PlacementMathTests` (12) pins C2-1, C2-3, C2-4 and C2-6 — the two resize-anchor cases are written as concrete geometry (a top-edge over-drag keeping its bottom edge at 1100 rather than rising to 1020; a left-edge drag ending where it started), so a regression reads as a wrong number rather than a vague failure. `WidgetTrafficTotalsTests` (5) and `SectionVisibilityTests` (11) cover C5-3.
+
+**What this does *not* close.** The C2-2 / C2-5 hardware verification is unaffected — `PlacementMath` is pure arithmetic and says nothing about how WinUI responds to a real DPI transition. The remaining coverage-gap items from `chunk-5` (`FlushSpread` negative totals, `MiniGraphFormatter` sub-0.05 rates, `AxisScale` sub-unit values, `Watchdog` simultaneous cancel/timeout) are conventions-adjacent and go with batch 9.
+
+**DB impact: none.** Code movement between projects plus new tests. No entity, column or index touched, so no migration.
+
 ## Next step
 
 **Batches 1–3 are done.** C4-1 no longer gates schema work — the baseline exists and is verified, so the next entity change can ship a migration normally (generate it through `Tools/MigrationVerify`, then run that tool).
@@ -252,7 +271,7 @@ Next is **batch 4 — live-chart correctness & always-on cost**: C3-1 with C5-9'
 
 **Batch 4 was split.** 4a (done) took the cluster that shares one code path: C4-3 pulled forward from batch 7, then C3-4, C5-2, C3-1 and — incidentally — C3-3.
 
-**Batches 1–6 are done.** Next is **batch 7 — testability & layering**: C2-11 (extract `PlacementMath` into `NetworkMonitor.Core/Widget` and pin the arithmetic batch 6 just settled), C5-3 (move the widget's two filters and the last-section invariant out of `Services` into Core), plus the remaining coverage gaps in `chunk-5-tests-and-peripheral.md`. C4-3 was already done in batch 4a. Then 8 (public-repo hygiene: C5-6, C5-7, C5-9's `int.Parse` item, C4-6) and 9 (conventions & docs: C1-8, C3-6, C3-7, C3-11, C2-7, C4-4, C4-5, C4-7, C4-8, C4-9, C5-9's `_manualResult` item).
+**Batches 1–7 are done.** Next is **batch 8 — public-repo hygiene**: C5-6 (`RetentionProbe` prints the user's Windows username in a tool whose output is meant to be pasted into a public repo's issues), C5-7 (its delete guard is a bare prefix compare that does not resolve junctions, symlinks, UNC or `subst`), C5-9's unguarded `int.Parse`, and C4-6 (its conventions). Then **batch 9 — conventions & docs**: C1-8, C3-6, C3-7, C3-11, C2-7, C4-4, C4-5, C4-7, C4-8, C4-9, C5-9's `_manualResult` item, plus the remaining coverage-gap items from `chunk-5`.
 
 
 For each batch: apply the fixes, build x64 (`dotnet build NetworkMonitor.slnx -p:Platform=x64`) with 0 errors, run `dotnet test` green, state the DB impact explicitly even when it is "none", add a `## Fix phase — <name>` entry here recording what changed and why, then commit and push with a subject line the user has approved.

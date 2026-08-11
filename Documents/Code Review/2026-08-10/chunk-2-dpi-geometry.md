@@ -172,7 +172,7 @@ For a touch or pen contact the mouse cursor is stale, so `_dragOffsetX/Y` is cap
 
 **Fix.** Extract a `PlacementMath` into `NetworkMonitor.Core/Widget` — inputs: saved DIP size, scale, bounds rect, frame insets; output: a `RectInt32`. That would let C2-1, C2-3 and C2-6 be pinned by tests rather than by a manual multi-monitor walkthrough.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 7. New `NetworkMonitor.Core/Widget/PlacementMath.cs` and `PlacementRect.cs`, plus `FrameInsets.cs` from batch 6. `MiniGraphWindow` now calls into them for the size conversion, the panel-height inverse, the inset expansion, the clamp, the bottom-right resize anchor and the scale-reconcile test — the extraction is wired, not parallel code. `PlacementRect` exists because `Windows.Graphics.RectInt32` is a Windows SDK projection unavailable to a `net10.0` library, which is precisely why this arithmetic could not be tested where it lived. 12 tests in `PlacementMathTests` pin C2-1, C2-3, C2-4 and C2-6 — including the two resize-anchor cases as concrete geometry (a top-edge over-drag keeping its bottom edge at 1100, a left-edge drag ending where it started).
 
 ---
 

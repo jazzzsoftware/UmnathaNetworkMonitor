@@ -45,35 +45,7 @@ namespace NetworkMonitor.Services.Platform
             set => ApplySection(_settings.MiniGraphShowUnknownDevices, value, () => _settings.MiniGraphShowUnknownDevices = value);
         }
 
-        public int VisibleSectionCount
-        {
-            get
-            {
-                int count = 0;
-
-                if (ShowInternet)
-                {
-                    count++;
-                }
-
-                if (ShowLocal)
-                {
-                    count++;
-                }
-
-                if (ShowSpeedTest)
-                {
-                    count++;
-                }
-
-                if (ShowUnknownDevices)
-                {
-                    count++;
-                }
-
-                return count;
-            }
-        }
+        public int VisibleSectionCount => SectionVisibility.CountVisible(ShowInternet, ShowLocal, ShowSpeedTest, ShowUnknownDevices);
 
         public int Opacity
         {
@@ -133,9 +105,9 @@ namespace NetworkMonitor.Services.Platform
         // the widget's own menu and the Settings checkboxes all obey the same rule.
         private void ApplySection(bool current, bool value, Action assign)
         {
-            bool wouldEmptyTheWidget = !value && VisibleSectionCount <= 1;
+            bool allowed = SectionVisibility.CanApply(current, value, VisibleSectionCount);
 
-            Apply(current != value && !wouldEmptyTheWidget, assign);
+            Apply(allowed, assign);
         }
 
         private void Apply(bool changed, Action assign)

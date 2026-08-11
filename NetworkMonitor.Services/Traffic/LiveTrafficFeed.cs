@@ -168,43 +168,15 @@ namespace NetworkMonitor.Services.Traffic
 
             try
             {
-                long wanDownload = 0;
-                long wanUpload = 0;
+                // The two filters that keep these totals in step with the Internet and Local tabs now
+                // live in Core, where they are tested. See WidgetTrafficTotals.
+                TrafficTotals wan = WidgetTrafficTotals.Wan(args.Entries);
+                TrafficTotals lan = WidgetTrafficTotals.Lan(args.LocalDeltas);
 
-                foreach (TrafficEntry entry in args.Entries)
-                {
-
-                    // The Internet tab hides System, so including it here would put the widget and the
-                    // tab permanently out of step.
-                    if (entry.ProcessName == "System")
-                    {
-                        continue;
-                    }
-
-                    wanDownload += entry.BytesDownloaded;
-                    wanUpload += entry.BytesUploaded;
-                }
-
-                long lanDownload = 0;
-                long lanUpload = 0;
-
-                foreach (LocalTrafficDelta delta in args.LocalDeltas)
-                {
-
-                    // The Local tab's chart excludes discovery traffic (NOT DiscoverySqlPredicate) and
-                    // so must this one. mDNS, SSDP, NetBIOS and DHCP tick over on every device on the
-                    // segment, so counting them here drew a dense sawtooth in the widget beside a
-                    // near-flat line on the tab — the same two minutes of the same network.
-                    FlowClassification classification = LocalFlowClassifier.Classify(delta.Protocol, delta.RemotePort);
-
-                    if (classification.Category != FlowCategory.Data)
-                    {
-                        continue;
-                    }
-
-                    lanDownload += delta.BytesDownloaded;
-                    lanUpload += delta.BytesUploaded;
-                }
+                long wanDownload = wan.BytesDownloaded;
+                long wanUpload = wan.BytesUploaded;
+                long lanDownload = lan.BytesDownloaded;
+                long lanUpload = lan.BytesUploaded;
 
                 DateTime nowUtc = DateTime.UtcNow;
 

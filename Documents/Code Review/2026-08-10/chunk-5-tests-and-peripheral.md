@@ -66,7 +66,9 @@ Against CLAUDE.md's own "New pure logic that needs tests goes in Core, not Servi
 
 The rest of this feature followed the layering rule well (see chunk 4), which makes these two the exceptions rather than the pattern.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 7. Both rules moved to Core and tested. `WidgetTrafficTotals.Wan/Lan` hold the System and non-Data filters (5 tests, including that the System match is case-sensitive exactly as the tab query is, and that a discovery-only flush totals zero). `SectionVisibility.CountVisible/CanApply` hold the last-section invariant (8 tests). `LiveTrafficFeed.OnFlushed` and `MiniGraphState` call into them.
+
+Moving the filters required moving `LocalTrafficDelta` from `NetworkMonitor.Services.Traffic` to `NetworkMonitor.Models.Traffic` — Core cannot reference Services, and per CLAUDE.md a plain data record belongs in Models regardless. All three existing consumers already imported `Models.Traffic`, so no using directives changed.
 
 ---
 
