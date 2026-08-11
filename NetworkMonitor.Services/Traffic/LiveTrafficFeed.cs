@@ -203,15 +203,28 @@ namespace NetworkMonitor.Services.Traffic
                 }
 
                 DateTime nowUtc = DateTime.UtcNow;
-                DateTime intervalStartUtc = _lastFlushUtc == DateTime.MinValue
-                    ? nowUtc.AddSeconds(-Math.Max(1, _settings.TrafficIntervalSeconds))
-                    : _lastFlushUtc;
-                _lastFlushUtc = nowUtc;
 
                 lock (_gate)
                 {
-                    _wanBuffer.AddInterval(intervalStartUtc, nowUtc, wanDownload, wanUpload);
-                    _lanBuffer.AddInterval(intervalStartUtc, nowUtc, lanDownload, lanUpload);
+
+                    // The clock went backwards between flushes. Feeding an inverted interval to
+                    // AddInterval falls through to a single Add on a bucket that still holds
+                    // pre-jump bytes, so this flush is dropped and the baseline restarts from here.
+                    if (nowUtc < _lastFlushUtc)
+                    {
+                        _lastFlushUtc = nowUtc;
+                    }
+                    else
+                    {
+                        DateTime intervalStartUtc = _lastFlushUtc == DateTime.MinValue
+                            ? nowUtc.AddSeconds(-Math.Max(1, _settings.TrafficIntervalSeconds))
+                            : _lastFlushUtc;
+                        _lastFlushUtc = nowUtc;
+
+                        _wanBuffer.AddInterval(intervalStartUtc, nowUtc, wanDownload, wanUpload);
+                        _lanBuffer.AddInterval(intervalStartUtc, nowUtc, lanDownload, lanUpload);
+                    }
+
                 }
 
                 Updated?.Invoke(this, EventArgs.Empty);

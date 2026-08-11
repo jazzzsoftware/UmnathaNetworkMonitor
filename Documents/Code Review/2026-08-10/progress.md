@@ -4,9 +4,9 @@
 
 ---
 
-## Status: FIX PHASE IN PROGRESS — batches 1–3 of 9 done
+## Status: FIX PHASE IN PROGRESS — batches 1–3 and 4a done
 
-All five chunks reviewed and co-reviewed. **50 findings (50 reviewer + 0 user) — 6 fixed, 44 open.** Fix phase in progress: batches 1–3 of 9 complete.
+All five chunks reviewed and co-reviewed. **50 findings (50 reviewer + 0 user) — 11 fixed, 39 open.** Fix phase in progress: batches 1–3 complete, batch 4 half done (4a).
 
 Co-review ran 2026-08-11, one chunk at a time. **Every finding in all five chunks was confirmed for fixing.** None rejected, none deferred, none marked `won't-fix`, no `U`-IDs added. That includes the findings each report flagged as candidates to close — C1-4, C1-9, C1-10 (not currently reachable) and C4-8 (does not breach the documented rule) — which the user chose to fix anyway.
 
@@ -51,9 +51,9 @@ Chunked by review dimension rather than by subsystem, because the feature is one
 |---|-------|-------|----------|----------|
 | 1 | Window lifetime, state & threading | complete · **co-reviewed** · all 10 confirmed | 10 (1 BUG · 4 RISK · 5 CLEANUP) | 2 (C1-3, C1-7) |
 | 2 | DPI, geometry & multi-monitor | complete · **co-reviewed** · all 11 confirmed | 11 (3 BUG · 3 RISK · 5 CLEANUP) | 0 |
-| 3 | Traffic data pipeline & concurrency | complete · **co-reviewed** · all 11 confirmed | 11 (2 BUG · 1 RISK · 8 CLEANUP/PERF) | 1 (C3-9) |
-| 4 | Conventions, DB & project hygiene | complete · **co-reviewed** · all 9 confirmed | 9 (0 BUG · 2 RISK · 7 CLEANUP) | 2 (C4-1, C4-2) |
-| 5 | Tests & incidentally-touched code | complete · **co-reviewed** · all 9 confirmed | 9 (2 BUG · 5 RISK · 1 PERF · 1 CLEANUP) | 1 (C5-1) |
+| 3 | Traffic data pipeline & concurrency | complete · **co-reviewed** · all 11 confirmed | 11 (2 BUG · 1 RISK · 8 CLEANUP/PERF) | 4 (C3-1, C3-3, C3-4, C3-9) |
+| 4 | Conventions, DB & project hygiene | complete · **co-reviewed** · all 9 confirmed | 9 (0 BUG · 2 RISK · 7 CLEANUP) | 3 (C4-1, C4-2, C4-3) |
+| 5 | Tests & incidentally-touched code | complete · **co-reviewed** · all 9 confirmed | 9 (2 BUG · 5 RISK · 1 PERF · 1 CLEANUP) | 2 (C5-1, C5-2) |
 
 **50 findings total.** IDs: `C<chunk>-<n>` reviewer, `U<chunk>-<n>` user.
 
@@ -170,13 +170,35 @@ The theme: four places that fail without saying so, where the absence of a log l
 
 **DB impact: none.** `DatabaseCheckpoint` runs a `PRAGMA`, not DDL; the connection-mode change affects how the file is opened, not its schema. No entity, column or index touched, so no migration.
 
+## Fix phase — batch 4a: bucket spreading & time discontinuities (C4-3, C3-4, C5-2, C3-1, C3-3)
+
+**2026-08-11. Five `fixed`. Build x64 clean, 0 warnings. 319/319 tests pass** (309 plus ten new).
+
+Batch 4 was split. This half is the cluster that all lives in one code path — how a flush's bytes are spread across chart buckets, and what happens when time does not move forwards. **C4-3 was pulled forward from batch 7** so that path moved into Core *before* its defects were fixed, rather than being fixed twice in the UI project and then moved.
+
+- **C4-3** — new `NetworkMonitor.Core/Traffic/ChartPointSpreader.cs`. The ~25 lines duplicated byte-for-byte in `InternetViewModel` and `LocalViewModel` now exist once, in Core, where the test project can reach them. Both `SpreadAcrossBuckets` methods are one delegating line.
+- **C3-4** — `LiveRateBuffer.AddInterval` scales the byte totals by `retainedSeconds / intervalSeconds` when the interval start clamps to the oldest held second, **and** passes the clamped `effectiveStartUtc` to `Distribute`. Both halves were needed: scaling alone leaves `totalOverlap` short of the interval and re-inflates the result.
+- **C5-2** — `_lastFlushUtc` reset in `SeedWindowState` in both view models, so a flush arriving after a page revisit no longer claims a minutes-long interval and smears itself across every bucket as a phantom floor.
+- **C3-1** — `LiveRateBuffer.Advance` treats a backward step as a discontinuity, and `LiveTrafficFeed.OnFlushed` drops a flush whose `nowUtc` precedes `_lastFlushUtc`.
+- **C3-3** — fixed incidentally: the `_lastFlushUtc` read and write moved inside `lock (_gate)` as part of the C3-1 guard.
+
+**One deliberate narrowing of a proposed fix.** The report proposed an unguarded `else if (epoch < _lastEpoch)` branch in `Advance` that clears and re-seeds. Implemented literally, that reset the whole trace for *any* older sample and broke `LiveRateBufferTests.SamplesOlderThanTheWindowAreDropped` — long-standing, deliberate behaviour where an out-of-order arrival is dropped rather than costing five minutes of history. The branch is therefore guarded to a **sub-window** step (`epoch > _lastEpoch - _capacity`), which is exactly the case C3-1's own analysis identifies as the corrupting one; it says in terms that large steps are already safe because `IsHeld` drops them. The existing test still passes unchanged, and a new test pins the large-step behaviour so the distinction is not lost again.
+
+**Ten new tests.** `ChartPointSpreaderTests` (5) covers the `bucketSeconds != 1.0` path production actually takes — total preservation across 60-second buckets, which buckets an interval touches, an even split across two wide buckets, accumulation onto existing values, and an empty window. `LiveRateBufferTimeDiscontinuityTests` (5) covers the sub-window backward step, the right edge following the clock back, the large step still being dropped, a gap longer than the window keeping only the visible share, and an ordinary in-window interval still keeping every byte.
+
+**DB impact: none.** Pure in-memory chart arithmetic and view-model state. No entity, column or index touched, so no migration.
+
 ## Next step
 
 **Batches 1–3 are done.** C4-1 no longer gates schema work — the baseline exists and is verified, so the next entity change can ship a migration normally (generate it through `Tools/MigrationVerify`, then run that tool).
 
 Next is **batch 4 — live-chart correctness & always-on cost**: C3-1 with C5-9's stale-flush item (backward clock step), C5-2 (stale `_lastFlushUtc` across navigation), C3-4 (long-gap compression), C3-5 (live edge reads low), C3-2 (widget ignores `ChartSmoothScrolling`), C3-10 (`SeedAsync` on the UI thread), C5-8 (digest worker re-scans empty windows), C3-8 (torn count read).
 
-Note the ordering constraint recorded at co-review: **C4-3 (batch 7) should be done before C3-4**, so the bucket-spread defect is fixed once in Core rather than twice in the UI project. Either pull C4-3 forward into batch 4 or defer C3-4 to batch 7. Then batches 5–9.
+**Batch 4 was split.** 4a (done) took the cluster that shares one code path: C4-3 pulled forward from batch 7, then C3-4, C5-2, C3-1 and — incidentally — C3-3.
+
+**Batch 4b is next**, the remainder of batch 4: C3-2 (widget ignores `ChartSmoothScrolling`), C3-5 (live edge reads systematically low), C3-8 (torn unapproved-count read), C3-10 (`SeedAsync` runs its queries on the UI thread), C5-8 (`DigestWorker` re-evaluates every empty window forever). Then batches 5–9.
+
+Note for 4b: C3-5 changes where `Snapshot` ends, which several existing `LiveRateBufferTests` assert against — expect to reconcile them, and treat a test that has to change as a claim needing justification rather than a formality (see 4a's narrowing of C3-1).
 
 For each batch: apply the fixes, build x64 (`dotnet build NetworkMonitor.slnx -p:Platform=x64`) with 0 errors, run `dotnet test` green, state the DB impact explicitly even when it is "none", add a `## Fix phase — <name>` entry here recording what changed and why, then commit and push with a subject line the user has approved.
 

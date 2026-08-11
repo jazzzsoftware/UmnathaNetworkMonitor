@@ -57,10 +57,34 @@ namespace NetworkMonitor.Core.Traffic
 
                 long firstEpoch = ToEpochSeconds(intervalStartUtc);
                 long oldestHeld = _lastEpoch - _capacity + 1;
+                DateTime effectiveStartUtc = intervalStartUtc;
+                long retainedDownloaded = bytesDownloaded;
+                long retainedUploaded = bytesUploaded;
 
+                // A gap longer than the window would otherwise have all its bytes normalised over the
+                // ~300 seconds still held, drawing hours of traffic at tens of times the real rate and
+                // dragging the whole axis up with it. Only the share belonging to the seconds we can
+                // still show is kept; the rest belongs to buckets that have already scrolled off.
                 if (firstEpoch < oldestHeld)
                 {
                     firstEpoch = oldestHeld;
+                    effectiveStartUtc = DateTime.UnixEpoch.AddSeconds(firstEpoch);
+
+                    double intervalSeconds = (intervalEndUtc - intervalStartUtc).TotalSeconds;
+                    double retainedSeconds = (intervalEndUtc - effectiveStartUtc).TotalSeconds;
+
+                    if (retainedSeconds <= 0.0 || intervalSeconds <= 0.0)
+                    {
+                        retainedDownloaded = 0;
+                        retainedUploaded = 0;
+                    }
+                    else
+                    {
+                        double keptShare = retainedSeconds / intervalSeconds;
+                        retainedDownloaded = (long)(bytesDownloaded * keptShare);
+                        retainedUploaded = (long)(bytesUploaded * keptShare);
+                    }
+
                 }
 
                 List<DateTime> bucketStarts = new List<DateTime>();
@@ -70,8 +94,8 @@ namespace NetworkMonitor.Core.Traffic
                     bucketStarts.Add(DateTime.UnixEpoch.AddSeconds(epoch));
                 }
 
-                long[] downloadShares = FlushSpread.Distribute(bytesDownloaded, bucketStarts, 1.0, intervalStartUtc, intervalEndUtc);
-                long[] uploadShares = FlushSpread.Distribute(bytesUploaded, bucketStarts, 1.0, intervalStartUtc, intervalEndUtc);
+                long[] downloadShares = FlushSpread.Distribute(retainedDownloaded, bucketStarts, 1.0, effectiveStartUtc, intervalEndUtc);
+                long[] uploadShares = FlushSpread.Distribute(retainedUploaded, bucketStarts, 1.0, effectiveStartUtc, intervalEndUtc);
 
                 for (int index = 0; index < bucketStarts.Count; index++)
                 {
@@ -146,6 +170,25 @@ namespace NetworkMonitor.Core.Traffic
                 }
 
                 _lastEpoch = epoch;
+            }
+            else if (epoch < _lastEpoch && epoch > _lastEpoch - _capacity)
+            {
+                // Time moved backwards inside the window — an NTP correction after RTC drift, a VM
+                // resume, a user setting the clock. This is the case that corrupted: the bucket is
+                // still held, so Accumulate stacked new traffic on top of pre-jump bytes, nothing
+                // was ever zeroed until wall-clock caught up, and Snapshot pinned the right edge in
+                // the future meanwhile. A discontinuity is not a gap, so the trace restarts rather
+                // than zero-filling backwards.
+                //
+                // A step older than the whole window is left alone: IsHeld already drops it, which
+                // is the long-standing behaviour for an out-of-order sample and is pinned by
+                // LiveRateBufferTests.SamplesOlderThanTheWindowAreDropped.
+                Clear();
+
+                _lastEpoch = epoch;
+                int slot = Slot(epoch);
+                _download[slot] = 0;
+                _upload[slot] = 0;
             }
 
         }

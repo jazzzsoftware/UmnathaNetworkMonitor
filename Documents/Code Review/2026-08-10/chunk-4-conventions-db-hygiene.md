@@ -90,7 +90,7 @@ The irony is that `FlushSpread.Distribute` underneath it was correctly put in Co
 
 **Fix.** One `Core/Traffic` helper taking `IReadOnlyList<ChartPoint>` removes the copy and makes it testable. See also chunk 3's C3-4, which is a defect in exactly this path.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, pulled forward from batch 7 into batch 4 so the bucket-spread defects were fixed once in Core rather than twice in the UI project. New `NetworkMonitor.Core/Traffic/ChartPointSpreader.cs`; both view models' `SpreadAcrossBuckets` reduced to a single delegating line. Five tests in `ChartPointSpreaderTests` close the `bucketSeconds != 1.0` coverage gap the review called highest-value.
 
 ---
 

@@ -51,7 +51,7 @@ Same effect after sitting on the 24h range (where `ApplyLiveFlushAsync` is skipp
 
 **Fix.** Reset `_lastFlushUtc = DateTime.MinValue` in `LoadAsync`, so the first flush after any reload falls back to the existing one-bucket-wide default at `:230` / `:298`. One line each.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 4. Reset in `SeedWindowState` in both view models rather than in `LoadAsync` directly — `SeedWindowState` runs on every reload and is where the rest of the window state is established, so a future load path cannot miss it.
 
 ---
 

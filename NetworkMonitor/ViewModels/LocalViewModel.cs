@@ -328,6 +328,9 @@ namespace NetworkMonitor.ViewModels
 
         private void SeedWindowState(LocalLoadResult result)
         {
+            // See InternetViewModel.SeedWindowState: a stale _lastFlushUtc across a page revisit
+            // smears one flush across the whole window as a phantom floor.
+            _lastFlushUtc = DateTime.MinValue;
             _windowCutoffEpoch = result.CutoffEpoch;
             _windowBucketSeconds = result.BucketSeconds;
             _windowChartPoints = new List<ChartPoint>(result.ChartPoints);
@@ -386,31 +389,7 @@ namespace NetworkMonitor.ViewModels
 
         private void SpreadAcrossBuckets(long upload, long download, DateTime intervalStartUtc, DateTime intervalEndUtc)
         {
-            List<DateTime> bucketStarts = new List<DateTime>(_windowChartPoints.Count);
-
-            foreach (ChartPoint point in _windowChartPoints)
-            {
-                bucketStarts.Add(point.BucketStart);
-            }
-
-            long[] uploadShares = FlushSpread.Distribute(upload, bucketStarts, _windowBucketSeconds, intervalStartUtc, intervalEndUtc);
-            long[] downloadShares = FlushSpread.Distribute(download, bucketStarts, _windowBucketSeconds, intervalStartUtc, intervalEndUtc);
-
-            for (int index = 0; index < _windowChartPoints.Count; index++)
-            {
-
-                if (uploadShares[index] != 0 || downloadShares[index] != 0)
-                {
-                    ChartPoint point = _windowChartPoints[index];
-                    _windowChartPoints[index] = point with
-                    {
-                        BytesUploaded = point.BytesUploaded + uploadShares[index],
-                        BytesDownloaded = point.BytesDownloaded + downloadShares[index]
-                    };
-                }
-
-            }
-
+            ChartPointSpreader.Apply(_windowChartPoints, upload, download, _windowBucketSeconds, intervalStartUtc, intervalEndUtc);
         }
 
         private void ApplyFlushToWindow(IReadOnlyList<LocalTrafficDelta> deltas, DateTime intervalStartUtc, DateTime intervalEndUtc)

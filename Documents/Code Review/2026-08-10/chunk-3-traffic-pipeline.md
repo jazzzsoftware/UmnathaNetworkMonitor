@@ -42,7 +42,7 @@ Large backward steps are **safe** — `IsHeld` drops them, as `LiveRateBufferTes
 
 **Fix.** Treat a backward step as a discontinuity. In `Advance`, add an `else if (epoch < _lastEpoch)` branch that calls `Clear()` and re-seeds; in `OnFlushed`, if `nowUtc < _lastFlushUtc`, reset `_lastFlushUtc = nowUtc` and skip the interval rather than feeding an inverted one to `AddInterval`.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 4. Implemented as proposed with one deliberate narrowing: the discontinuity branch is guarded to a **sub-window** backward step (`epoch < _lastEpoch && epoch > _lastEpoch - _capacity`). An unguarded branch resets the trace for any older sample, which broke `LiveRateBufferTests.SamplesOlderThanTheWindowAreDropped` — long-standing, deliberate behaviour for an out-of-order arrival. This report's own analysis says large steps are already safe and only the sub-window step corrupts, so the narrowing matches the finding rather than weakening it. `LiveTrafficFeed.OnFlushed` drops a flush whose `nowUtc < _lastFlushUtc` and restarts the baseline from there. Five new tests in `LiveRateBufferTimeDiscontinuityTests`.
 
 ---
 
@@ -77,7 +77,7 @@ So it is single-threaded **in practice**, but nothing in the type enforces it, a
 
 **Fix.** Move both lines inside the existing `lock (_gate)`.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 4, as a side effect of the C3-1 guard: the `nowUtc < _lastFlushUtc` check and the interval computation both moved inside `lock (_gate)` alongside the `AddInterval` calls.
 
 ---
 
@@ -91,7 +91,7 @@ The trigger is narrow (the setting caps `TrafficIntervalSeconds` at 60 — `Sett
 
 **Fix.** Scale `totalBytes` by `retainedSeconds / intervalSeconds` before distributing, discarding the share that belongs to seconds no longer held.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 4. `AddInterval` scales the byte totals by `retainedSeconds / intervalSeconds` when `firstEpoch` clamps to `oldestHeld`, **and** passes the clamped `effectiveStartUtc` to `Distribute` so the overlaps normalise over the retained span rather than the original one. Both halves were needed — scaling alone still left `totalOverlap` short and re-inflated the result.
 
 ---
 
