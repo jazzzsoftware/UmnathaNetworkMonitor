@@ -9,7 +9,7 @@ namespace NetworkMonitor.Core.Digest
 {
     public static class DigestCsvExporter
     {
-        private const string HeaderRow = "Period Start,Period End,Generated,Total Uploaded (Raw),Total Uploaded (Friendly),Total Downloaded (Raw),Total Downloaded (Friendly),All Devices,Unapproved Devices,Appeared,Disappeared,Online,Offline";
+        private const string HeaderRow = "Period Start,Period End,Generated,Total Uploaded (Raw),Total Uploaded (Friendly),Total Downloaded (Raw),Total Downloaded (Friendly),Speed Tests,Min Download (Mb/s),Avg Download (Mb/s),Max Download (Mb/s),All Devices,Unapproved Devices,Appeared,Disappeared,Online,Offline";
 
         public static string BuildAllCsv(IReadOnlyList<(DateTime PeriodStartUtc, DateTime PeriodEndUtc, DateTime GeneratedAtUtc, DigestSummary Summary)> reports)
         {
@@ -44,6 +44,17 @@ namespace NetworkMonitor.Core.Digest
 
         private static string BuildSummaryRow(DateTime periodStartUtc, DateTime periodEndUtc, DateTime generatedAtUtc, DigestSummary summary)
         {
+            string minDownload = string.Empty;
+            string averageDownload = string.Empty;
+            string maxDownload = string.Empty;
+
+            if (summary.SpeedTests.Count > 0)
+            {
+                minDownload = summary.SpeedTests.Min(test => test.DownloadMbps).ToString("0.0");
+                averageDownload = summary.SpeedTests.Average(test => test.DownloadMbps).ToString("0.0");
+                maxDownload = summary.SpeedTests.Max(test => test.DownloadMbps).ToString("0.0");
+            }
+
             string[] columns = new string[]
             {
                 CsvField.Escape(periodStartUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")),
@@ -53,6 +64,10 @@ namespace NetworkMonitor.Core.Digest
                 CsvField.Escape(ByteSizeFormatter.Format(summary.TotalBytesUploaded)),
                 CsvField.Escape(summary.TotalBytesDownloaded.ToString()),
                 CsvField.Escape(ByteSizeFormatter.Format(summary.TotalBytesDownloaded)),
+                CsvField.Escape(summary.SpeedTests.Count.ToString()),
+                CsvField.Escape(minDownload),
+                CsvField.Escape(averageDownload),
+                CsvField.Escape(maxDownload),
                 CsvField.Escape(summary.AllDevices.Count.ToString()),
                 CsvField.Escape(summary.UnapprovedDevices.Count.ToString()),
                 CsvField.Escape(summary.AppearedCount.ToString()),

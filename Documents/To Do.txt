@@ -188,6 +188,8 @@ Done - Update all docs
 Code review
 Performance review
 
+Add Speed tests to start of digest csv
+
 
 Github:
 Done - Topics
