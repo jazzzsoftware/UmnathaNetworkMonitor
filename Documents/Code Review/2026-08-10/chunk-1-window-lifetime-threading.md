@@ -79,7 +79,7 @@ That is not recoverable at next launch. `App.xaml.cs:88-91` deserialises inside 
 
 **Fix.** Two small, contained changes: give the temp file a unique name (`path + "." + Guid.NewGuid().ToString("N") + ".tmp"`), and serialise `Settings.Save()` behind a static lock. Optionally also wrap the deserialise at `App.xaml.cs:90` so a corrupt file falls back to defaults rather than blocking startup.
 
-**Status:** `open` — **fix this first.**
+**Status:** `fixed` — 2026-08-11, fix-phase batch 1. Unique GUID temp name plus orphan cleanup in `AtomicFile.WriteAllText`; `Settings.Save()` serialised behind a static lock; the startup read in `App.xaml.cs` wrapped so a corrupt file falls through to the `appsettings.json` seed path, with the exception logged after `AppLog.Initialize` rather than at the catch site (where it would have been dropped). See `progress.md` → *Fix phase — batch 1*.
 
 ---
 

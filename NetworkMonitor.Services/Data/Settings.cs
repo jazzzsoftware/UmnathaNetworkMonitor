@@ -12,6 +12,8 @@ namespace NetworkMonitor.Services.Data
 {
     public class Settings
     {
+        private static readonly object _saveLock = new object();
+
         public static string SettingsFilePath =>
             Path.Combine(
                 AppPaths.AppDataFolder,
@@ -283,12 +285,17 @@ namespace NetworkMonitor.Services.Data
 
         public void Save()
         {
-            string json = JsonSerializer.Serialize(this, new JsonSerializerOptions
-            {
-                WriteIndented = true
-            });
 
-            AtomicFile.WriteAllText(SettingsFilePath, json);
+            lock (_saveLock)
+            {
+                string json = JsonSerializer.Serialize(this, new JsonSerializerOptions
+                {
+                    WriteIndented = true
+                });
+
+                AtomicFile.WriteAllText(SettingsFilePath, json);
+            }
+
         }
 
         public static string DetectSubnetBase()

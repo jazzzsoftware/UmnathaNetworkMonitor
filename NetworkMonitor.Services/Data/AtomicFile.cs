@@ -6,6 +6,7 @@ namespace NetworkMonitor.Services.Data
     {
         public static void WriteAllText(string path, string contents)
         {
+            string tempPath = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
 
             try
             {
@@ -13,14 +14,22 @@ namespace NetworkMonitor.Services.Data
 
                 Directory.CreateDirectory(directory);
 
-                string tempPath = path + ".tmp";
-
                 File.WriteAllText(tempPath, contents);
                 File.Move(tempPath, path, true);
             }
             catch (Exception exception)
             {
                 AppLog.Error("AtomicFile.WriteAllText", exception);
+
+                try
+                {
+                    File.Delete(tempPath);
+                }
+                catch (Exception cleanupException)
+                {
+                    AppLog.Error("AtomicFile.WriteAllText cleanup", cleanupException);
+                }
+
             }
 
         }

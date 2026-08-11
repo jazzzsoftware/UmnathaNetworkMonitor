@@ -39,6 +39,7 @@ namespace NetworkMonitor
         private static IntPtr _mainWindowHwnd;
         private static MiniGraphWindow? _miniGraphWindow;
         private static bool? _miniGraphVisible;
+        private static Exception? _settingsLoadFailure;
 
         [DllImport("shell32.dll", SetLastError = true)]
         private static extern int SetCurrentProcessExplicitAppUserModelID(
@@ -83,14 +84,24 @@ namespace NetworkMonitor
                 AppHost = Host.CreateDefaultBuilder()
                     .ConfigureServices((ctx, services) =>
                     {
-                        Settings scannerSettings;
+                        Settings? scannerSettings = null;
 
                         if (File.Exists(Settings.SettingsFilePath))
                         {
-                            string json = File.ReadAllText(Settings.SettingsFilePath);
-                            scannerSettings = JsonSerializer.Deserialize<Settings>(json) ?? new Settings();
+
+                            try
+                            {
+                                string json = File.ReadAllText(Settings.SettingsFilePath);
+                                scannerSettings = JsonSerializer.Deserialize<Settings>(json);
+                            }
+                            catch (Exception exception)
+                            {
+                                _settingsLoadFailure = exception;
+                            }
+
                         }
-                        else
+
+                        if (scannerSettings is null)
                         {
                             scannerSettings = ctx.Configuration
                                 .GetSection("Scanner")
@@ -198,6 +209,12 @@ namespace NetworkMonitor
 
                 AppLog.Initialize(loggingEnabled);
                 AppLog.Info($"Application started (v{AppInfo.GetVersion()}, minimized={startMinimized}).");
+
+                if (_settingsLoadFailure is not null)
+                {
+                    AppLog.Error($"App.LoadSettings ({Settings.SettingsFilePath} unreadable — started from defaults)", _settingsLoadFailure);
+                    _settingsLoadFailure = null;
+                }
 
                 Settings appSettings = AppHost.Services.GetRequiredService<Settings>();
                 TrafficRateFormatter.Mode = appSettings.RateUnitMode;

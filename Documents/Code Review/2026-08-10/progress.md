@@ -6,7 +6,7 @@
 
 ## Status: CO-REVIEW COMPLETE — fix phase ready to start
 
-All five chunks reviewed and co-reviewed. **50 findings (50 reviewer + 0 user) — 0 fixed, 50 open.**
+All five chunks reviewed and co-reviewed. **50 findings (50 reviewer + 0 user) — 1 fixed, 49 open.** Fix phase in progress: batch 1 of 9 complete.
 
 Co-review ran 2026-08-11, one chunk at a time. **Every finding in all five chunks was confirmed for fixing.** None rejected, none deferred, none marked `won't-fix`, no `U`-IDs added. That includes the findings each report flagged as candidates to close — C1-4, C1-9, C1-10 (not currently reachable) and C4-8 (does not breach the documented rule) — which the user chose to fix anyway. Nothing has been fixed yet.
 
@@ -49,7 +49,7 @@ Chunked by review dimension rather than by subsystem, because the feature is one
 
 | # | Chunk | State | Findings | Actioned |
 |---|-------|-------|----------|----------|
-| 1 | Window lifetime, state & threading | complete · **co-reviewed** · all 10 confirmed | 10 (1 BUG · 4 RISK · 5 CLEANUP) | 0 |
+| 1 | Window lifetime, state & threading | complete · **co-reviewed** · all 10 confirmed | 10 (1 BUG · 4 RISK · 5 CLEANUP) | 1 (C1-3) |
 | 2 | DPI, geometry & multi-monitor | complete · **co-reviewed** · all 11 confirmed | 11 (3 BUG · 3 RISK · 5 CLEANUP) | 0 |
 | 3 | Traffic data pipeline & concurrency | complete · **co-reviewed** · all 11 confirmed | 11 (2 BUG · 1 RISK · 8 CLEANUP/PERF) | 0 |
 | 4 | Conventions, DB & project hygiene | complete · **co-reviewed** · all 9 confirmed | 9 (0 BUG · 2 RISK · 7 CLEANUP) | 0 |
@@ -111,9 +111,27 @@ Not covered by unit tests; all of it needs the real app on real hardware.
 - **2026-08-11** — Co-review opened and completed in one session, one chunk at a time. **All five chunks confirmed in full: 50 of 50 findings accepted for fixing**, no user findings added, nothing rejected, deferred or marked `won't-fix`. The user accepted the four findings their own reports offered as candidates to close (C1-4, C1-9, C1-10 as not currently reachable; C4-8 as not breaching the documented rule), and put the chunk-5 coverage-gap inventory in scope as work rather than as a record. Fixes were deliberately **not** applied per chunk, so the cross-chunk batches stay intact.
 - **2026-08-11** — Two ledger defects found and corrected while closing co-review, both in this file rather than in the code. (a) **The finding total was wrong**: `chunk-4`'s header claimed 8 findings against the 9 it actually contains, and the undercount propagated here — the true total is **50**, verified by counting `## C<n>-<n>` headings across all five chunk files. (b) **The suggested-fix-batch list was unusable**: it named three IDs that do not exist (`C5-10`…`C5-12`), mis-filed C5-6 and C5-8 under "widget lifetime", and left out **C4-1**, the migration baseline — the most consequential finding in the review. The list was rebuilt from scratch so every one of the 50 findings appears in exactly one batch.
 
+## Fix phase — batch 1: startup integrity (C1-3)
+
+**2026-08-11. C1-3 `fixed`. Build x64 clean, 0 warnings. 308/308 tests pass.**
+
+Three changes, all on the path that could leave a user unable to launch:
+
+- **`NetworkMonitor.Services/Data/AtomicFile.cs`** — the temp file is now `path + "." + Guid.NewGuid().ToString("N") + ".tmp"` instead of the single fixed `path + ".tmp"`, so two concurrent writers can no longer share, truncate or publish each other's temp file. `tempPath` moved above the `try` so the new cleanup can see it: the `catch` now deletes the orphan temp file it may have left behind, which the old fixed name did not need because the next write overwrote it.
+- **`NetworkMonitor.Services/Data/Settings.cs`** — `Save()` body wrapped in `lock (_saveLock)` on a new `private static readonly object`, serialising the scan-thread writer (`ScanWorker.cs:238`) against the UI-thread writers that this feature made near-continuous (placement debounce on every drag and resize, plus opacity, section, orientation and border toggles).
+- **`NetworkMonitor/App.xaml.cs`** — the startup read is wrapped. `JsonSerializer.Deserialize<Settings>` previously threw `JsonException` straight out of `Host.Build()` in the App constructor on a malformed file, and `?? new Settings()` only ever covered a literal `null` document. A corrupt or truncated `settings.json` now falls through to the same `appsettings.json` seed path the first-run branch uses, including `DetectSubnetBase()`.
+
+**Why the failure is logged late rather than where it happens.** `AppLog.Write` no-ops while `IsEnabled` is false, and `AppLog.Initialize` runs at `OnLaunched`, long after `ConfigureServices`. Logging the corruption at the catch site would have been silently dropped — the exact silent-failure pattern C1-7 and C5-1 record. The exception is parked in `_settingsLoadFailure` and written once initialisation has happened, naming the file path, then cleared.
+
+**One deliberate behaviour change beyond the finding.** A `settings.json` containing the literal document `null` previously produced bare `new Settings()`; it now takes the seed path and gets `SubnetBase` detected, the same as a missing file. Strictly better and effectively unreachable, but it is a change, not a refactor.
+
+**Not covered by tests.** `AtomicFile` and `Settings` live in `NetworkMonitor.Services`, which `NetworkMonitor.Tests` cannot reference (Models + Core only). The 308 green tests prove nothing about this batch — they prove it broke nothing. This is the same structural gap as C5-3 and C2-11; verifying the concurrent-write fix needs the real app.
+
+**DB impact: none.** `settings.json` is a `System.Text.Json` POCO, never a `DbSet`. No entity, column or index touched, so no migration. C4-1 (the missing migration baseline) is untouched and remains the gate on all future schema work — it is batch 2.
+
 ## Next step
 
-**Co-review is complete.** Per `../code-review-procedure.md` §6 the fix phase now begins, working through *Suggested fix batches* above in order — batch 1 (C1-3, startup integrity) first, then batch 2 (C4-1, migration baseline).
+**Batch 1 is done.** Next is **batch 2 — C4-1, the migration baseline**, on its own. Generate `InitialCreate` from the current model, switch `App.xaml.cs` from `EnsureCreatedAsync` to `MigrateAsync`, and baseline it so the v0.0.8–v0.0.11 databases already in the field (no `__EFMigrationsHistory` table) are treated as already at the initial migration rather than replayed onto. Then batches 3–9 in order.
 
 For each batch: apply the fixes, build x64 (`dotnet build NetworkMonitor.slnx -p:Platform=x64`) with 0 errors, run `dotnet test` green, state the DB impact explicitly even when it is "none", add a `## Fix phase — <name>` entry here recording what changed and why, then commit and push with a subject line the user has approved.
 
