@@ -183,8 +183,8 @@ Done - vert/horiz switch does not retore horiz position correctly. slightly off
 Done - Taskbar version of Mini graph.
 Done - Redo blur for HorizontalMiniGraphInTaskBar.png, Only blur above taskbar.
 Done - Add section to readme to mention following professional design practices, code/security/performance reviews. All process to design new features with spec/plans.
-
 Done - Update all docs
+
 Code review
 Performance review
 
