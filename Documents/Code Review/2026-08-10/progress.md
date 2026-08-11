@@ -4,9 +4,9 @@
 
 ---
 
-## Status: FIX PHASE IN PROGRESS — batches 1–3 and 4a done
+## Status: FIX PHASE IN PROGRESS — batches 1–4 done, 5–9 remaining
 
-All five chunks reviewed and co-reviewed. **50 findings (50 reviewer + 0 user) — 11 fixed, 39 open.** Fix phase in progress: batches 1–3 complete, batch 4 half done (4a).
+All five chunks reviewed and co-reviewed. **50 findings (50 reviewer + 0 user) — 16 fixed, 34 open.** Fix phase in progress: batches 1–4 complete (4 split into 4a and 4b).
 
 Co-review ran 2026-08-11, one chunk at a time. **Every finding in all five chunks was confirmed for fixing.** None rejected, none deferred, none marked `won't-fix`, no `U`-IDs added. That includes the findings each report flagged as candidates to close — C1-4, C1-9, C1-10 (not currently reachable) and C4-8 (does not breach the documented rule) — which the user chose to fix anyway.
 
@@ -51,9 +51,9 @@ Chunked by review dimension rather than by subsystem, because the feature is one
 |---|-------|-------|----------|----------|
 | 1 | Window lifetime, state & threading | complete · **co-reviewed** · all 10 confirmed | 10 (1 BUG · 4 RISK · 5 CLEANUP) | 2 (C1-3, C1-7) |
 | 2 | DPI, geometry & multi-monitor | complete · **co-reviewed** · all 11 confirmed | 11 (3 BUG · 3 RISK · 5 CLEANUP) | 0 |
-| 3 | Traffic data pipeline & concurrency | complete · **co-reviewed** · all 11 confirmed | 11 (2 BUG · 1 RISK · 8 CLEANUP/PERF) | 4 (C3-1, C3-3, C3-4, C3-9) |
+| 3 | Traffic data pipeline & concurrency | complete · **co-reviewed** · all 11 confirmed | 11 (2 BUG · 1 RISK · 8 CLEANUP/PERF) | 8 (C3-1 … C3-5, C3-8, C3-9, C3-10) |
 | 4 | Conventions, DB & project hygiene | complete · **co-reviewed** · all 9 confirmed | 9 (0 BUG · 2 RISK · 7 CLEANUP) | 3 (C4-1, C4-2, C4-3) |
-| 5 | Tests & incidentally-touched code | complete · **co-reviewed** · all 9 confirmed | 9 (2 BUG · 5 RISK · 1 PERF · 1 CLEANUP) | 2 (C5-1, C5-2) |
+| 5 | Tests & incidentally-touched code | complete · **co-reviewed** · all 9 confirmed | 9 (2 BUG · 5 RISK · 1 PERF · 1 CLEANUP) | 3 (C5-1, C5-2, C5-8) |
 
 **50 findings total.** IDs: `C<chunk>-<n>` reviewer, `U<chunk>-<n>` user.
 
@@ -188,6 +188,22 @@ Batch 4 was split. This half is the cluster that all lives in one code path — 
 
 **DB impact: none.** Pure in-memory chart arithmetic and view-model state. No entity, column or index touched, so no migration.
 
+## Fix phase — batch 4b: always-on cost & live-chart polish (C3-2, C3-5, C3-8, C3-10, C5-8)
+
+**2026-08-11. Five `fixed`. Build x64 clean, 0 warnings. 319/319 tests pass, no test changed.**
+
+- **C3-2** — new `SmoothScrolling` dependency property on `MiniTrafficSection` forwarding to `SectionChart`; `MiniGraphWindow`'s constructor sets it on both sections from `_settings.ChartSmoothScrolling`. The chart that runs all day can now be turned down like the two that don't. Per co-review, the snapshot decimation in the same fix note is a separate optimisation and was not required to close the finding.
+- **C3-5** — fixed in `TrafficAreaChart.BuildPoints`, **not** in `Snapshot`. See below.
+- **C3-8** — `MiniGraphViewModel.Refresh` reads `UnapprovedDeviceCount` once into a local, so the text and the warning flag cannot disagree.
+- **C3-10** — `LiveTrafficFeed.StartAsync` wraps the seed in `Task.Run`. Still awaited: the feed must be seeded before the events are subscribed, and dropping the await would trade a race for a few milliseconds.
+- **C5-8** — new `Settings.DigestCatchUpHighWaterUtc`, recording how far catch-up has *looked* rather than how far it has *generated*.
+
+**C3-5 was implemented in the other location the finding cites, and that was the right call.** Truncating `Snapshot` to end at the last complete second — the fix as first proposed — broke **six** existing `LiveRateBufferTests`. All six encode one contract: what is written at time T is visible when snapshotting at T. Six tests agreeing is a specification, not an obstacle, and C3-5 is a CLEANUP whose own stated impact is "under 2% of the chart width". Changing what every consumer of the buffer reads to fix a rendering artefact is the wrong trade. `BuildPoints` now extends the lead point from `values[count - 2]`, the last complete bucket. Same defect, fixed where it manifests, no test rewritten to accommodate the fix.
+
+That is now twice in one batch where a proposed fix needed adjusting on contact (C3-1's narrowing in 4a, C3-5's relocation here). Worth carrying into batches 5–9: the findings are sound about *what* is wrong and less reliable about *where* to change it.
+
+**DB impact: none — and deliberately so.** C5-8's high-water mark went into `settings.json`, not a new column. It is process bookkeeping rather than user data, safe to lose, and putting it in the DB would have meant a migration for something that does not warrant one. `Settings` is a `System.Text.Json` POCO and never a `DbSet`; an older file without the key deserialises to `null` and falls back to the previous behaviour. No entity, column or index touched.
+
 ## Next step
 
 **Batches 1–3 are done.** C4-1 no longer gates schema work — the baseline exists and is verified, so the next entity change can ship a migration normally (generate it through `Tools/MigrationVerify`, then run that tool).
@@ -196,9 +212,8 @@ Next is **batch 4 — live-chart correctness & always-on cost**: C3-1 with C5-9'
 
 **Batch 4 was split.** 4a (done) took the cluster that shares one code path: C4-3 pulled forward from batch 7, then C3-4, C5-2, C3-1 and — incidentally — C3-3.
 
-**Batch 4b is next**, the remainder of batch 4: C3-2 (widget ignores `ChartSmoothScrolling`), C3-5 (live edge reads systematically low), C3-8 (torn unapproved-count read), C3-10 (`SeedAsync` runs its queries on the UI thread), C5-8 (`DigestWorker` re-evaluates every empty window forever). Then batches 5–9.
+**Batches 1–4 are done.** Next is **batch 5 — widget lifetime**: C1-1 (`Bindings.StopTracking` never called), C1-2 (queued dispatcher callbacks after teardown), C1-4 (unmarshalled `Changed` handler), C5-4 (`_miniGraphVisible` set before construction), C5-5 (`DigestReportView` never unsubscribes), C1-9, C1-10. Then 6 (geometry, 11), 7 (testability & layering — C4-3 already done), 8 (public-repo hygiene), 9 (conventions & docs).
 
-Note for 4b: C3-5 changes where `Snapshot` ends, which several existing `LiveRateBufferTests` assert against — expect to reconcile them, and treat a test that has to change as a claim needing justification rather than a formality (see 4a's narrowing of C3-1).
 
 For each batch: apply the fixes, build x64 (`dotnet build NetworkMonitor.slnx -p:Platform=x64`) with 0 errors, run `dotnet test` green, state the DB impact explicitly even when it is "none", add a `## Fix phase — <name>` entry here recording what changed and why, then commit and push with a subject line the user has approved.
 

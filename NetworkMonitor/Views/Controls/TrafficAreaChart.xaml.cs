@@ -349,8 +349,15 @@ namespace NetworkMonitor.Views.Controls
 
             if (isLive)
             {
+                // Extend from the last COMPLETE bucket, not the newest one. The newest only ever
+                // holds the fraction of a second the most recent flush actually covered, so during a
+                // sustained transfer the rightmost slice of the trace sat at roughly half the true
+                // rate until the next flush topped it up — a permanent dip at the exact point the eye
+                // goes to. Reading one bucket back costs nothing and the value is whole.
+                int leadSource = count > 1 ? count - 2 : count - 1;
+
                 float leadX = (float)((nowEpoch - leftEdge) / span * width);
-                float leadY = (float)(height - values[count - 1] / safeMax * usableHeight);
+                float leadY = (float)(height - values[leadSource] / safeMax * usableHeight);
                 points[count] = new Vector2(leadX, leadY);
             }
 

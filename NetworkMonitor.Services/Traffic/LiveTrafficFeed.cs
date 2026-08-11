@@ -75,7 +75,11 @@ namespace NetworkMonitor.Services.Traffic
 
         public async Task StartAsync(CancellationToken cancellationToken)
         {
-            await SeedAsync(cancellationToken);
+            // StartAsync is awaited from OnLaunched, and Microsoft.Data.Sqlite is synchronous
+            // underneath, so seeding inline ran both queries on the UI thread and blocked every later
+            // hosted service plus MainWindow creation. CountUnapprovedAsync scans Devices, which
+            // grows with the device list.
+            await Task.Run(() => SeedAsync(cancellationToken), cancellationToken);
 
             _tracker.Flushed += OnFlushed;
             _speedTestWorker.SpeedTestCompleted += OnSpeedTestCompleted;

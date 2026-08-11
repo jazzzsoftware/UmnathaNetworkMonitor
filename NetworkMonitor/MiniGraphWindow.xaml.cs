@@ -114,6 +114,12 @@ namespace NetworkMonitor
 
             _appliedOrientation = _state.Orientation;
 
+            // The widget's charts carry five times the geometry of the full-page ones (300 one-second
+            // points against 60 five-second ones) and run all day, so this is the chart that most
+            // needs the setting the full-page charts already honour.
+            InternetSection.SmoothScrolling = _settings.ChartSmoothScrolling;
+            LocalSection.SmoothScrolling = _settings.ChartSmoothScrolling;
+
             ConfigureWindow();
             ApplyLayout();
 

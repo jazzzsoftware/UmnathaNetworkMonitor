@@ -163,6 +163,16 @@ namespace NetworkMonitor.Services.Data
             set;
         } = 6;
 
+        // How far catch-up has looked, as opposed to how far it has generated. A window with no data
+        // produces no report, so the report table alone never advances past it and it was re-examined
+        // — three queries — on every cycle for as long as retention kept it in range. Absent from an
+        // older settings.json, which deserialises to null and simply falls back to the report table.
+        public DateTime? DigestCatchUpHighWaterUtc
+        {
+            get;
+            set;
+        }
+
         public bool DigestNotify
         {
             get;

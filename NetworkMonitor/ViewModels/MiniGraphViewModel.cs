@@ -122,8 +122,12 @@ namespace NetworkMonitor.ViewModels
 
             SpeedTestText = MiniGraphFormatter.SpeedTest(_feed.LatestSpeedTest, mode);
             SpeedTestShortText = MiniGraphFormatter.SpeedTestShort(_feed.LatestSpeedTest, mode);
-            UnknownDevicesText = MiniGraphFormatter.UnknownDevices(_feed.UnapprovedDeviceCount);
-            HasUnknownDevices = _feed.UnapprovedDeviceCount > 0;
+            // One read, not two: each call takes _gate separately, so a scan landing between them
+            // left the text and the warning flag disagreeing.
+            int unapprovedDeviceCount = _feed.UnapprovedDeviceCount;
+
+            UnknownDevicesText = MiniGraphFormatter.UnknownDevices(unapprovedDeviceCount);
+            HasUnknownDevices = unapprovedDeviceCount > 0;
         }
     }
 }

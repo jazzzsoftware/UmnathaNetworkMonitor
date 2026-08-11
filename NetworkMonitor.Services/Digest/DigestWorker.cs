@@ -122,8 +122,16 @@ namespace NetworkMonitor.Services.Digest
         private async Task GenerateMissedWindowsAsync(CancellationToken ct)
         {
             DateTime? lastEndUtc = await GetLastPeriodEndUtcAsync(ct);
+            DateTime? highWaterUtc = settings.DigestCatchUpHighWaterUtc;
+            DateTime? examinedToUtc = lastEndUtc;
+
+            if (highWaterUtc.HasValue && (!examinedToUtc.HasValue || highWaterUtc.Value > examinedToUtc.Value))
+            {
+                examinedToUtc = highWaterUtc;
+            }
+
             List<(DateTime StartUtc, DateTime EndUtc)> windows = DigestSchedule.MissedWindows(
-                lastEndUtc, DateTime.Now, settings.DigestGenerationHour, settings.DigestPurgeDays);
+                examinedToUtc, DateTime.Now, settings.DigestGenerationHour, settings.DigestPurgeDays);
 
             int generated = 0;
 
@@ -143,6 +151,11 @@ namespace NetworkMonitor.Services.Digest
 
             if (windows.Count > 0)
             {
+                // Record how far we looked, not how far we generated. Without this a window that
+                // legitimately produced nothing stayed "due" forever and was re-queried every cycle.
+                settings.DigestCatchUpHighWaterUtc = windows[windows.Count - 1].EndUtc;
+                settings.Save();
+
                 AppLog.Info($"Digest catch-up: {windows.Count} window(s) due, {generated} generated ({windows.Count - generated} skipped for having no data).");
             }
 

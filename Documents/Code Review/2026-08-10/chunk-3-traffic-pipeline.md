@@ -63,7 +63,7 @@ The setting exists precisely to let a user stop this, and the one chart that run
 
 **Fix.** Bind `SmoothScrolling` through `MiniTrafficSection` to `Settings.ChartSmoothScrolling` the way the two pages do. Separately, consider decimating the snapshot to roughly one point per 2px (max-of-window) before building the geometry.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 4b. New `SmoothScrolling` dependency property on `MiniTrafficSection` forwarding to `SectionChart`; `MiniGraphWindow`'s constructor sets it on both sections from `_settings.ChartSmoothScrolling`, matching what `InternetPage` and `LocalPage` already do. Per the co-review note, the decimation idea is a separate, larger optimisation and was **not** required to close this finding — it remains available if the widget still costs too much on battery.
 
 ---
 
@@ -105,7 +105,9 @@ Small — under 2% of the chart width — but it is a permanent dip at the exact
 
 **Fix.** Have `Snapshot` end at the last *complete* second, so the lead point extends a fully-covered bucket.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 4b, but **in the other location this finding cites, not in `Snapshot`**. `TrafficAreaChart.BuildPoints` now extends the lead point from `values[count - 2]`, the last complete bucket, instead of `values[count - 1]`.
+
+Truncating `Snapshot` was tried first and broke **six** existing `LiveRateBufferTests` — `SamplesInTheSameSecondAccumulateIntoOneBucket`, `SamplesOlderThanTheWindowAreDropped`, `AnIdleGapReadsAsZeroesRatherThanStaleBytes`, `WritingPastCapacityEvictsTheOldestBucket`, `SnapshotZeroFillsForwardToNowWhenNothingHasArrivedSince` and `SnapshotIsOldestFirstAndExactlyCapacityLong`. All six encode the same contract: what is written at time T is visible when snapshotting at T. Six tests agreeing is a specification, not an obstacle, and this finding is a CLEANUP whose own stated impact is "under 2% of the chart width" — not grounds for changing what every consumer of the buffer reads. The dip is a rendering artefact and is fixed where it is rendered.
 
 ---
 
@@ -139,7 +141,7 @@ Small — under 2% of the chart width — but it is a permanent dip at the exact
 
 **Fix.** Read once into a local.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 4b. `MiniGraphViewModel.Refresh` reads `_feed.UnapprovedDeviceCount` once into a local and uses it for both the text and the flag.
 
 ---
 
@@ -165,7 +167,7 @@ Both tables are small so this is milliseconds today — but `CountUnapprovedAsyn
 
 **Fix.** Wrap in `Task.Run`, or don't await the seed in `StartAsync`.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 4b. `LiveTrafficFeed.StartAsync` wraps the seed in `Task.Run`, so the two synchronous SQLite queries leave the UI thread. Still awaited, so the feed is seeded before the events are subscribed — the ordering matters and dropping the await would have introduced a race for a few milliseconds' gain.
 
 ---
 

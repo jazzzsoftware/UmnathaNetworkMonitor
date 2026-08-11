@@ -47,6 +47,16 @@ namespace NetworkMonitor.Views.Controls
                 typeof(MiniTrafficSection),
                 new PropertyMetadata(1.0, OnFontScaleChanged));
 
+        // TrafficAreaChart defaults this to true, and MiniTrafficSection never set it — so the one
+        // chart that runs all day was the only one the user could not turn down, while both full-page
+        // charts apply Settings.ChartSmoothScrolling. Surfaced here so the widget can honour it too.
+        public static readonly DependencyProperty SmoothScrollingProperty =
+            DependencyProperty.Register(
+                nameof(SmoothScrolling),
+                typeof(bool),
+                typeof(MiniTrafficSection),
+                new PropertyMetadata(true, OnSmoothScrollingChanged));
+
         public static readonly DependencyProperty ShowPeakProperty =
             DependencyProperty.Register(
                 nameof(ShowPeak),
@@ -87,6 +97,12 @@ namespace NetworkMonitor.Views.Controls
             set => SetValue(FontScaleProperty, value);
         }
 
+        public bool SmoothScrolling
+        {
+            get => (bool)GetValue(SmoothScrollingProperty);
+            set => SetValue(SmoothScrollingProperty, value);
+        }
+
         public bool ShowPeak
         {
             get => (bool)GetValue(ShowPeakProperty);
@@ -119,6 +135,13 @@ namespace NetworkMonitor.Views.Controls
             MiniTrafficSection section = (MiniTrafficSection)sender;
 
             section.ApplyFontScale((double)args.NewValue);
+        }
+
+        private static void OnSmoothScrollingChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
+        {
+            MiniTrafficSection section = (MiniTrafficSection)sender;
+
+            section.SectionChart.SmoothScrolling = (bool)args.NewValue;
         }
 
         private static void OnShowPeakChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)

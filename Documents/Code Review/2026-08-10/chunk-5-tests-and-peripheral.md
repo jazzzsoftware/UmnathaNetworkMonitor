@@ -128,7 +128,7 @@ A window with no data never advances `GetLastPeriodEndUtcAsync`, so it stays in 
 
 **Fix.** Record a high-water mark rather than re-deriving from the last successful period.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 4b. New `Settings.DigestCatchUpHighWaterUtc` (nullable), written to the end of the last examined window after each catch-up and used in preference to the report table when it is later. Deliberately a `settings.json` preference rather than a new column: it is process bookkeeping, not user data, and putting it in the DB would have meant a migration for something that can be safely lost. Absent from an older `settings.json` it deserialises to `null` and behaviour falls back to the previous report-table derivation.
 
 ---
 
