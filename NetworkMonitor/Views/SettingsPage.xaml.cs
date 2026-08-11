@@ -162,6 +162,10 @@ namespace NetworkMonitor.Views
         private void OnPageLoaded(object sender, RoutedEventArgs args)
         {
             ViewModel.SyncMiniGraphFromState();
+
+            // See TrafficHostPage.OnPageLoaded: a re-parent can raise Loaded without an intervening
+            // Unloaded, and _miniGraphState is a singleton.
+            _miniGraphState.Changed -= OnMiniGraphStateChanged;
             _miniGraphState.Changed += OnMiniGraphStateChanged;
         }
 

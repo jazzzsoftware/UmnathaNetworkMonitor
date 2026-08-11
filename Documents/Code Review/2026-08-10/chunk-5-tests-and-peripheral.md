@@ -78,7 +78,7 @@ The flag is assigned `= visible` before `new MiniGraphWindow(...)`. If construct
 
 **Fix.** Assign the flag after a successful show.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 5. `_miniGraphVisible` is assigned only after the show or hide has actually succeeded, so a `MiniGraphWindow` that throws during construction no longer leaves the flag reading "visible" with no window behind it.
 
 ---
 
@@ -88,7 +88,7 @@ The flag is assigned `= visible` before `new MiniGraphWindow(...)`. If construct
 
 `Loaded`, `SizeChanged` and `_resizeTimer.Tick` are wired in the constructor with no `Unloaded` teardown. A tick landing after unload calls `RenderAsync` on a detached control (`XamlRoot` null → `PreviewDpi` falls back), and the running `DispatcherTimer` roots the control until it fires. Not a growing leak, but the timer should stop on `Unloaded`.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 5. `DigestReportView` gains an `Unloaded` handler that stops the timer and unsubscribes `Tick`, `Loaded`, `SizeChanged` and itself.
 
 ---
 

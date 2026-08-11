@@ -270,6 +270,13 @@ namespace NetworkMonitor
             _state.Changed -= OnStateChanged;
             ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
             ViewModel.Detach();
+
+            // The hand-written subscription above is not the only one. For a Window-rooted x:Bind the
+            // XAML compiler emits no Unloaded/StopTracking wiring at all — unlike a Page — so the
+            // generated tracking object keeps a strong PropertyChanged handler on the ViewModel,
+            // which is a DI singleton and outlives every window instance. Without this, reopening the
+            // widget drives the destroyed window's bindings against disconnected XAML elements.
+            Bindings.StopTracking();
         }
 
         // Placement is written on a 400 ms debounce, so a drag followed straight away by a hide or an
@@ -698,19 +705,36 @@ namespace NetworkMonitor
 
         }
 
+        // The four methods below all arrive through DispatcherQueue.TryEnqueue. Teardown unsubscribes
+        // the sources but cannot recall work already sitting in the queue, and the reachable sequence
+        // is a two-hop enqueue: OnFeedUpdated posts Refresh, Refresh raises PropertyChanged, which
+        // posts one of these. An Alt+F4 processed between those turns lands the second callback on a
+        // destroyed window — AppWindow.MoveAndResize on a dead AppWindow, or a disconnected-COM throw
+        // reaching OnUnhandledException as a fatal MessageBox, on what the user experienced as simply
+        // closing the widget. Teardown already wraps its own AppWindow access for this reason.
         private void ApplySpeedTestText()
         {
-            SpeedTestLabel.Text = _state.IsHorizontal ? "Speed" : "Speed Test";
-            SpeedTestDetail.Text = _state.IsHorizontal ? ViewModel.SpeedTestShortText : ViewModel.SpeedTestText;
+
+            if (!_teardownStarted)
+            {
+                SpeedTestLabel.Text = _state.IsHorizontal ? "Speed" : "Speed Test";
+                SpeedTestDetail.Text = _state.IsHorizontal ? ViewModel.SpeedTestShortText : ViewModel.SpeedTestText;
+            }
+
         }
 
         private void ApplyUnknownDevicesBrush()
         {
-            string resourceKey = ViewModel.HasUnknownDevices ? "SystemFillColorCautionBrush" : "TextFillColorSecondaryBrush";
 
-            if (Application.Current.Resources.TryGetValue(resourceKey, out object? resource) && resource is Brush brush)
+            if (!_teardownStarted)
             {
-                UnknownDevicesLine.Foreground = brush;
+                string resourceKey = ViewModel.HasUnknownDevices ? "SystemFillColorCautionBrush" : "TextFillColorSecondaryBrush";
+
+                if (Application.Current.Resources.TryGetValue(resourceKey, out object? resource) && resource is Brush brush)
+                {
+                    UnknownDevicesLine.Foreground = brush;
+                }
+
             }
 
         }
@@ -723,39 +747,44 @@ namespace NetworkMonitor
         private void OnStateChangedOnUiThread()
         {
 
-            if (_appliedOrientation != _state.Orientation)
+            if (!_teardownStarted)
             {
 
-                // A placement still sitting in the 400ms debounce belongs to the orientation being
-                // left, and stopping the timer bare threw it away — resize the strip's height and
-                // switch layout straight afterwards and the new height was lost. Flushing first is
-                // what HideWidget and Teardown already do. Order matters: _appliedOrientation is
-                // still the outgoing orientation here, so the write lands in the right slot.
-                FlushPlacement();
-
-                _savePlacementTimer.Stop();
-
-                // Moving a hidden window risks surfacing it, and a hidden XAML island may not run a
-                // layout pass — which would leave the font scale from the orientation being left,
-                // because SectionsPanelSizeChanged is its only writer. _appliedOrientation is left
-                // stale on purpose: it is what tells ShowWidget the relayout is still owed.
-                if (_state.IsVisible)
+                if (_appliedOrientation != _state.Orientation)
                 {
-                    _appliedOrientation = _state.Orientation;
 
+                    // A placement still sitting in the 400ms debounce belongs to the orientation being
+                    // left, and stopping the timer bare threw it away — resize the strip's height and
+                    // switch layout straight afterwards and the new height was lost. Flushing first is
+                    // what HideWidget and Teardown already do. Order matters: _appliedOrientation is
+                    // still the outgoing orientation here, so the write lands in the right slot.
+                    FlushPlacement();
+
+                    _savePlacementTimer.Stop();
+
+                    // Moving a hidden window risks surfacing it, and a hidden XAML island may not run a
+                    // layout pass — which would leave the font scale from the orientation being left,
+                    // because SectionsPanelSizeChanged is its only writer. _appliedOrientation is left
+                    // stale on purpose: it is what tells ShowWidget the relayout is still owed.
+                    if (_state.IsVisible)
+                    {
+                        _appliedOrientation = _state.Orientation;
+
+                        ApplyLayout();
+                        RestorePlacement();
+                    }
+
+                }
+                else
+                {
                     ApplyLayout();
-                    RestorePlacement();
+                    ClampMinimumSize();
                 }
 
-            }
-            else
-            {
-                ApplyLayout();
-                ClampMinimumSize();
+                ApplyRestingOpacity();
+                ApplyBorderVisibility();
             }
 
-            ApplyRestingOpacity();
-            ApplyBorderVisibility();
         }
 
         private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
@@ -831,7 +860,14 @@ namespace NetworkMonitor
         private void OnSavePlacementTimerTick(object? sender, object args)
         {
             _savePlacementTimer.Stop();
-            SaveCurrentPlacement();
+
+            // Teardown flushes the pending placement itself, so a tick that slips through afterwards
+            // would read a destroyed AppWindow and overwrite a good save with garbage geometry.
+            if (!_teardownStarted)
+            {
+                SaveCurrentPlacement();
+            }
+
         }
 
         private void RootPointerPressed(object sender, PointerRoutedEventArgs args)

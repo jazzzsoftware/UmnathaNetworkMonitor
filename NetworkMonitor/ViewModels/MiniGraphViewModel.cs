@@ -101,9 +101,20 @@ namespace NetworkMonitor.ViewModels
             _dispatcherQueue.TryEnqueue(Refresh);
         }
 
+        // The constructor's _state.Changed subscription is the one subscription in this feature with
+        // no matching removal — harmless, because this and MiniGraphState are DI singletons with
+        // identical lifetimes, so there is nothing to leak. What it did cost is work: every opacity
+        // step, section toggle and orientation flip rebuilt two 300-point snapshots and reformatted
+        // four strings even with the widget closed for hours. Attach/Detach already track whether
+        // anything is displaying the result, so honour that.
         private void OnStateChanged(object? sender, EventArgs args)
         {
-            _dispatcherQueue.TryEnqueue(Refresh);
+
+            if (_attached)
+            {
+                _dispatcherQueue.TryEnqueue(Refresh);
+            }
+
         }
 
         private void Refresh()

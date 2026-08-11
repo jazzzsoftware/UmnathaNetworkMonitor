@@ -85,6 +85,11 @@ namespace NetworkMonitor.Views
         private void OnPageLoaded(object sender, RoutedEventArgs args)
         {
             MiniGraphToggle.IsChecked = _miniGraphState.IsVisible;
+
+            // WinUI can raise Loaded again without an intervening Unloaded on a re-parent, and the
+            // pair is only balanced by the normal navigation flow. Removing first makes a double
+            // Loaded harmless instead of leaving two subscriptions on a singleton.
+            _miniGraphState.Changed -= OnMiniGraphStateChanged;
             _miniGraphState.Changed += OnMiniGraphStateChanged;
         }
 

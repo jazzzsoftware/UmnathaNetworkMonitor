@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.Win32;
 using NetworkMonitor.Services.Data;
@@ -297,7 +298,16 @@ namespace NetworkMonitor
                 window.RestoreWindowPlacement();
 
                 MiniGraphState miniGraphState = AppHost.Services.GetRequiredService<MiniGraphState>();
-                miniGraphState.Changed += (stateSender, stateArgs) => ApplyMiniGraphVisibility();
+                DispatcherQueue mainDispatcher = window.DispatcherQueue;
+
+                // Every other Changed handler — MiniGraphWindow, TrafficHostPage, SettingsPage —
+                // marshals defensively, so the class's own convention is that Changed may be raised
+                // from anywhere. This was the one handler that did not, and it is the one that
+                // constructs a Window and calls ShowWidget: strictly UI-thread-only, and the one that
+                // would fail hardest. Every current caller happens to be on the UI thread; a future
+                // background writer (a hosted service auto-hiding the widget, a hotkey listener)
+                // would have broken it silently.
+                miniGraphState.Changed += (stateSender, stateArgs) => mainDispatcher.TryEnqueue(ApplyMiniGraphVisibility);
                 ApplyMiniGraphVisibility();
 
                 if (startMinimized)
@@ -317,10 +327,10 @@ namespace NetworkMonitor
 
         internal static void ApplyMiniGraphVisibility()
         {
-            MiniGraphState state = AppHost.Services.GetRequiredService<MiniGraphState>();
 
             try
             {
+                MiniGraphState state = AppHost.Services.GetRequiredService<MiniGraphState>();
                 bool visible = state.IsVisible;
 
                 // MiniGraphState raises one Changed event for all six of its setters, so most calls
@@ -328,7 +338,6 @@ namespace NetworkMonitor
                 // widget and steal focus — the opacity slider alone would do it ten times per drag.
                 if (_miniGraphVisible != visible)
                 {
-                    _miniGraphVisible = visible;
 
                     if (visible)
                     {
@@ -348,11 +357,19 @@ namespace NetworkMonitor
                         _miniGraphWindow?.HideWidget();
                     }
 
+                    // Assigned only once the show or hide has actually succeeded. Set before
+                    // construction, a MiniGraphWindow that threw left the flag reading "visible"
+                    // with no window behind it, so every later toggle compared equal and no-opped —
+                    // the widget was unavailable for the rest of the session.
+                    _miniGraphVisible = visible;
                 }
 
             }
             catch (Exception exception)
             {
+                // GetRequiredService is inside the try on purpose: after AppHost.Dispose it throws
+                // ObjectDisposedException, and while CloseMiniGraph currently runs before StopHost,
+                // the guard costs nothing and does not depend on that ordering holding.
                 AppLog.Error("App.ApplyMiniGraphVisibility", exception);
             }
 

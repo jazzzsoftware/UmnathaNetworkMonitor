@@ -46,6 +46,7 @@ namespace NetworkMonitor.Views.Controls
 
             Loaded += OnLoaded;
             SizeChanged += OnSizeChanged;
+            Unloaded += OnUnloaded;
         }
 
         public DigestSummary? Summary
@@ -186,6 +187,19 @@ namespace NetworkMonitor.Views.Controls
             // Resizing raises this continuously; coalesce so a drag re-renders once at the end.
             _resizeTimer.Stop();
             _resizeTimer.Start();
+        }
+
+        // Loaded, SizeChanged and the timer are all wired in the constructor with nothing to undo
+        // them. A running DispatcherTimer roots the control until it fires, and a tick landing after
+        // unload calls RerenderIfScaleChanged on a detached control whose XamlRoot is null — five
+        // Win2D renders against a fallback DPI, for a view nobody is looking at.
+        private void OnUnloaded(object sender, RoutedEventArgs args)
+        {
+            _resizeTimer.Stop();
+            _resizeTimer.Tick -= OnResizeSettled;
+            Loaded -= OnLoaded;
+            SizeChanged -= OnSizeChanged;
+            Unloaded -= OnUnloaded;
         }
 
         private void OnResizeSettled(object? sender, object args)

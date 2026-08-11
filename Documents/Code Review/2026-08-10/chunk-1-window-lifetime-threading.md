@@ -30,7 +30,7 @@ Verified in the **generated** code rather than assumed: in `obj/x64/Release/.../
 
 **Fix.** Add `Bindings.StopTracking();` to `Teardown()`. `Bindings` is a private field on the same partial class (`MiniGraphWindow.g.i.cs:84`) and `IMiniGraphWindow_Bindings` exposes `StopTracking()` (line 71), so it compiles as-is.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 5. `Bindings.StopTracking()` added to `Teardown()`, after the hand-written unsubscribe.
 
 ---
 
@@ -49,7 +49,7 @@ The reachable sequence is a two-hop enqueue: `MiniGraphViewModel.OnFeedUpdated` 
 
 **Fix.** Wrap `OnStateChangedOnUiThread`, `ApplySpeedTestText`, `ApplyUnknownDevicesBrush` and (for symmetry) `OnSavePlacementTimerTick` in `if (!_teardownStarted) { … }`.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 5. `OnStateChangedOnUiThread`, `ApplySpeedTestText`, `ApplyUnknownDevicesBrush` and `OnSavePlacementTimerTick` are all guarded on `_teardownStarted`, so a callback already queued when teardown ran no longer reaches a destroyed window. Written as wrapping `if (!_teardownStarted)` guards rather than early returns, to keep CLAUDE.md's single-exit rule.
 
 ---
 
@@ -95,7 +95,7 @@ Same method, separate point: `GetRequiredService<MiniGraphState>()` at line 304 
 
 **Fix.** Hop through the main window's `DispatcherQueue` in the handler — or, at minimum, document the UI-thread requirement on `MiniGraphState.Changed`. Move line 304 inside the try.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 5. The `Changed` subscription now marshals through the main window's `DispatcherQueue`, so the one handler that constructs a `Window` matches the defensive convention every other handler already followed. `GetRequiredService<MiniGraphState>()` moved inside the `try`.
 
 ---
 
@@ -158,7 +158,7 @@ If the hook fails to install, `_hook` is `IntPtr.Zero`, the guard silently does 
 
 Balanced in the normal navigation flow, and both handlers are idempotent, so a double-`Loaded` (WinUI can raise it without an intervening `Unloaded` on a re-parent) would only double-invoke a harmless assignment. Cheap insurance to add a `-=` before each `+=`.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 5. Both `OnPageLoaded` handlers now `-=` before `+=`, so a re-parent that raises `Loaded` without an intervening `Unloaded` cannot leave two subscriptions on the `MiniGraphState` singleton.
 
 ---
 
@@ -168,7 +168,7 @@ Balanced in the normal navigation flow, and both handlers are idempotent, so a d
 
 Not a leak — both `MiniGraphViewModel` and `MiniGraphState` are DI singletons with identical lifetimes. Noted because it is the one subscription in the whole feature with no matching removal, while `SettingsPage` and `TrafficHostPage` both pair theirs with an `Unloaded` teardown; and because it means `Refresh()` runs on every state change even when the widget has been closed for hours. Trivial cost.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 5. The subscription is left in place (both types are DI singletons with identical lifetimes, so there is nothing to leak), but `OnStateChanged` now returns early unless `_attached`. Every opacity step, section toggle and orientation flip previously rebuilt two 300-point snapshots and reformatted four strings with the widget closed. `Attach`/`Detach` already track whether anything is displaying the result.
 
 ---
 

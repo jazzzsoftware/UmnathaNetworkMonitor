@@ -4,9 +4,9 @@
 
 ---
 
-## Status: FIX PHASE IN PROGRESS — batches 1–4 done, 5–9 remaining
+## Status: FIX PHASE IN PROGRESS — batches 1–5 done, 6–9 remaining
 
-All five chunks reviewed and co-reviewed. **50 findings (50 reviewer + 0 user) — 16 fixed, 34 open.** Fix phase in progress: batches 1–4 complete (4 split into 4a and 4b).
+All five chunks reviewed and co-reviewed. **50 findings (50 reviewer + 0 user) — 23 fixed, 27 open.** Fix phase in progress: batches 1–5 complete (4 split into 4a and 4b).
 
 Co-review ran 2026-08-11, one chunk at a time. **Every finding in all five chunks was confirmed for fixing.** None rejected, none deferred, none marked `won't-fix`, no `U`-IDs added. That includes the findings each report flagged as candidates to close — C1-4, C1-9, C1-10 (not currently reachable) and C4-8 (does not breach the documented rule) — which the user chose to fix anyway.
 
@@ -49,11 +49,11 @@ Chunked by review dimension rather than by subsystem, because the feature is one
 
 | # | Chunk | State | Findings | Actioned |
 |---|-------|-------|----------|----------|
-| 1 | Window lifetime, state & threading | complete · **co-reviewed** · all 10 confirmed | 10 (1 BUG · 4 RISK · 5 CLEANUP) | 2 (C1-3, C1-7) |
+| 1 | Window lifetime, state & threading | complete · **co-reviewed** · all 10 confirmed | 10 (1 BUG · 4 RISK · 5 CLEANUP) | 7 (C1-1 … C1-4, C1-7, C1-9, C1-10) |
 | 2 | DPI, geometry & multi-monitor | complete · **co-reviewed** · all 11 confirmed | 11 (3 BUG · 3 RISK · 5 CLEANUP) | 0 |
 | 3 | Traffic data pipeline & concurrency | complete · **co-reviewed** · all 11 confirmed | 11 (2 BUG · 1 RISK · 8 CLEANUP/PERF) | 8 (C3-1 … C3-5, C3-8, C3-9, C3-10) |
 | 4 | Conventions, DB & project hygiene | complete · **co-reviewed** · all 9 confirmed | 9 (0 BUG · 2 RISK · 7 CLEANUP) | 3 (C4-1, C4-2, C4-3) |
-| 5 | Tests & incidentally-touched code | complete · **co-reviewed** · all 9 confirmed | 9 (2 BUG · 5 RISK · 1 PERF · 1 CLEANUP) | 3 (C5-1, C5-2, C5-8) |
+| 5 | Tests & incidentally-touched code | complete · **co-reviewed** · all 9 confirmed | 9 (2 BUG · 5 RISK · 1 PERF · 1 CLEANUP) | 5 (C5-1, C5-2, C5-4, C5-5, C5-8) |
 
 **50 findings total.** IDs: `C<chunk>-<n>` reviewer, `U<chunk>-<n>` user.
 
@@ -204,6 +204,26 @@ That is now twice in one batch where a proposed fix needed adjusting on contact 
 
 **DB impact: none — and deliberately so.** C5-8's high-water mark went into `settings.json`, not a new column. It is process bookkeeping rather than user data, safe to lose, and putting it in the DB would have meant a migration for something that does not warrant one. `Settings` is a `System.Text.Json` POCO and never a `DbSet`; an older file without the key deserialises to `null` and falls back to the previous behaviour. No entity, column or index touched.
 
+## Fix phase — batch 5: widget lifetime (C1-1, C1-2, C1-4, C5-4, C5-5, C1-9, C1-10)
+
+**2026-08-11. Seven `fixed`. Build x64 clean, 0 warnings. 319/319 tests pass.**
+
+The destroy path cleaned up what was subscribed by hand, but not what the XAML compiler wired, not what was already sitting in the dispatcher queue, and not the case where construction itself fails.
+
+- **C1-1** — `Bindings.StopTracking()` added to `Teardown()`. For a `Window`-rooted `x:Bind` the compiler emits no `Unloaded`/`StopTracking` wiring at all, unlike a `Page`, so the generated tracking object kept a strong handler on a singleton view model that outlives every window instance.
+- **C1-2** — `OnStateChangedOnUiThread`, `ApplySpeedTestText`, `ApplyUnknownDevicesBrush` and `OnSavePlacementTimerTick` are guarded on `_teardownStarted`. Teardown unsubscribes the sources but cannot recall work already queued, and the two-hop enqueue (`OnFeedUpdated` → `Refresh` → `PropertyChanged` → one of these) makes an Alt+F4 landing between turns reachable.
+- **C1-4** — the `MiniGraphState.Changed` subscription in `App` marshals through the main window's `DispatcherQueue`. This was the only handler that did not marshal and the only one that constructs a `Window`. `GetRequiredService<MiniGraphState>()` moved inside the `try`.
+- **C5-4** — `_miniGraphVisible` is assigned only after the show or hide succeeds, so a window that throws during construction no longer leaves the flag reading "visible" with nothing behind it and every later toggle comparing equal.
+- **C5-5** — `DigestReportView` gains an `Unloaded` handler stopping the timer and unsubscribing `Tick`, `Loaded`, `SizeChanged` and itself.
+- **C1-9** — both `OnPageLoaded` handlers `-=` before `+=`.
+- **C1-10** — the constructor subscription stays (both types are singletons with identical lifetimes, so there is nothing to leak), but `OnStateChanged` no longer refreshes unless `_attached`. Every opacity step previously rebuilt two 300-point snapshots with the widget closed.
+
+**A convention note worth carrying forward.** The guards were first written as early `return` statements, which breaks CLAUDE.md's single-exit rule. They are wrapping `if (!_teardownStarted) { … }` blocks instead. Batch 9 is the conventions sweep; introducing violations in batch 5 and cleaning them up in batch 9 would be self-inflicted work.
+
+**Not verifiable by the test suite.** Every finding here is in the app project. The 319 green tests confirm nothing broke; they say nothing about whether the teardown path is now correct. The Alt+F4-then-reopen loop in *Manual verification* is what actually exercises C1-1, C1-2 and C5-4.
+
+**DB impact: none.** UI lifetime and event wiring only. No entity, column or index touched, so no migration.
+
 ## Next step
 
 **Batches 1–3 are done.** C4-1 no longer gates schema work — the baseline exists and is verified, so the next entity change can ship a migration normally (generate it through `Tools/MigrationVerify`, then run that tool).
@@ -212,7 +232,7 @@ Next is **batch 4 — live-chart correctness & always-on cost**: C3-1 with C5-9'
 
 **Batch 4 was split.** 4a (done) took the cluster that shares one code path: C4-3 pulled forward from batch 7, then C3-4, C5-2, C3-1 and — incidentally — C3-3.
 
-**Batches 1–4 are done.** Next is **batch 5 — widget lifetime**: C1-1 (`Bindings.StopTracking` never called), C1-2 (queued dispatcher callbacks after teardown), C1-4 (unmarshalled `Changed` handler), C5-4 (`_miniGraphVisible` set before construction), C5-5 (`DigestReportView` never unsubscribes), C1-9, C1-10. Then 6 (geometry, 11), 7 (testability & layering — C4-3 already done), 8 (public-repo hygiene), 9 (conventions & docs).
+**Batches 1–5 are done.** Next is **batch 6 — geometry**, the largest remaining: C2-1, C2-2, C2-3, C2-4, C2-5, C2-6, C2-8, C2-9, C2-10, C1-5, C1-6. C2-1 subsumes C2-2 and half of C2-5; C1-6 is fixed by C2-3. **C2-2 and C2-5 cannot move to `fixed` on a green build** — they need the mixed-DPI multi-monitor walkthrough in *Manual verification*. Then 7 (testability & layering — C4-3 already done, C5-3 and C2-11 remain), 8 (public-repo hygiene), 9 (conventions & docs).
 
 
 For each batch: apply the fixes, build x64 (`dotnet build NetworkMonitor.slnx -p:Platform=x64`) with 0 errors, run `dotnet test` green, state the DB impact explicitly even when it is "none", add a `## Fix phase — <name>` entry here recording what changed and why, then commit and push with a subject line the user has approved.
