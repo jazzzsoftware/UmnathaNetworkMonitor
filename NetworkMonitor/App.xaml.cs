@@ -233,8 +233,7 @@ namespace NetworkMonitor
                         .GetRequiredService<IDbContextFactory<AppDbContext>>()
                         .CreateDbContextAsync();
 
-                    await db.Database.EnsureCreatedAsync();
-                    await db.Database.ExecuteSqlRawAsync("PRAGMA journal_mode=WAL;");
+                    await DatabaseInitializer.InitializeAsync(db);
 
                 });
 

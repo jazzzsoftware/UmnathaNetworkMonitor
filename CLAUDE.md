@@ -24,7 +24,9 @@ The app is publicly released, so a user's `networkmonitor.db` holds the only cop
 Practical rules:
 
 - Author the migration alongside the code change; never defer it to "later" or to the release step.
-- Startup must apply pending migrations. Note that `App.xaml.cs` currently calls `db.Database.EnsureCreatedAsync()` (the only such call in the codebase) — that path still needs converting to `MigrateAsync()`, and the first migration must account for existing v0.0.8-era databases created by `EnsureCreated` (they have no `__EFMigrationsHistory` table, so the initial migration has to be baselined rather than replayed).
+- Startup applies pending migrations. `App.xaml.cs` calls `DatabaseInitializer.InitializeAsync(db)`, which baselines then migrates; `EnsureCreatedAsync` is gone from the codebase. A database that has application tables but no `__EFMigrationsHistory` (anything created by the pre-v0.0.12 `EnsureCreated` path) gets the initial migration written into the history table as **already applied** rather than replayed onto it, so `MigrateAsync` then applies only what came after. Never reintroduce `EnsureCreated` — it is a no-op against an existing file and would silently skip every later migration.
+- Migrations live in `NetworkMonitor.Services/Data/Migrations/`. Generate them through `Tools/MigrationVerify`, not through the Services project directly — Services is `net10.0-windows` with `UseWinUI` and the EF design host cannot load it (it fails to resolve the `Microsoft.Windows.SDK.NET` runtime pack). See `Tools/MigrationVerify/README.md` for the command.
+- **Run `dotnet run --project Tools/MigrationVerify` after adding a migration.** It builds a database the old way and a database the new way and diffs `sqlite_master` object by object, plus proves an existing pre-migration database keeps its rows. Exit code 0 or the migration is not safe to ship. It works in `%TEMP%` and never touches the real database.
 - Migrations are additive where possible. Prefer a nullable column with a sensible default over a destructive rewrite.
 - **State the DB impact of every change**, even when the answer is "none". Changes to `settings.json` preferences, UI, or pure runtime behaviour are not schema changes and need no migration — say so explicitly.
 - DB location: `%LOCALAPPDATA%\UmnathaNetworkMonitor\networkmonitor.db` (plus `-wal` and `-shm`). Verify against `AppPaths.cs` before quoting it.
@@ -37,7 +39,7 @@ New root-level files (docs, config) must be added to `NetworkMonitor.slnx` so th
 
 Solution-folder layout: the five projects are grouped under `/App/` (NetworkMonitor, Models, Core, Services) and `/Tests/` (NetworkMonitor.Tests). Solution folders are virtual — they group the project entries in Solution Explorer and change nothing on disk.
 
-`/Tools/` holds standalone tooling — things you run, not things that ship. It is a real on-disk folder registered in the slnx as folders of files, deliberately **not** as buildable projects, so `dotnet build NetworkMonitor.slnx` stays clean. It currently holds `Tools/Installer/` (the Inno Setup script + `build-installer.ps1`) and `Tools/RetentionProbe/` (a command-line diagnostic for the traffic-retention design). New tooling goes here; anything with a `.csproj` under `/Tools/` should pin its packages the way the app does and must not be added as a solution project.
+`/Tools/` holds standalone tooling — things you run, not things that ship. It is a real on-disk folder registered in the slnx as folders of files, deliberately **not** as buildable projects, so `dotnet build NetworkMonitor.slnx` stays clean. It currently holds `Tools/Installer/` (the Inno Setup script + `build-installer.ps1`), `Tools/RetentionProbe/` (a command-line diagnostic for the traffic-retention design) and `Tools/MigrationVerify/` (generates EF migrations and proves they ship safely to existing user databases). New tooling goes here; anything with a `.csproj` under `/Tools/` should pin its packages the way the app does and must not be added as a solution project.
 
 ## Coding Conventions
 
@@ -93,6 +95,7 @@ Solution-folder layout: the five projects are grouped under `/App/` (NetworkMoni
 |---|---|
 | `NetworkMonitor/App.xaml.cs` | IHost build + DI registration + DB init |
 | `NetworkMonitor.Services/Data/AppDbContext.cs` | EF context; DbPath points to LocalApplicationData |
+| `NetworkMonitor.Services/Data/DatabaseInitializer.cs` | Baselines a pre-migration database, then `MigrateAsync` + WAL pragma |
 | `NetworkMonitor.Core/Data/OuiDatabase.cs` | Loads oui.txt → MAC prefix → vendor name |
 | `NetworkMonitor.Services/Scanning/NetworkScanner.cs` | Ping sweep + ARP parse + DNS resolve |
 | `NetworkMonitor.Services/Scanning/DeviceTracker.cs` | Merges scan results into DB |

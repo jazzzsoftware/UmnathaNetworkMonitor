@@ -6,7 +6,7 @@
 
 ## Status: CO-REVIEW COMPLETE — fix phase ready to start
 
-All five chunks reviewed and co-reviewed. **50 findings (50 reviewer + 0 user) — 1 fixed, 49 open.** Fix phase in progress: batch 1 of 9 complete.
+All five chunks reviewed and co-reviewed. **50 findings (50 reviewer + 0 user) — 2 fixed, 48 open.** Fix phase in progress: batches 1–2 of 9 complete.
 
 Co-review ran 2026-08-11, one chunk at a time. **Every finding in all five chunks was confirmed for fixing.** None rejected, none deferred, none marked `won't-fix`, no `U`-IDs added. That includes the findings each report flagged as candidates to close — C1-4, C1-9, C1-10 (not currently reachable) and C4-8 (does not breach the documented rule) — which the user chose to fix anyway. Nothing has been fixed yet.
 
@@ -52,7 +52,7 @@ Chunked by review dimension rather than by subsystem, because the feature is one
 | 1 | Window lifetime, state & threading | complete · **co-reviewed** · all 10 confirmed | 10 (1 BUG · 4 RISK · 5 CLEANUP) | 1 (C1-3) |
 | 2 | DPI, geometry & multi-monitor | complete · **co-reviewed** · all 11 confirmed | 11 (3 BUG · 3 RISK · 5 CLEANUP) | 0 |
 | 3 | Traffic data pipeline & concurrency | complete · **co-reviewed** · all 11 confirmed | 11 (2 BUG · 1 RISK · 8 CLEANUP/PERF) | 0 |
-| 4 | Conventions, DB & project hygiene | complete · **co-reviewed** · all 9 confirmed | 9 (0 BUG · 2 RISK · 7 CLEANUP) | 0 |
+| 4 | Conventions, DB & project hygiene | complete · **co-reviewed** · all 9 confirmed | 9 (0 BUG · 2 RISK · 7 CLEANUP) | 1 (C4-1) |
 | 5 | Tests & incidentally-touched code | complete · **co-reviewed** · all 9 confirmed | 9 (2 BUG · 5 RISK · 1 PERF · 1 CLEANUP) | 0 |
 
 **50 findings total.** IDs: `C<chunk>-<n>` reviewer, `U<chunk>-<n>` user.
@@ -129,9 +129,37 @@ Three changes, all on the path that could leave a user unable to launch:
 
 **DB impact: none.** `settings.json` is a `System.Text.Json` POCO, never a `DbSet`. No entity, column or index touched, so no migration. C4-1 (the missing migration baseline) is untouched and remains the gate on all future schema work — it is batch 2.
 
+## Fix phase — batch 2: migration baseline (C4-1)
+
+**2026-08-11. C4-1 `fixed`. Build x64 clean, 0 warnings. 308/308 tests pass. `Tools/MigrationVerify` — 37/37 checks pass.**
+
+The repo had no `Migrations/` folder at all and `App.xaml.cs` called `EnsureCreatedAsync`, which is a no-op against an existing file. The first developer to add a column would have got a working dev machine and `SqliteException: no such column` on every v0.0.8–v0.0.11 install in the field.
+
+- **`NetworkMonitor.Services/Data/Migrations/`** — `20260811150332_InitialCreate` plus its designer and `AppDbContextModelSnapshot`, generated from the current model. Generated code, left as EF emits it; it does not follow the house conventions and should not be hand-edited, because regenerating would discard the edits.
+- **`NetworkMonitor.Services/Data/DatabaseInitializer.cs`** — the baseline. If the database has application tables (probed via `Devices` in `sqlite_master`) but no `__EFMigrationsHistory`, it creates that table and inserts the first migration id as **already applied**, so `MigrateAsync` skips it rather than replaying `CREATE TABLE` onto populated tables. Then `MigrateAsync`, then the WAL pragma that used to sit in `App.xaml.cs`. The migration id is read from `db.Database.GetMigrations()` rather than hardcoded.
+- **`NetworkMonitor.Services/Data/AppDbContextDesignTimeFactory.cs`** — `AppDbContext` has no parameterless constructor, so EF needs this to build the model at design time.
+- **`NetworkMonitor/App.xaml.cs`** — `EnsureCreatedAsync` + the raw WAL pragma replaced by one `DatabaseInitializer.InitializeAsync(db)` call. There is now no `EnsureCreated` anywhere in the codebase.
+- **`Tools/MigrationVerify/`** — new, registered in `NetworkMonitor.slnx` as a folder of files (not a `<Project>`), so `dotnet build NetworkMonitor.slnx` stays clean. Pins `SQLitePCLRaw.bundle_e_sqlite3 3.0.3` as the app does.
+- **`CLAUDE.md`** — the Database section rewritten: the "still needs converting to `MigrateAsync()`" note is replaced by how the baseline works and an instruction never to reintroduce `EnsureCreated`; how to generate a migration; and the requirement to run `MigrationVerify` after adding one. `/Tools/` list and Key Files table updated.
+
+**Why migrations are generated through a tool project.** `NetworkMonitor.Services` is `net10.0-windows` with `UseWinUI`, and the EF design host cannot load it — it dies resolving `runtimepack.Microsoft.Windows.SDK.NET.Ref`. Restoring with an explicit RID and building self-contained both failed the same way. The DB layer is platform-neutral, so `MigrationVerify` compiles those files into a plain `net10.0` host via `<Compile Include>` links. No source is duplicated.
+
+**What was actually verified**, not assumed — four scenarios, 37 checks:
+
+1. A pre-migration database created by `EnsureCreated`, seeded with a device row: history table created, `InitialCreate` recorded as applied, nothing pending, the row survives with its content intact.
+2. A fresh install with no file: tables created, migration recorded, an insert works against the result.
+3. A second launch against an already-baselined database: still exactly one applied migration, data untouched.
+4. **Schema equivalence** — one database built with `EnsureCreated`, one with `MigrateAsync`, `sqlite_master` compared object by object. All 21 application tables and indexes match byte-for-byte. This is the check the whole baseline rests on: if `InitialCreate` did not reproduce what `EnsureCreated` produced, the mismatch would be silent.
+
+**One real difference found by check 4.** `MigrateAsync` creates `__EFMigrationsLock`, which `EnsureCreated` never did, so user databases gain that table on first launch after this ships. It is an EF-internal migration concurrency lock holding no application data. Excluded from the comparison, recorded here because it is a visible change to a user's file.
+
+**DB impact: this batch is the DB change.** No entity, property or index was altered — `InitialCreate` is generated from the model exactly as it stands, so the schema is unchanged. What changes is that the database gains `__EFMigrationsHistory` (with one row) and `__EFMigrationsLock`. No user needs to delete anything, and no history is lost.
+
 ## Next step
 
-**Batch 1 is done.** Next is **batch 2 — C4-1, the migration baseline**, on its own. Generate `InitialCreate` from the current model, switch `App.xaml.cs` from `EnsureCreatedAsync` to `MigrateAsync`, and baseline it so the v0.0.8–v0.0.11 databases already in the field (no `__EFMigrationsHistory` table) are treated as already at the initial migration rather than replayed onto. Then batches 3–9 in order.
+**Batches 1 and 2 are done.** C4-1 no longer gates schema work — the baseline exists and is verified, so the next entity change can ship a migration normally (generate it through `Tools/MigrationVerify`, then run that tool).
+
+Next is **batch 3 — silent-failure paths**: C5-1 (auto-update logs nothing on a garbage response, and its test asserts nothing), C4-2 (WAL checkpoint cannot report a busy result), C1-7 (`SetWinEventHook` return value unchecked), C3-9 (unbounded, uncancellable refresh). Then batches 4–9 in order.
 
 For each batch: apply the fixes, build x64 (`dotnet build NetworkMonitor.slnx -p:Platform=x64`) with 0 errors, run `dotnet test` green, state the DB impact explicitly even when it is "none", add a `## Fix phase — <name>` entry here recording what changed and why, then commit and push with a subject line the user has approved.
 

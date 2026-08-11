@@ -115,6 +115,11 @@
     <File Path="Tools/Installer/build-installer.ps1" />
     <File Path="Tools/Installer/NetworkMonitor.iss" />
   </Folder>
+  <Folder Name="/Tools/MigrationVerify/">
+    <File Path="Tools/MigrationVerify/MigrationVerify.csproj" />
+    <File Path="Tools/MigrationVerify/Program.cs" />
+    <File Path="Tools/MigrationVerify/README.md" />
+  </Folder>
   <Folder Name="/Tools/RetentionProbe/">
     <File Path="Tools/RetentionProbe/Program.cs" />
     <File Path="Tools/RetentionProbe/README.md" />

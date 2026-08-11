@@ -58,7 +58,7 @@ The only DB-adjacent change is `DatabaseCheckpoint.cs`, which runs a `PRAGMA`, n
 
 **Fix.** A one-time baseline: generate `InitialCreate` from the current model, then switch to `MigrateAsync()` with the initial migration marked as applied for pre-existing databases. Do it **before** the next entity change, not with it.
 
-**Status:** `open` — pre-existing debt, not introduced here
+**Status:** `fixed` — 2026-08-11, fix-phase batch 2. `InitialCreate` generated into `NetworkMonitor.Services/Data/Migrations/`; `EnsureCreatedAsync` replaced by `DatabaseInitializer.InitializeAsync`, which writes the initial migration into `__EFMigrationsHistory` as already-applied when it finds application tables without a history table, then calls `MigrateAsync`. Verified with `Tools/MigrationVerify`, including a byte-for-byte `sqlite_master` diff proving `InitialCreate` reproduces the `EnsureCreated` schema. See `progress.md` → *Fix phase — batch 2*.
 
 ---
 
