@@ -190,6 +190,11 @@ Performance review
 
 Add Speed tests to start of digest csv
 
+Testing - work through Documents/Code Review/2026-08-10/manual-test-plan.md
+  Part 1 needs a second monitor at a different scale factor - it is the only
+  thing still holding the 2026-08-10 review open (C2-2, C2-5).
+  Part 6 needs a database backup first.
+
 
 Github:
 Done - Topics

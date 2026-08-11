@@ -69,9 +69,30 @@ namespace NetworkMonitor.Models.Formatting
         // "0.#" rather than "F1" below ten: 5.6 has to keep its decimal or a slow link reads as
         // zero, but 3.0 must render as "3" — there is no room in this window for a decimal that
         // carries no information.
+        //
+        // That rule stopped short of its own goal. "0.#" rounds anything below 0.05 to "0", so a link
+        // limping along at 0.03 Mb/s displayed exactly as a link that was down — the failure the rule
+        // exists to prevent, at the one speed where the distinction matters most. Anything that would
+        // round to zero while still carrying traffic now reads "<0.1": four characters, which the
+        // strip has room for, and unambiguous about the difference between slow and dead.
         private static string Scaled(double value)
         {
-            string text = value >= 10.0 ? value.ToString("F0") : value.ToString("0.#");
+            string text;
+
+            if (value >= 10.0)
+            {
+                text = value.ToString("F0");
+            }
+            else
+            {
+                text = value.ToString("0.#");
+
+                if (value > 0.0 && text.TrimStart('0') == string.Empty)
+                {
+                    text = "<0.1";
+                }
+
+            }
 
             return text;
         }

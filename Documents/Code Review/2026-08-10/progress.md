@@ -4,7 +4,7 @@
 
 ---
 
-## Status: FIX PHASE COMPLETE — 48 of 50 fixed, 2 awaiting hardware verification
+## Status: CLOSED — 48 of 50 fixed; C2-2 and C2-5 await the manual test plan
 
 All five chunks reviewed and co-reviewed. **50 findings (50 reviewer + 0 user) — 48 fixed, 2 open.** All nine batches complete. C4-6 is `partially fixed` by explicit decision — see batch 8. The two remaining (C2-2, C2-5) are code-complete and awaiting hardware verification, not unstarted.
 
@@ -305,7 +305,9 @@ Cross-cutting theme 6 — "what makes the widget *correct* was placed where it c
 
 ## Completion
 
-**2026-08-11. 48 of 50 findings `fixed`. The two that remain are code-complete and await hardware.**
+**2026-08-11. REVIEW CLOSED. 48 of 50 findings `fixed`; C2-2 and C2-5 are code-complete and await the hardware walkthrough in `manual-test-plan.md`.**
+
+The review is closed in the sense that the fix phase is finished and nothing is waiting on code. It is **not** claiming those two are verified. See *Manual test plan* below.
 
 Nine batches, nine commits, `486d820` through this one. Tests **307 → 363**; build x64 clean and 0 warnings throughout.
 
@@ -317,9 +319,9 @@ Nine batches, nine commits, `486d820` through this one. Tests **307 → 363**; b
 
 - **C4-6** — the four top-level `return 1` guards in `RetentionProbe/Program.cs` remain. Top-level statements have no method body to give a single exit; satisfying the rule literally means wrapping ~250 lines in a function to move where the returns are. Every *method* in the file now obeys it.
 
-**Raised during the fix phase, not part of the original 50:**
+**Raised during the fix phase, not part of the original 50 — and since fixed:**
 
-- `MiniGraphFormatter.Scaled` renders a rate below 0.05 as `"0"`, contradicting its own comment. Product decision, flagged above.
+- `MiniGraphFormatter.Scaled` rendered a rate below 0.05 as `"0"`, contradicting its own comment ("a slow link reads as zero" is the failure the rule exists to prevent). Flagged to the user rather than changed silently, because it alters displayed text in a width-constrained widget; **the user chose to fix it on 2026-08-11.** Anything that would round to zero while still carrying traffic now reads `<0.1`. A genuinely idle link still reads `0` — the distinction being made is slow versus dead, and using `<0.1` for nothing at all would be a different lie. Five tests in `MiniGraphFormatterScaleTests`.
 
 **What the fix phase changed about the codebase, beyond the findings:**
 
@@ -327,7 +329,21 @@ Nine batches, nine commits, `486d820` through this one. Tests **307 → 363**; b
 - `NetworkMonitor.Core/Widget/` gained `PlacementMath`, `PlacementRect`, `FrameInsets` and `SectionVisibility`; `Core/Traffic/` gained `ChartPointSpreader` and `WidgetTrafficTotals`. The widget's geometry and its correctness rules are now testable, which they were not when this review started.
 - `LocalTrafficDelta` and `TrafficTotals` moved to Models, where the layering rule puts them.
 
-**Manual verification still outstanding** — see the section below. The mixed-DPI multi-monitor walkthrough is the one that gates C2-2 and C2-5; the Alt+F4 loop exercises batch 5, and the backward clock step exercises C3-1.
+## Manual test plan
+
+**`manual-test-plan.md`** in this folder is the deliverable that closes the rest. Written 2026-08-11, checkbox-driven, seven parts:
+
+1. **Mixed-DPI multi-monitor** — the only thing gating the review. Passing 1.1–1.4 closes C2-2 and C2-5 and takes this to 50 of 50.
+2. Widget lifetime — the Alt+F4 loop, ten times.
+3. Strip geometry — top-edge and left-edge drags, section toggles, the peak at minimum height.
+4. Live chart correctness — the five-minute revisit, the backward clock step, the long gap.
+5. Speed-test display — the `<0.1` case.
+6. **Database and startup** — the highest-consequence part. `MigrationVerify` proves the schema logic against temporary databases; nothing has yet proved it against a real database with real history. Back up first.
+7. Diagnostics and update — the `RetentionProbe` guard, the update log.
+
+Parts 2–7 are regression confirmation for work already `fixed`. A failure there is a **new** finding, not a reopened one — recorded as such so this ledger's history stays honest.
+
+The procedure (`../code-review-procedure.md` §7) now requires a plan like this at the end of every review, precisely because a green suite cannot speak for the paths `NetworkMonitor.Tests` cannot reach.
 
 ## Next step
 
@@ -337,7 +353,7 @@ Next is **batch 4 — live-chart correctness & always-on cost**: C3-1 with C5-9'
 
 **Batch 4 was split.** 4a (done) took the cluster that shares one code path: C4-3 pulled forward from batch 7, then C3-4, C5-2, C3-1 and — incidentally — C3-3.
 
-**The fix phase is complete.** What remains is **manual verification on real hardware** — see the section below. The mixed-DPI multi-monitor walkthrough closes C2-2 and C2-5, the only two findings still open. Nothing else in this review is waiting on code.
+**The fix phase is complete and the review is closed.** What remains is **`manual-test-plan.md`** in this folder — work through it in order. Part 1 (mixed-DPI multi-monitor) closes C2-2 and C2-5, the only two findings still open, and takes this review to 50 of 50. Parts 2–7 are regression confirmation. Nothing is waiting on code.
 
 
 For each batch: apply the fixes, build x64 (`dotnet build NetworkMonitor.slnx -p:Platform=x64`) with 0 errors, run `dotnet test` green, state the DB impact explicitly even when it is "none", add a `## Fix phase — <name>` entry here recording what changed and why, then commit and push with a subject line the user has approved.

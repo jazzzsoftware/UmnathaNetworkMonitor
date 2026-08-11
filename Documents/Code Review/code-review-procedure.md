@@ -24,6 +24,7 @@ Documents/Review/<yyyy-MM-dd>/
     chunk-1-<name>.md        ← per-chunk findings
     chunk-2-<name>.md
     ...
+    manual-test-plan.md      ← written at the end of the fix phase (§7)
 ```
 
 `progress.md` is read FIRST on every resume. It holds: scope/depth, the review-dimensions list, a chunk table (state + finding counts + actioned counts), cross-cutting themes, suggested fix priorities, and a running `## Log` / `## Fix phase —` section.
@@ -77,6 +78,27 @@ Do high-churn structural work (folder/namespace reorgs) and the **convention sca
 - **Parallel sub-agent audits** for breadth — e.g. the convention scan dispatched one read-only auditor per folder group, each returning `file:line` + violated rule; fixes were then applied by hand and re-verified.
 - **Adversarial / second-pass verification** before claiming a finding is real or a fix is done — run the build/tests and read the output, don't assert success blind.
 
-## 7. Completion
+## 7. Manual test plan
 
-The review is complete when every finding (reviewer + user) is `fixed`/`deferred`/`won't-fix` and committed. Record the final state at the top of `progress.md`. Note any outstanding **manual** verification (paths not covered by unit tests) so they aren't forgotten.
+**Every review ends with a `manual-test-plan.md` in its dated folder.** Write it once the fix phase is done, before declaring completion — it is the deliverable that turns "the tests pass" into something the user can actually act on.
+
+This exists because most of what a review finds in this app is **unreachable from `NetworkMonitor.Tests`**, which references Models and Core only. Window lifetime, DPI and geometry, XAML, the database against real history — a green suite says the fix phase broke nothing and says nothing about whether those paths are now correct. Do not let a passing build stand in for verification it cannot provide.
+
+Shape:
+
+- **Checkboxes**, one per observable step, so the user can work through it in order and stop and resume.
+- **Part 1 is whatever still gates the review** — the findings that cannot close without hardware. Say so plainly, and say what happens to the ledger when it passes.
+- Later parts are **regression confirmation** for work already marked `fixed`, grouped by fix batch.
+- Each step states its **expected** result, and cites the finding ID it exercises so a failure maps straight back to a report.
+- Include any **setup and safety** the step needs — back up the database before schema checks, restore automatic time after a clock-step test, point destructive tools at a copy.
+- End with **how to record the outcome**: which findings a pass closes, and that a failure in a regression part is a *new* finding rather than a reopened one, so the history stays honest.
+
+Note the hardware or configuration a part needs (a second monitor at a different scale factor, a touchscreen), so the user knows up front what they cannot do today.
+
+Register the file in `NetworkMonitor.slnx` like any other doc.
+
+## 8. Completion
+
+The review is complete when every finding (reviewer + user) is `fixed`/`deferred`/`won't-fix` and committed, and the manual test plan is written. Record the final state at the top of `progress.md`.
+
+A finding whose code fix has landed but whose behaviour has only been checked by a passing build **is not `fixed`** if the path it changes has never been executed. Leave it `open` with the code-fix noted, and point at the test-plan step that closes it. A ledger that overstates what was verified is worse than one that admits what is outstanding.
