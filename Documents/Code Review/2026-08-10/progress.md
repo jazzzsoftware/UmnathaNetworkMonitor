@@ -4,9 +4,9 @@
 
 ---
 
-## Status: FIX PHASE IN PROGRESS — batches 1–8 done, batch 9 remaining
+## Status: FIX PHASE COMPLETE — 48 of 50 fixed, 2 awaiting hardware verification
 
-All five chunks reviewed and co-reviewed. **50 findings (50 reviewer + 0 user) — 37 fixed, 13 open.** Fix phase in progress: batches 1–8 complete. C4-6 and C5-9 are `partially fixed` — see batch 8. Two of the 13 (C2-2, C2-5) are code-complete and awaiting hardware verification, not unstarted.
+All five chunks reviewed and co-reviewed. **50 findings (50 reviewer + 0 user) — 48 fixed, 2 open.** All nine batches complete. C4-6 is `partially fixed` by explicit decision — see batch 8. The two remaining (C2-2, C2-5) are code-complete and awaiting hardware verification, not unstarted.
 
 Co-review ran 2026-08-11, one chunk at a time. **Every finding in all five chunks was confirmed for fixing.** None rejected, none deferred, none marked `won't-fix`, no `U`-IDs added. That includes the findings each report flagged as candidates to close — C1-4, C1-9, C1-10 (not currently reachable) and C4-8 (does not breach the documented rule) — which the user chose to fix anyway.
 
@@ -49,11 +49,11 @@ Chunked by review dimension rather than by subsystem, because the feature is one
 
 | # | Chunk | State | Findings | Actioned |
 |---|-------|-------|----------|----------|
-| 1 | Window lifetime, state & threading | complete · **co-reviewed** · all 10 confirmed | 10 (1 BUG · 4 RISK · 5 CLEANUP) | 9 (all but C1-8) |
-| 2 | DPI, geometry & multi-monitor | complete · **co-reviewed** · all 11 confirmed | 11 (3 BUG · 3 RISK · 5 CLEANUP) | 8 fixed + 2 pending hardware (C2-2, C2-5) |
-| 3 | Traffic data pipeline & concurrency | complete · **co-reviewed** · all 11 confirmed | 11 (2 BUG · 1 RISK · 8 CLEANUP/PERF) | 8 (C3-1 … C3-5, C3-8, C3-9, C3-10) |
-| 4 | Conventions, DB & project hygiene | complete · **co-reviewed** · all 9 confirmed | 9 (0 BUG · 2 RISK · 7 CLEANUP) | 3 fixed + C4-6 partial |
-| 5 | Tests & incidentally-touched code | complete · **co-reviewed** · all 9 confirmed | 9 (2 BUG · 5 RISK · 1 PERF · 1 CLEANUP) | 8 fixed + C5-9 partial |
+| 1 | Window lifetime, state & threading | complete · **co-reviewed** · all 10 confirmed | 10 (1 BUG · 4 RISK · 5 CLEANUP) | 10 — all |
+| 2 | DPI, geometry & multi-monitor | complete · **co-reviewed** · all 11 confirmed | 11 (3 BUG · 3 RISK · 5 CLEANUP) | 9 fixed + 2 pending hardware (C2-2, C2-5) |
+| 3 | Traffic data pipeline & concurrency | complete · **co-reviewed** · all 11 confirmed | 11 (2 BUG · 1 RISK · 8 CLEANUP/PERF) | 11 — all |
+| 4 | Conventions, DB & project hygiene | complete · **co-reviewed** · all 9 confirmed | 9 (0 BUG · 2 RISK · 7 CLEANUP) | 8 fixed + C4-6 partial |
+| 5 | Tests & incidentally-touched code | complete · **co-reviewed** · all 9 confirmed | 9 (2 BUG · 5 RISK · 1 PERF · 1 CLEANUP) | 9 — all |
 
 **50 findings total.** IDs: `C<chunk>-<n>` reviewer, `U<chunk>-<n>` user.
 
@@ -280,6 +280,55 @@ Cross-cutting theme 6 — "what makes the widget *correct* was placed where it c
 
 **DB impact: none.** A diagnostic tool that is not part of the shipped app, plus its argument handling. No entity, column or index touched, so no migration.
 
+## Fix phase — batch 9: conventions & docs (C1-8, C2-7, C3-6, C3-7, C3-11, C4-4, C4-5, C4-7, C4-8, C4-9, C5-9 remainder)
+
+**2026-08-11. Eleven `fixed`, closing every remaining finding. Build x64 clean, 0 warnings. 363/363 tests pass — 16 new.**
+
+- **C4-9** — `CLAUDE.md:88` named `DevicesPage.xaml` as the canonical XAML reference and no such file exists. Now `AllDevicesPage.xaml`, with `MiniGraphWindow.xaml` named as the example to copy for attribute order. Every agent and reviewer following that instruction had been pointed at nothing.
+- **C2-7** — the spec's claim that the 34 DIP peak threshold is unreachable is corrected in both places it appears, marked as a correction rather than silently rewritten. `ComputeShowPeak` is fed the panel height (~32 at the 40 DIP minimum), so the peak **is** dropped there and always has been.
+- **C3-6** — the two negative-total behaviours now agree: `Distribute` returns zeros, `Accumulate` drops a negative per counter. Reasoning recorded at both sites.
+- **C3-11** — `LiveRateBuffer` carries a `NOT THREAD-SAFE, deliberately` note naming `LiveTrafficFeed._gate` as the lock every caller must hold.
+- **C1-8, C4-4, C4-5, C4-7, C4-8** — all eight backing fields seeded; blank lines around object initializers and before `DrawCompactAxis`'s closing brace; `OnSettingChanged` moved below the public methods (correcting the pre-existing break, not only this range's part); `x:Name` leads both `TrafficHostPage` elements.
+- **C5-9 remainder** — `_manualResult` is cleared by `OnCheckCompleted` once the matching broadcast has been recognised, with a comment saying it is a two-turn handoff rather than state.
+
+**C3-7 was closed by deciding against the implied change.** Easing `PeakText` to match the drawn curve would have removed the number-versus-picture mismatch by making the number wrong — understating the real peak for as long as the trace is rising, which is exactly when it matters. The label reports what was measured; the easing is presentation and converges within `EaseTimeConstantSeconds`. Recorded on `UpdatePeakLabels` so it is not re-litigated as an oversight.
+
+**A test I wrote was wrong, and the code was right.** Two new `AxisScale` cases asserted that degenerate input must produce a positive axis. `NiceMax` returns `0.0` by design and `TrafficAreaChart` applies the floor at the call site via `safeMax`. The tests were corrected to pin the real contract rather than `AxisScale` being changed to satisfy an assertion invented five minutes earlier — the same discipline applied to the six `LiveRateBufferTests` in batch 4b.
+
+**16 new tests**, closing the coverage gaps this review found reachable: `FlushSpreadEdgeCaseTests` (negative total, empty bucket list, non-positive `bucketSeconds`, an interval entirely outside the buckets, a zero total) and `AxisScaleEdgeCaseTests` (sub-unit values, the exact decade boundary, and degenerate input).
+
+**One coverage-gap item is deliberately left, and is a real if small finding.** `MiniGraphFormatter.Scaled` uses `"0.#"` below ten, so a rate under 0.05 renders as `"0"` — precisely the failure its own comment says it prevents ("a slow link reads as zero"). Fixing it changes displayed text in a width-constrained widget, which is a product decision rather than a cleanup. **Flagged for the user; not silently changed.**
+
+**DB impact: none.** Documentation, comments, formatting, member order and tests. No entity, column or index touched, so no migration.
+
+---
+
+## Completion
+
+**2026-08-11. 48 of 50 findings `fixed`. The two that remain are code-complete and await hardware.**
+
+Nine batches, nine commits, `486d820` through this one. Tests **307 → 363**; build x64 clean and 0 warnings throughout.
+
+**Still open, and only these:**
+
+- **C2-2** and **C2-5** — the code fix landed in batch 6 and makes the outcome deterministic either way, but the DPI *transition* path has never been executed on real hardware. A green build is not evidence about code nobody has run. See *Manual verification* below.
+
+**Partially fixed, by explicit decision:**
+
+- **C4-6** — the four top-level `return 1` guards in `RetentionProbe/Program.cs` remain. Top-level statements have no method body to give a single exit; satisfying the rule literally means wrapping ~250 lines in a function to move where the returns are. Every *method* in the file now obeys it.
+
+**Raised during the fix phase, not part of the original 50:**
+
+- `MiniGraphFormatter.Scaled` renders a rate below 0.05 as `"0"`, contradicting its own comment. Product decision, flagged above.
+
+**What the fix phase changed about the codebase, beyond the findings:**
+
+- A migration baseline now exists (`InitialCreate`), `EnsureCreated` is gone, and `Tools/MigrationVerify` proves a schema change ships safely to databases already in the field. CLAUDE.md documents both.
+- `NetworkMonitor.Core/Widget/` gained `PlacementMath`, `PlacementRect`, `FrameInsets` and `SectionVisibility`; `Core/Traffic/` gained `ChartPointSpreader` and `WidgetTrafficTotals`. The widget's geometry and its correctness rules are now testable, which they were not when this review started.
+- `LocalTrafficDelta` and `TrafficTotals` moved to Models, where the layering rule puts them.
+
+**Manual verification still outstanding** — see the section below. The mixed-DPI multi-monitor walkthrough is the one that gates C2-2 and C2-5; the Alt+F4 loop exercises batch 5, and the backward clock step exercises C3-1.
+
 ## Next step
 
 **Batches 1–3 are done.** C4-1 no longer gates schema work — the baseline exists and is verified, so the next entity change can ship a migration normally (generate it through `Tools/MigrationVerify`, then run that tool).
@@ -288,7 +337,7 @@ Next is **batch 4 — live-chart correctness & always-on cost**: C3-1 with C5-9'
 
 **Batch 4 was split.** 4a (done) took the cluster that shares one code path: C4-3 pulled forward from batch 7, then C3-4, C5-2, C3-1 and — incidentally — C3-3.
 
-**Batches 1–8 are done.** Next is **batch 9 — conventions & docs**, the last: C1-8 (`SettingsViewModel` seeds 6 of 8 mini-graph backing fields), C3-6 (`FlushSpread` and `LiveRateBuffer` disagree on a negative total), C3-7 (the eased trace never reaches the labelled peak), C3-11 (`LiveRateBuffer` has no internal synchronisation and does not say so), C2-7 (the spec claims the 34 DIP peak threshold is unreachable — it is not), C4-4, C4-5, C4-7, C4-8, C4-9 (CLAUDE.md names a canonical XAML reference file that does not exist), C5-9's `_manualResult` item, and the remaining coverage-gap items from `chunk-5`.
+**The fix phase is complete.** What remains is **manual verification on real hardware** — see the section below. The mixed-DPI multi-monitor walkthrough closes C2-2 and C2-5, the only two findings still open. Nothing else in this review is waiting on code.
 
 
 For each batch: apply the fixes, build x64 (`dotnet build NetworkMonitor.slnx -p:Platform=x64`) with 0 errors, run `dotnet test` green, state the DB impact explicitly even when it is "none", add a `## Fix phase — <name>` entry here recording what changed and why, then commit and push with a subject line the user has approved.

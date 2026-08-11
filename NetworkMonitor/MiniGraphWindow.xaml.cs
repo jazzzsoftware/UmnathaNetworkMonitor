@@ -96,18 +96,21 @@ namespace NetworkMonitor
             {
                 Interval = TimeSpan.FromMilliseconds(400)
             };
+
             _savePlacementTimer.Tick += OnSavePlacementTimerTick;
 
             _hoverRiseTimer = new DispatcherTimer
             {
                 Interval = HoverRiseDelay
             };
+
             _hoverRiseTimer.Tick += OnHoverRiseTick;
 
             _hoverFallTimer = new DispatcherTimer
             {
                 Interval = HoverFallDelay
             };
+
             _hoverFallTimer.Tick += OnHoverFallTick;
 
             // A layered window's alpha is a single Win32 call with no animation behind it, so the
@@ -116,6 +119,7 @@ namespace NetworkMonitor
             {
                 Interval = AlphaStepInterval
             };
+
             _alphaFadeTimer.Tick += OnAlphaFadeTick;
 
             _appliedOrientation = _state.Orientation;
@@ -1224,6 +1228,7 @@ namespace NetworkMonitor
             {
                 Text = "Open Network Monitor"
             };
+
             openItem.Click += (itemSender, itemArgs) => ShowMainWindow(null);
             WidgetMenu.Items.Add(openItem);
 
@@ -1231,6 +1236,7 @@ namespace NetworkMonitor
             {
                 Text = "Close"
             };
+
             closeItem.Click += (itemSender, itemArgs) => _state.IsVisible = false;
             WidgetMenu.Items.Add(closeItem);
 

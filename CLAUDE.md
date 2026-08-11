@@ -87,7 +87,7 @@ Solution-folder layout: the five projects are grouped under `/App/` (NetworkMoni
 - Self-closing elements: ` />` on the last attribute line.
 - Container elements: `>` on the last attribute line.
 - Blank line above and below every element — sibling elements are separated by a blank line; every container element has a blank line after its opening tag and before its closing tag.
-- `DevicesPage.xaml` is the canonical formatting reference.
+- `AllDevicesPage.xaml` is the canonical formatting reference. (`MiniGraphWindow.xaml` is a good second example, and is the one to copy for attribute order.)
 
 ## Key Files
 

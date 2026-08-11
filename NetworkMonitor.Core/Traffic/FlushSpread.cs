@@ -12,6 +12,14 @@ namespace NetworkMonitor.Core.Traffic
         // the physical line rate while the sustained rate was correct.
         //
         // Returns one byte figure per bucket, summing to exactly totalBytes so no traffic is lost.
+        //
+        // A negative totalBytes returns all zeros rather than distributing it, and LiveRateBuffer
+        // matches that by refusing to accumulate one. ETW counters are unsigned and accumulate, so a
+        // negative can only mean a counter reset or a wrapped subtraction upstream — a broken input,
+        // not a real measurement. Spreading it would drag buckets below zero and pull the whole axis
+        // with them. Previously the two entry points disagreed: this returned zeros while
+        // LiveRateBuffer.Accumulate happily added a negative, so the outcome depended on which path
+        // ran. Both now drop it.
         public static long[] Distribute(
             long totalBytes,
             IReadOnlyList<DateTime> bucketStartsUtc,

@@ -58,6 +58,12 @@ namespace NetworkMonitor.ViewModels
             _miniGraphShowUnknownDevices = miniGraphState.ShowUnknownDevices;
             _miniGraphOpacity = miniGraphState.Opacity;
 
+            // All eight, not six. Seeding only part of them left the view model correct solely when
+            // driven by SettingsPage.OnPageLoaded, which calls SyncMiniGraphFromState before anything
+            // reads them — an asymmetry that is a trap for the next editor rather than a live defect.
+            _miniGraphHorizontal = miniGraphState.IsHorizontal;
+            _miniGraphShowBorder = miniGraphState.ShowBorder;
+
             PropertyChanged += OnSettingChanged;
             _ = InitializeRunAtStartupAsync();
         }
@@ -484,30 +490,6 @@ namespace NetworkMonitor.ViewModels
             _settings.Save();
         }
 
-        private void OnSettingChanged(object? sender, PropertyChangedEventArgs args)
-        {
-            bool isPersistable = args.PropertyName is not null
-                && args.PropertyName != nameof(PurgeStatus)
-                && args.PropertyName != nameof(TrafficPurgeStatus)
-                && args.PropertyName != nameof(RunAtStartup)
-                && args.PropertyName != nameof(SubnetBaseEditable)
-                && args.PropertyName != nameof(ShowMiniGraph)
-                && args.PropertyName != nameof(MiniGraphShowInternet)
-                && args.PropertyName != nameof(MiniGraphShowLocal)
-                && args.PropertyName != nameof(MiniGraphShowSpeedTest)
-                && args.PropertyName != nameof(MiniGraphShowUnknownDevices)
-                && args.PropertyName != nameof(MiniGraphOpacity)
-                && args.PropertyName != nameof(MiniGraphHorizontal)
-                && args.PropertyName != nameof(MiniGraphShowBorder);
-
-            if (isPersistable)
-            {
-                PersistAll();
-                _notificationService.Show("Settings saved");
-            }
-
-        }
-
         public void SyncMiniGraphFromState()
         {
             _showMiniGraph = _miniGraphState.IsVisible;
@@ -555,6 +537,31 @@ namespace NetworkMonitor.ViewModels
 
             return deleted;
         }
+
+        private void OnSettingChanged(object? sender, PropertyChangedEventArgs args)
+        {
+            bool isPersistable = args.PropertyName is not null
+                && args.PropertyName != nameof(PurgeStatus)
+                && args.PropertyName != nameof(TrafficPurgeStatus)
+                && args.PropertyName != nameof(RunAtStartup)
+                && args.PropertyName != nameof(SubnetBaseEditable)
+                && args.PropertyName != nameof(ShowMiniGraph)
+                && args.PropertyName != nameof(MiniGraphShowInternet)
+                && args.PropertyName != nameof(MiniGraphShowLocal)
+                && args.PropertyName != nameof(MiniGraphShowSpeedTest)
+                && args.PropertyName != nameof(MiniGraphShowUnknownDevices)
+                && args.PropertyName != nameof(MiniGraphOpacity)
+                && args.PropertyName != nameof(MiniGraphHorizontal)
+                && args.PropertyName != nameof(MiniGraphShowBorder);
+
+            if (isPersistable)
+            {
+                PersistAll();
+                _notificationService.Show("Settings saved");
+            }
+
+        }
+
 
         private async Task InitializeRunAtStartupAsync()
         {

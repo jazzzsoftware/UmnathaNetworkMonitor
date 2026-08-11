@@ -2,7 +2,7 @@
 
 Range `c07260c..b215581`. Ledger: `progress.md`.
 
-**9 findings — 0 BUG · 2 RISK · 7 CLEANUP. All `open`.**
+**9 findings — 0 BUG · 2 RISK · 7 CLEANUP. Eight `fixed` as of 2026-08-11; C4-6 is `partially fixed` by explicit decision.**
 
 > Corrected at co-review on 2026-08-11: this header previously read "8 findings … 6 CLEANUP". The file has always contained nine findings, C4-1 through C4-9. The undercount propagated into `progress.md`'s chunk table and its "49 findings total"; the true total is **50**.
 
@@ -102,7 +102,7 @@ No blank line after the initializer's closing `};` before the next statement at 
 
 The same file gets it right eight lines later each time (:1065→1066, :1078→1079, :1090→1091, :1102→1103, :1133→1134), so this is inconsistency rather than a house style.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 9. Blank lines added after the object-initializer closings in the constructor and in the widget menu builder, matching what the same file already did eight lines later each time.
 
 ---
 
@@ -112,7 +112,7 @@ The same file gets it right eight lines later each time (:1065→1066, :1078→1
 
 `DrawCompactAxis` ends with an `if` block whose closing `}` is immediately followed by the method's closing `}`. Clear-cut violation of "a blank line immediately before the closing `}` of any method when the last statement ends with `}`". Every other method in the changed region observes it — note the deliberate blank line *added* at `:461` for exactly this reason.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 9. Blank line added before `DrawCompactAxis`'s closing brace.
 
 ---
 
@@ -140,7 +140,7 @@ The new `public void SyncMiniGraphFromState()` is inserted between the private `
 
 The related backing-field asymmetry in the same file is recorded separately as **C1-8**.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 9. `x:Name` now leads both elements, matching the rest of the codebase. Cosmetic, as this finding says — the documented ordering rule was never broken.
 
 ---
 
@@ -150,7 +150,7 @@ The related backing-field asymmetry in the same file is recorded separately as *
 
 `Grid.Column` is placed before `x:Name` on the new `SelectorBar` and `ToggleButton`, whereas `MiniGraphWindow.xaml:48-55` and the rest of the codebase lead with `x:Name`. Both are simple assignments, so the documented ordering rule is not broken — it is a cosmetic inconsistency, and it matches what the file already did.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 9. `OnSettingChanged` moved below the public methods, so `SyncMiniGraphFromState`, `PurgeHistoryAsync` and `PurgeTrafficAsync` are grouped before the private section. This corrects the pre-existing break rather than only the part this range introduced.
 
 ---
 
@@ -162,7 +162,7 @@ The line states "`DevicesPage.xaml` is the canonical formatting reference," but 
 
 Related cosmetic nit: `NetworkMonitor.slnx` mixes `Documents/superpowers/…` and `Documents/Superpowers/…` casing in `Path` attributes within the same folder node. Harmless on Windows, pre-existing.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 9. `CLAUDE.md:88` now names `AllDevicesPage.xaml`, which exists, and points at `MiniGraphWindow.xaml` as the example to copy for attribute order. The `Documents/superpowers` casing nit in the slnx is left: it is pre-existing, harmless on Windows, and changing it churns the solution file for nothing.
 
 ---
 

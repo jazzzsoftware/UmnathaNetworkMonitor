@@ -2,7 +2,7 @@
 
 Range `c07260c..b215581`. Ledger: `progress.md`.
 
-**10 findings — 1 BUG · 4 RISK · 5 CLEANUP. All `open`.**
+**10 findings — 1 BUG · 4 RISK · 5 CLEANUP. All `fixed` as of 2026-08-11.**
 
 ## What was verified as correct
 
@@ -148,7 +148,7 @@ If the hook fails to install, `_hook` is `IntPtr.Zero`, the guard silently does 
 
 **Fix.** Seed all eight in the constructor, keeping `SyncMiniGraphFromState` for later refreshes.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 9. All eight seeded in the constructor; `_miniGraphHorizontal` and `_miniGraphShowBorder` added. `SyncMiniGraphFromState` stays for later refreshes.
 
 ---
 

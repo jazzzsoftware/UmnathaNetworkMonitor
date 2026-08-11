@@ -2,7 +2,7 @@
 
 Range `c07260c..b215581`. Ledger: `progress.md`.
 
-**11 findings — 2 BUG · 1 RISK · 8 CLEANUP/PERF. All `open`.**
+**11 findings — 2 BUG · 1 RISK · 8 CLEANUP/PERF. All `fixed` as of 2026-08-11.**
 
 ## What was verified as correct
 
@@ -119,7 +119,7 @@ Truncating `Snapshot` was tried first and broke **six** existing `LiveRateBuffer
 
 **Fix.** Either assert, or document the intent and make both agree.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 9. The two entry points now agree: `FlushSpread.Distribute` still returns zeros for a negative total, and `LiveRateBuffer.Accumulate` drops a negative per counter instead of adding it. The reasoning — ETW counters are unsigned and accumulate, so a negative can only be a counter reset or a wrapped subtraction upstream, and spreading it would drag buckets below zero — is recorded at both sites. Covered by `FlushSpreadEdgeCaseTests`.
 
 ---
 
@@ -129,7 +129,7 @@ Truncating `Snapshot` was tried first and broke **six** existing `LiveRateBuffer
 
 `EaseTimeConstantSeconds = 2.5` against one-second buckets means newly arrived buckets converge to ~63% of their value over 2.5s, while `PeakText` is computed from the raw `maxValue`. The header can read "Peak 560 Mb/s" while the drawn curve visibly falls short of the top gridline. Cosmetic, but it is a number-versus-picture mismatch on the same control.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 9, **by deciding against the implied change and recording why**. Easing `PeakText` to match the drawn curve would remove the mismatch by making the number wrong: it would understate the real peak for as long as the trace is rising, which is precisely when the figure matters. The label reports what was measured; the easing is presentation, and the curve converges within `EaseTimeConstantSeconds`. The axis labels derive from the same `maxValue`, so the number and the top gridline agree with each other throughout. Reasoning recorded on `UpdatePeakLabels` so this is not re-litigated as an oversight.
 
 ---
 
@@ -179,7 +179,7 @@ All three mutators plus `Snapshot` touch `_lastEpoch` and the arrays with no loc
 
 **Fix.** Either lock internally, or add a one-line remark to the class comment.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 9. Documented rather than locked: a `NOT THREAD-SAFE, deliberately` note on the class states that every caller must hold a lock and names `LiveTrafficFeed._gate` as the one that does. Adding internal locking would have cost a lock per bucket on a path that is already correctly serialised, to protect against a caller that does not exist.
 
 ---
 

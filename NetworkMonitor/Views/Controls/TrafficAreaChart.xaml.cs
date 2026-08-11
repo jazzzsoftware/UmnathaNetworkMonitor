@@ -605,6 +605,7 @@ namespace NetworkMonitor.Views.Controls
 
                 DrawCompactTimeRow(session, width, plotBottom, leftEdge, span, labelColor);
             }
+
         }
 
         // The same row of ticks the full chart carries, thinned to what the width can hold: the oldest
@@ -839,6 +840,17 @@ namespace NetworkMonitor.Views.Controls
             return result;
         }
 
+        // maxValue is the measured peak, not the eased one, and stays that way deliberately.
+        //
+        // The drawn trace converges on a newly arrived bucket over EaseTimeConstantSeconds, so for a
+        // couple of seconds after a spike the header can read a figure the curve has not yet reached.
+        // That is a transient, and the curve catches up. Deriving the label from the displayed values
+        // instead would remove the mismatch by making the number wrong — it would understate the real
+        // peak for as long as the trace is rising, which is exactly when the figure matters. A peak
+        // label reports what was measured; the animation is presentation.
+        //
+        // The axis labels below come from the same maxValue, so the number and the top gridline agree
+        // with each other even while the curve is still climbing towards them.
         private void UpdatePeakLabels(IReadOnlyList<ChartPoint> points, long maxValue)
         {
             double bucketSeconds = TrafficRateFormatter.BucketSeconds(points);

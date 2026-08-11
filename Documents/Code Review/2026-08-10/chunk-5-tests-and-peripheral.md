@@ -2,7 +2,7 @@
 
 Range `c07260c..b215581`. Ledger: `progress.md`.
 
-**9 findings — 2 BUG · 4 RISK · 3 CLEANUP/PERF. All `open`.** Plus a coverage-gap inventory at the end.
+**9 findings — 2 BUG · 5 RISK · 1 PERF · 1 CLEANUP. All `fixed` as of 2026-08-11.** Plus a coverage-gap inventory at the end.
 
 ## Test suite result
 

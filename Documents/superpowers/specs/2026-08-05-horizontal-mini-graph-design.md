@@ -185,9 +185,15 @@ An orientation selector beside the existing mini graph preferences, writing thro
   resolves the nearest display for both cases while the existing clamp still pulls the position
   back on-screen.
 - **Height below 34 px.** The label and peak share a baseline row and the chart needs the remainder.
-  The peak figure is dropped below 34 px rather than being allowed to collide with the label. The
-  34 px threshold is retained in code as a guard, but it is unreachable at the current 40 DIP height
-  floor — the strip can never be dragged short enough to trigger it.
+  The peak figure is dropped below 34 px rather than being allowed to collide with the label.
+
+  > **Corrected 2026-08-11 (review finding C2-7).** This previously claimed the 34 px threshold was
+  > "retained in code as a guard, but unreachable at the current 40 DIP height floor". That is wrong.
+  > `ComputeShowPeak` is fed the **panel** height, not the window height, and at the 40 DIP window
+  > minimum the panel is roughly 32 — below 34. **The peak is therefore dropped at the minimum strip
+  > height, and always has been.** The behaviour is fine and probably desirable; the recorded
+  > understanding was not, and a future change to `MinimumHeight` would have been reasoned about from
+  > a false premise.
 - **Alt+F4 on the strip.** Already covered — `OnWindowClosed` tears down and clears
   `MiniGraphState.IsVisible` regardless of orientation.
 
@@ -204,9 +210,9 @@ Manual verification:
 
 - Switch orientation both ways with the widget open; confirm each form returns to its own saved
   position.
-- Drag the strip's height across 74 (chart labels return). The 34 px peak-drop threshold cannot be
-  exercised this way — the minimum draggable height is 40 DIP, above the threshold — so it is not
-  part of this manual check.
+- Drag the strip's height across 74 (chart labels return). Also check the peak figure at the 40 DIP
+  minimum: it **is** dropped there, because the panel height is ~32 against the 34 threshold. (This
+  bullet previously said the threshold could not be exercised — see the correction above.)
 - Toggle each section and confirm the strip resizes rather than stretching its cells.
 - Repeat placement and drag checks on a 200% display, given the two prior high-DPI defects.
 

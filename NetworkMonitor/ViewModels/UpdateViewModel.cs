@@ -16,6 +16,16 @@ namespace NetworkMonitor.ViewModels
         private readonly DispatcherQueue _dispatcher;
         private AvailableUpdate? _pendingUpdate;
         private CancellationTokenSource? _downloadCancellation;
+
+        // Claims one specific result so the CheckCompleted broadcast for the same check does not
+        // re-apply it with reportUpToDate false and shut the banner. It is a handoff between two
+        // turns of the same dispatcher, not state: it is written immediately before Apply and
+        // cleared by OnCheckCompleted once the matching broadcast has been recognised and skipped.
+        // Holding the last manual result for the app's lifetime made this read like state and
+        // pinned an UpdateCheckResult that nothing else needed.
+        //
+        // The read/write race is safe only because CheckManuallyAsync is UI-thread-invoked and
+        // OnCheckCompleted marshals to the same dispatcher.
         private UpdateCheckResult? _manualResult;
 
         public UpdateViewModel(IUpdateService updateService)
@@ -247,7 +257,11 @@ namespace NetworkMonitor.ViewModels
             _dispatcher.TryEnqueue(() =>
             {
 
-                if (!ReferenceEquals(result, _manualResult))
+                if (ReferenceEquals(result, _manualResult))
+                {
+                    _manualResult = null;
+                }
+                else
                 {
                     Apply(result, false);
                 }

@@ -8,6 +8,11 @@ namespace NetworkMonitor.Core.Traffic
     //
     // Idle seconds must read as a flat zero line rather than a hole in the trace, so advancing the
     // ring zeroes every bucket it skips over.
+    //
+    // NOT THREAD-SAFE, deliberately. All three mutators and Snapshot touch _lastEpoch and the arrays
+    // with no lock, so every caller must hold one. In this app that is LiveTrafficFeed._gate, which
+    // wraps every AddInterval and Snapshot call. This is a public type in Core, so the contract is
+    // stated here rather than left to be inferred from the one caller that currently honours it.
     public sealed class LiveRateBuffer
     {
         private readonly long[] _download;
@@ -199,8 +204,20 @@ namespace NetworkMonitor.Core.Traffic
             if (IsHeld(epoch))
             {
                 int slot = Slot(epoch);
-                _download[slot] += bytesDownloaded;
-                _upload[slot] += bytesUploaded;
+
+                // Negatives are dropped per counter, matching FlushSpread.Distribute, which returns
+                // zeros for a negative total. See the note there for why a negative can only be a
+                // broken input rather than a measurement.
+                if (bytesDownloaded > 0)
+                {
+                    _download[slot] += bytesDownloaded;
+                }
+
+                if (bytesUploaded > 0)
+                {
+                    _upload[slot] += bytesUploaded;
+                }
+
             }
 
         }

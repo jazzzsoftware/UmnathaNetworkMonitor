@@ -2,7 +2,7 @@
 
 Range `c07260c..b215581`. Ledger: `progress.md`.
 
-**11 findings — 3 BUG · 3 RISK · 5 CLEANUP. All `open`.**
+**11 findings — 3 BUG · 3 RISK · 5 CLEANUP. Nine `fixed` as of 2026-08-11; C2-2 and C2-5 are code-complete and await the mixed-DPI hardware walkthrough.**
 
 ## What was verified as correct
 
@@ -126,7 +126,7 @@ The behaviour is fine, probably desirable. The recorded understanding is not, an
 
 **Fix.** Correct the note in the spec.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 9. Both the design note and the manual-verification bullet in `2026-08-05-horizontal-mini-graph-design.md` corrected, with the correction marked rather than silently rewritten: the peak **is** dropped at the 40 DIP minimum, because `ComputeShowPeak` is fed the panel height (~32) and not the window height.
 
 ---
 

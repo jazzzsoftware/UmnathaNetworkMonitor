@@ -15,8 +15,8 @@
             ColumnDefinitions="*,Auto">
 
             <SelectorBar
-                Grid.Column="0"
                 x:Name="TabBar"
+                Grid.Column="0"
                 FontSize="13"
                 SelectionChanged="TabBarSelectionChanged">
 
@@ -35,8 +35,8 @@
             </SelectorBar>
 
             <ToggleButton
-                Grid.Column="1"
                 x:Name="MiniGraphToggle"
+                Grid.Column="1"
                 VerticalAlignment="Center"
                 Padding="10,4"
                 FontSize="12"
