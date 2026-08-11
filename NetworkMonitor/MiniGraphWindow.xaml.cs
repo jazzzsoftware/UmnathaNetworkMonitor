@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 using Microsoft.UI.Dispatching;
+using Microsoft.UI.Input;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -43,6 +44,10 @@ namespace NetworkMonitor
         private const double MaximumFontScale = 2.0;
         private const double FooterFontSize = 11.0;
         private const double DragThreshold = 4.0;
+        // DWM reports 7 physical px at 96 DPI on every machine this has been measured on; used only
+        // when the live query fails or returns a degenerate frame.
+        private const double NominalFrameInset = 7.0;
+        private const double ScaleReconcileTolerance = 0.01;
         private static readonly TimeSpan HoverRiseDelay = TimeSpan.FromMilliseconds(150);
         private static readonly TimeSpan HoverFallDelay = TimeSpan.FromMilliseconds(300);
         private static readonly TimeSpan OpacityFadeDuration = TimeSpan.FromMilliseconds(120);
@@ -68,6 +73,7 @@ namespace NetworkMonitor
         private int _targetAlphaPercent = 100;
         private int _dragOffsetX;
         private int _dragOffsetY;
+        private double _dragScale = 1.0;
         private int _dragStartX;
         private int _dragStartY;
 
@@ -155,6 +161,14 @@ namespace NetworkMonitor
 
                 ApplyLayout();
                 RestorePlacement();
+            }
+            else
+            {
+                // Placement was otherwise only ever computed in the constructor and on an orientation
+                // flip, so a widget left on a monitor that was subsequently disconnected — or one
+                // whose display arrangement changed while it was hidden — relied entirely on Windows'
+                // own relocation. Re-clamping here costs one geometry check per show.
+                ClampMinimumSize();
             }
 
             ViewModel.Attach();
@@ -356,7 +370,11 @@ namespace NetworkMonitor
         {
             double scale;
 
-            if (_state.IsHorizontal)
+            // _appliedOrientation, not _state.Orientation. OnStateChangedOnUiThread deliberately
+            // leaves the applied value stale while the widget is hidden — that is what tells
+            // ShowWidget a relayout is owed — and during that window this would otherwise compute the
+            // horizontal font scale for a vertically laid-out window.
+            if (_appliedOrientation == MiniGraphOrientation.Horizontal)
             {
                 scale = HorizontalStripMetrics.FontScale(args.NewSize.Height);
             }
@@ -382,7 +400,7 @@ namespace NetworkMonitor
 
         private bool ComputeShowPeak(double height)
         {
-            bool showPeak = !_state.IsHorizontal || HorizontalStripMetrics.ShowsPeak(height);
+            bool showPeak = _appliedOrientation != MiniGraphOrientation.Horizontal || HorizontalStripMetrics.ShowsPeak(height);
 
             return showPeak;
         }
@@ -457,23 +475,9 @@ namespace NetworkMonitor
             int scaleSampleX = saved is null ? workArea.X : positionX;
             int scaleSampleY = saved is null ? workArea.Y : positionY;
             double scale = GetScaleForPoint(scaleSampleX, scaleSampleY);
-            int width;
-            int height;
-
-            if (horizontal)
-            {
-                double heightInDips = HorizontalStripMetrics.ClampHeight(_settings.MiniGraphStripHeight);
-                double fontScale = HorizontalStripMetrics.FontScale(heightInDips);
-                double widthInDips = HorizontalStripMetrics.Width(_state.ShowInternet, _state.ShowLocal, _state.ShowSpeedTest, _state.ShowUnknownDevices, fontScale);
-
-                width = (int)Math.Round(widthInDips * scale);
-                height = (int)Math.Round(heightInDips * scale);
-            }
-            else
-            {
-                width = (int)Math.Round(Math.Max(MinimumWidth, _settings.MiniGraphWidth) * scale);
-                height = (int)Math.Round(Math.Max(MinimumHeight, _settings.MiniGraphHeight) * scale);
-            }
+            SizeInt32 restored = ComputeRestoreSize(horizontal, scale);
+            int width = restored.Width;
+            int height = restored.Height;
 
             if (saved is null)
             {
@@ -496,7 +500,7 @@ namespace NetworkMonitor
             // MoveAndResize then triggered the debounced save, writing the clamped position back and
             // destroying the one the user chose. Growing the clamp by the insets keeps the test on what
             // is actually visible.
-            RectInt32 clampArea = ExpandByFrameInsets(bounds);
+            RectInt32 clampArea = ExpandByFrameInsets(bounds, scale);
 
             // Only the top-left corner was ever tested against a display, so a widget saved near a
             // right or bottom edge could come back mostly off-screen — and scaling the size on
@@ -509,15 +513,69 @@ namespace NetworkMonitor
             positionY = Math.Clamp(positionY, clampArea.Y, maximumY);
 
             AppWindow.MoveAndResize(new RectInt32(positionX, positionY, width, height));
+
+            // Restore sized from GetScaleForPoint — the monitor under the window's top-left CORNER —
+            // while SaveCurrentPlacement divides by GetDpiForWindow, which under Per-Monitor-V2 is the
+            // monitor holding the window's MAJORITY. Those disagree whenever the widget spans a
+            // boundary between differently scaled displays, and the disagreement compounds: restore
+            // produced a window half the intended size, ClampWidgetSize forced the 240x120 floor, and
+            // the debounce then persisted that floor. Every launch shrank it another step.
+            //
+            // The move may also have crossed a DPI boundary, which WinUI can respond to by rescaling
+            // the size again on top of the pre-scaled value. Re-asserting from the live window DPI
+            // makes the outcome the same either way and closes C2-2 with the same three lines.
+            double liveScale = GetCurrentScale();
+
+            if (Math.Abs(liveScale - scale) > ScaleReconcileTolerance)
+            {
+                SizeInt32 reconciled = ComputeRestoreSize(horizontal, liveScale);
+
+                AppWindow.Resize(reconciled);
+            }
+
             _placementRestored = true;
+        }
+
+        private SizeInt32 ComputeRestoreSize(bool horizontal, double scale)
+        {
+            int width;
+            int height;
+
+            if (horizontal)
+            {
+                FrameInsets insets = MeasureFrameInsets(scale);
+                double heightInDips = HorizontalStripMetrics.ClampHeight(_settings.MiniGraphStripHeight);
+                double fontScale = HorizontalStripMetrics.FontScale(heightInDips);
+                double widthInDips = HorizontalStripMetrics.Width(_state.ShowInternet, _state.ShowLocal, _state.ShowSpeedTest, _state.ShowUnknownDevices, fontScale);
+
+                width = (int)Math.Round(widthInDips * scale) + insets.Horizontal;
+                height = (int)Math.Round(heightInDips * scale) + insets.Vertical;
+            }
+            else
+            {
+                width = (int)Math.Round(Math.Max(MinimumWidth, _settings.MiniGraphWidth) * scale);
+                height = (int)Math.Round(Math.Max(MinimumHeight, _settings.MiniGraphHeight) * scale);
+            }
+
+            SizeInt32 size = new SizeInt32(width, height);
+
+            return size;
         }
 
         // DWM is asked rather than GetSystemMetrics because the two disagree: the metrics come to 8 at
         // 96 DPI where the frame actually measures 7, and a clamp that is a pixel out is the whole
         // defect. A failed call leaves the area untouched, which is the behaviour this had before.
-        private RectInt32 ExpandByFrameInsets(RectInt32 area)
+        // The single source of the invisible resize border. Measured off this window at its current
+        // DPI, so a caller reasoning about a different display must rescale — see ExpandByFrameInsets.
+        //
+        // A window that has never been composed can report a degenerate frame; so can one whose
+        // visible and outer rects are identical, which passed the old non-negative test while
+        // silently reinstating the very overhang the expansion exists to remove. Both fall back to
+        // the nominal 7 DIP, which is what DWM reports on every machine this has been measured on.
+        private FrameInsets MeasureFrameInsets(double scale)
         {
-            RectInt32 expanded = area;
+            int nominal = (int)Math.Round(NominalFrameInset * scale);
+            FrameInsets insets = new FrameInsets(nominal, 0, nominal, nominal);
 
             if (DwmGetWindowAttribute(_hwnd, DwmwaExtendedFrameBounds, out NativeRect visible, Marshal.SizeOf<NativeRect>()) == 0
                 && GetWindowRect(_hwnd, out NativeRect outer))
@@ -527,18 +585,35 @@ namespace NetworkMonitor
                 int right = outer.Right - visible.Right;
                 int bottom = outer.Bottom - visible.Bottom;
 
-                // A window that has never been composed can report a degenerate frame, and negative
-                // insets would push the clamp inwards rather than out.
-                if (left >= 0 && top >= 0 && right >= 0 && bottom >= 0)
+                if (left >= 0 && top >= 0 && right >= 0 && bottom >= 0 && (left + right + top + bottom) > 0)
                 {
-                    expanded = new RectInt32(
-                        area.X - left,
-                        area.Y - top,
-                        area.Width + left + right,
-                        area.Height + top + bottom);
+                    double measuredScale = GetCurrentScale();
+                    double adjust = measuredScale > 0.0 ? scale / measuredScale : 1.0;
+
+                    insets = new FrameInsets(
+                        (int)Math.Round(left * adjust),
+                        (int)Math.Round(top * adjust),
+                        (int)Math.Round(right * adjust),
+                        (int)Math.Round(bottom * adjust));
                 }
 
             }
+
+            return insets;
+        }
+
+        // The insets are DPI-scaled — 7 at 96 DPI, 14 at 192 — and DWM reports them for wherever this
+        // window currently sits, which at the first RestorePlacement is its creation position, not the
+        // display being restored onto. Applying one monitor's insets to a rect on another allowed 7px
+        // of overhang where 14 was needed, or let 7px fall off-screen in the reverse case.
+        private RectInt32 ExpandByFrameInsets(RectInt32 area, double targetScale)
+        {
+            FrameInsets insets = MeasureFrameInsets(targetScale);
+            RectInt32 expanded = new RectInt32(
+                area.X - insets.Left,
+                area.Y - insets.Top,
+                area.Width + insets.Left + insets.Right,
+                area.Height + insets.Top + insets.Bottom);
 
             return expanded;
         }
@@ -799,12 +874,32 @@ namespace NetworkMonitor
 
         }
 
+        // Returns a CONTENT width in DIPs. Callers applying it to AppWindow must add the frame — see
+        // DerivedStripWindowWidth.
+        //
+        // The height fed in is the window height minus the frame, which is the panel height that
+        // SectionsPanelSizeChanged actually lays out at. Feeding the raw window height here made this
+        // method compute a larger font scale than the one rendered — 1.325 against 1.125 on the
+        // author's own measured strip — and therefore reserve ~141 DIP of width that nothing drew in.
         private double DerivedStripWidth()
         {
-            double height = AppWindow.Size.Height / GetCurrentScale();
-            double clampedHeight = HorizontalStripMetrics.ClampHeight(height);
+            double scale = GetCurrentScale();
+            FrameInsets insets = MeasureFrameInsets(scale);
+            double panelHeight = (AppWindow.Size.Height - insets.Vertical) / scale;
+            double clampedHeight = HorizontalStripMetrics.ClampHeight(panelHeight);
             double fontScale = HorizontalStripMetrics.FontScale(clampedHeight);
             double width = HorizontalStripMetrics.Width(_state.ShowInternet, _state.ShowLocal, _state.ShowSpeedTest, _state.ShowUnknownDevices, fontScale);
+
+            return width;
+        }
+
+        // HorizontalStripMetrics.Width describes the content. Setting it as AppWindow.Size.Width gave
+        // the columns ~14 DIP less than the metric reserved, so every cell landed ~2% under nominal —
+        // Internet got ~166 against the 170 it was tuned to, which is also its MinimumLabelledWidth.
+        private int DerivedStripWindowWidth(double scale)
+        {
+            FrameInsets insets = MeasureFrameInsets(scale);
+            int width = (int)Math.Round(DerivedStripWidth() * scale) + insets.Horizontal;
 
             return width;
         }
@@ -812,7 +907,11 @@ namespace NetworkMonitor
         private void ClampMinimumSize()
         {
 
-            if (_state.IsHorizontal)
+            // _appliedOrientation is by definition what is on screen, which is exactly what this is
+            // reasoning about. Reading _state.IsHorizontal meant that a display disconnect or DPI
+            // change reaching OnAppWindowChanged while the widget was hidden — with the applied value
+            // deliberately stale — resized a vertically laid-out window to strip geometry.
+            if (_appliedOrientation == MiniGraphOrientation.Horizontal)
             {
                 ClampStripSize();
             }
@@ -829,13 +928,32 @@ namespace NetworkMonitor
         {
             double scale = GetCurrentScale();
             SizeInt32 size = AppWindow.Size;
-            double heightInDips = HorizontalStripMetrics.ClampHeight(size.Height / scale);
-            int height = (int)Math.Round(heightInDips * scale);
-            int width = (int)Math.Round(DerivedStripWidth() * scale);
+            PointInt32 position = AppWindow.Position;
+            FrameInsets insets = MeasureFrameInsets(scale);
+            double panelHeightInDips = (size.Height - insets.Vertical) / scale;
+            double clampedPanelHeight = HorizontalStripMetrics.ClampHeight(panelHeightInDips);
+            int height = (int)Math.Round(clampedPanelHeight * scale) + insets.Vertical;
+            int width = DerivedStripWindowWidth(scale);
 
             if (size.Width != width || size.Height != height)
             {
-                AppWindow.Resize(new SizeInt32(width, height));
+                // Resize anchors the top-left, which is wrong on both axes for this window. Dragging
+                // the TOP edge above the 120 DIP ceiling made Windows set a new Y with a taller
+                // height; clamping the height at that new Y then raised the bottom edge by the
+                // difference and lifted the strip off the taskbar it was docked to — on its only
+                // resize gesture. Dragging the LEFT edge set X-d with width+d each mouse step, and
+                // restoring the width at X-d translated the strip left for as long as the drag
+                // lasted. The commit that introduced this described a side-drag as being "undone";
+                // it was not undone, it walked.
+                //
+                // Holding the bottom edge keeps the dock, and holding the right edge means a
+                // left-edge drag ends where it started.
+                int bottom = position.Y + size.Height;
+                int right = position.X + size.Width;
+                int positionY = bottom - height;
+                int positionX = right - width;
+
+                AppWindow.MoveAndResize(new RectInt32(positionX, positionY, width, height));
             }
 
         }
@@ -873,20 +991,33 @@ namespace NetworkMonitor
         private void RootPointerPressed(object sender, PointerRoutedEventArgs args)
         {
 
-            if (args.GetCurrentPoint(RootLayer).Properties.IsLeftButtonPressed && GetCursorPos(out NativePoint cursor))
+            PointerPoint pointerPoint = args.GetCurrentPoint(RootLayer);
+
+            // GetCursorPos was called unconditionally. For a touch or pen contact the mouse cursor is
+            // wherever it was last left, so the grab offset was captured against a position unrelated
+            // to the contact point and the first move teleported the widget there. Dragging by touch
+            // is now simply ignored rather than being wrong; the drag maths below is entirely in
+            // physical cursor space and cannot be shared with a contact point without rewriting it.
+            if (pointerPoint.PointerDeviceType == PointerDeviceType.Mouse && pointerPoint.Properties.IsLeftButtonPressed)
             {
-                PointInt32 position = AppWindow.Position;
 
-                _pointerDown = true;
-                _dragging = false;
-                _dragStartX = cursor.X;
-                _dragStartY = cursor.Y;
+                if (GetCursorPos(out NativePoint cursor))
+                {
+                    PointInt32 position = AppWindow.Position;
 
-                // The grab point is held as a fixed screen-space offset from the window's own origin,
-                // in the physical pixels AppWindow.Move already speaks, so every move below is an
-                // absolute target that needs no scale conversion and cannot drift.
-                _dragOffsetX = cursor.X - position.X;
-                _dragOffsetY = cursor.Y - position.Y;
+                    _pointerDown = true;
+                    _dragging = false;
+                    _dragStartX = cursor.X;
+                    _dragStartY = cursor.Y;
+                    _dragScale = GetCurrentScale();
+
+                    // The grab point is held as a fixed screen-space offset from the window's own
+                    // origin, in the physical pixels AppWindow.Move already speaks, so every move
+                    // below is an absolute target that needs no scale conversion and cannot drift.
+                    _dragOffsetX = cursor.X - position.X;
+                    _dragOffsetY = cursor.Y - position.Y;
+                }
+
             }
 
         }
@@ -896,7 +1027,22 @@ namespace NetworkMonitor
 
             if (_pointerDown && GetCursorPos(out NativePoint cursor))
             {
-                double threshold = DragThreshold * GetCurrentScale();
+                double currentScale = GetCurrentScale();
+                double threshold = DragThreshold * currentScale;
+
+                // The grab offset is a fixed physical distance, but the window's physical size is not:
+                // crossing onto a 200% monitor doubles it while the offset stays put, so the cursor's
+                // relative position within the widget jumps — grab the centre of a 320px window and
+                // you are suddenly a quarter across a 640px one. Purely cosmetic, no feedback loop.
+                if (Math.Abs(currentScale - _dragScale) > ScaleReconcileTolerance && _dragScale > 0.0)
+                {
+                    double adjust = currentScale / _dragScale;
+
+                    _dragOffsetX = (int)Math.Round(_dragOffsetX * adjust);
+                    _dragOffsetY = (int)Math.Round(_dragOffsetY * adjust);
+                    _dragScale = currentScale;
+                }
+
 
                 // Below the threshold nothing moves, so a double-click still reaches the section
                 // underneath instead of being eaten by a one-pixel drag.

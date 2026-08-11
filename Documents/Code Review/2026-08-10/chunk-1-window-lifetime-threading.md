@@ -112,7 +112,7 @@ Blast radius is small: the subsequent save is **not** corrupted, because `SaveCu
 
 **Fix.** Have `ClampMinimumSize`, `SectionsPanelSizeChanged` and `ComputeShowPeak` read `_appliedOrientation` too. `_appliedOrientation` is by definition "what is currently on screen", which is exactly what all three are reasoning about. Closes the split entirely at no cost.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 6. `ClampMinimumSize`, `SectionsPanelSizeChanged` and `ComputeShowPeak` all read `_appliedOrientation` — what is actually on screen — instead of `_state.IsHorizontal`. The split is closed at every point that reasons about current geometry.
 
 ---
 
@@ -124,7 +124,7 @@ Blast radius is small: the subsequent save is **not** corrupted, because `SaveCu
 
 **This is the same root cause as C2-3**, which quantifies the consequence (~17% excess width) and owns the fix. Recorded here because the lifetime chunk found it independently; fix once, under C2-3.
 
-**Status:** `open` — see C2-3
+**Status:** `fixed` — 2026-08-11, fix-phase batch 6, by the C2-3 fix as this finding anticipated. `DerivedStripWidth` and `SectionsPanelSizeChanged` now derive the font scale from the same panel height.
 
 ---
 

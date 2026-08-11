@@ -34,7 +34,7 @@ The stored size has now shrunk. Repeat per launch until it sticks at the minimum
 
 **Fix.** Use one rule. After `AppWindow.MoveAndResize:498`, re-read `GetCurrentScale()` and, if it differs from the `GetScaleForPoint` value used to size, re-apply the size at the live scale. Cheap, and it subsumes C2-2 and the first half of C2-5.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 6. `RestorePlacement` re-reads `GetCurrentScale()` after `MoveAndResize` and, if it differs from the `GetScaleForPoint` value used to size, re-applies the size at the live scale via a new `ComputeRestoreSize`. One rule wins, and it is the same one `SaveCurrentPlacement` uses.
 
 ---
 
@@ -48,7 +48,7 @@ This could not be proven by reading alone; it depends on WinUI's own `WM_DPICHAN
 
 **Fix.** The C2-1 fix (re-assert the size from the live window DPI once the move has settled) makes the outcome deterministic either way. Needs a laptop-plus-differently-scaled-external test to confirm.
 
-**Status:** `open` — needs hardware verification
+**Status:** `open` — **code fix applied 2026-08-11 (batch 6), verification outstanding.** The C2-1 reconciliation makes the outcome deterministic whether or not WinUI rescales across the boundary, which is the fix this finding asked for. It stays `open` deliberately: the DPI *transition* path has still never been walked on real hardware, and a green build is not evidence. Closes only after the mixed-DPI multi-monitor walkthrough in the ledger's *Manual verification*.
 
 ---
 
@@ -69,7 +69,7 @@ Using the author's own recorded strip (window height 53, visible 46):
 
 **Fix.** Derive the width from the same height the layout uses: either subtract the frame insets in `DerivedStripWidth`, or make `SectionsPanelSizeChanged` the single writer of the font scale and drive the width from it. This is also C1-6.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 6. `DerivedStripWidth` now subtracts the frame insets from the window height before deriving the font scale, so it uses the same panel height `SectionsPanelSizeChanged` lays out at. Also closes C1-6.
 
 ---
 
@@ -86,7 +86,7 @@ The `7cc385d` commit describes a side-drag as being "undone". Undone is not what
 
 **Fix.** Use `MoveAndResize` in `ClampStripSize`, holding the bottom edge (`Y + height`) and the pre-change left edge, rather than `Resize`.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 6. `ClampStripSize` uses `MoveAndResize` holding the bottom edge (`Y + height`) and the right edge (`X + width`) instead of origin-anchored `Resize`. A top-edge over-drag keeps the strip on the taskbar, and a left-edge drag ends where it started rather than walking.
 
 ---
 
@@ -100,7 +100,7 @@ On the related question of whether DWM returns anything usable before the window
 
 **Fix.** An `AdjustWindowRectExForDpi` fallback computed for the *target* monitor would fix this and the degenerate case together.
 
-**Status:** `open`
+**Status:** `open` — **code fix applied 2026-08-11 (batch 6), verification outstanding.** Frame insets are measured once in `MeasureFrameInsets(scale)` and rescaled to the target display's scale before use, so restoring onto a 200% monitor no longer applies 96-DPI insets. The degenerate case this finding calls out — `visible == outer`, which passed the old non-negative test while silently reinstating the overhang — now falls back to the nominal 7 DIP. Same reason as C2-2 for staying open: only the mixed-DPI walkthrough can confirm it.
 
 ---
 
@@ -112,7 +112,7 @@ Both sites set the derived width as `AppWindow.Size.Width`, which includes the ~
 
 **Fix.** Add the frame width when converting the content metric to a window size.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 6. New `DerivedStripWindowWidth(scale)` adds the horizontal frame to the content metric before it is applied as `AppWindow.Size.Width`, and `ComputeRestoreSize` does the same on the restore path. The columns now receive what `HorizontalStripMetrics.Width` reserved.
 
 ---
 
@@ -138,7 +138,7 @@ For a touch or pen contact the mouse cursor is stale, so `_dragOffsetX/Y` is cap
 
 **Fix.** Guard on `args.Pointer.PointerDeviceType == PointerDeviceType.Mouse`, or take the screen position from the pointer point rather than the cursor.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 6. `RootPointerPressed` requires `PointerDeviceType.Mouse` before reading `GetCursorPos`. A touch or pen drag is now ignored rather than teleporting the widget — the drag maths is entirely in physical cursor space and could not be shared with a contact point without rewriting it, which is more than this finding warrants.
 
 ---
 
@@ -148,7 +148,7 @@ For a touch or pen contact the mouse cursor is stale, so `_dragOffsetX/Y` is cap
 
 `_dragOffsetX/Y` is a fixed physical offset. When the window doubles in physical size on entering a 200% monitor, the offset does not — so the cursor's relative position within the widget jumps (grabbed at the centre of a 320px window, you are suddenly 25% across a 640px one). No divergence and no feedback loop; purely cosmetic. Scaling the offset by `newScale/oldScale` on a DPI change would make it seamless.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 6. `RootPointerMoved` rescales `_dragOffsetX/Y` by `currentScale / _dragScale` when the live scale changes mid-drag, so the grab point keeps its relative position within the widget.
 
 ---
 
@@ -160,7 +160,7 @@ For a touch or pen contact the mouse cursor is stale, so `_dragOffsetX/Y` is cap
 
 **Fix.** Call `RestorePlacement` — or at least the clamp — from `ShowWidget` unconditionally. Costs nothing and closes the gap.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 6. `ShowWidget` calls `ClampMinimumSize()` on the path where the orientation has not changed, so a widget shown after a display disconnect or rearrangement is re-checked instead of relying on Windows' own relocation.
 
 ---
 

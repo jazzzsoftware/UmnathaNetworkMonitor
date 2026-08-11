@@ -4,9 +4,9 @@
 
 ---
 
-## Status: FIX PHASE IN PROGRESS — batches 1–5 done, 6–9 remaining
+## Status: FIX PHASE IN PROGRESS — batches 1–6 done, 7–9 remaining
 
-All five chunks reviewed and co-reviewed. **50 findings (50 reviewer + 0 user) — 23 fixed, 27 open.** Fix phase in progress: batches 1–5 complete (4 split into 4a and 4b).
+All five chunks reviewed and co-reviewed. **50 findings (50 reviewer + 0 user) — 32 fixed, 18 open.** Fix phase in progress: batches 1–6 complete. Two of the 18 (C2-2, C2-5) are code-complete and awaiting hardware verification, not unstarted.
 
 Co-review ran 2026-08-11, one chunk at a time. **Every finding in all five chunks was confirmed for fixing.** None rejected, none deferred, none marked `won't-fix`, no `U`-IDs added. That includes the findings each report flagged as candidates to close — C1-4, C1-9, C1-10 (not currently reachable) and C4-8 (does not breach the documented rule) — which the user chose to fix anyway.
 
@@ -49,8 +49,8 @@ Chunked by review dimension rather than by subsystem, because the feature is one
 
 | # | Chunk | State | Findings | Actioned |
 |---|-------|-------|----------|----------|
-| 1 | Window lifetime, state & threading | complete · **co-reviewed** · all 10 confirmed | 10 (1 BUG · 4 RISK · 5 CLEANUP) | 7 (C1-1 … C1-4, C1-7, C1-9, C1-10) |
-| 2 | DPI, geometry & multi-monitor | complete · **co-reviewed** · all 11 confirmed | 11 (3 BUG · 3 RISK · 5 CLEANUP) | 0 |
+| 1 | Window lifetime, state & threading | complete · **co-reviewed** · all 10 confirmed | 10 (1 BUG · 4 RISK · 5 CLEANUP) | 9 (all but C1-8) |
+| 2 | DPI, geometry & multi-monitor | complete · **co-reviewed** · all 11 confirmed | 11 (3 BUG · 3 RISK · 5 CLEANUP) | 7 fixed + 2 pending hardware (C2-2, C2-5) |
 | 3 | Traffic data pipeline & concurrency | complete · **co-reviewed** · all 11 confirmed | 11 (2 BUG · 1 RISK · 8 CLEANUP/PERF) | 8 (C3-1 … C3-5, C3-8, C3-9, C3-10) |
 | 4 | Conventions, DB & project hygiene | complete · **co-reviewed** · all 9 confirmed | 9 (0 BUG · 2 RISK · 7 CLEANUP) | 3 (C4-1, C4-2, C4-3) |
 | 5 | Tests & incidentally-touched code | complete · **co-reviewed** · all 9 confirmed | 9 (2 BUG · 5 RISK · 1 PERF · 1 CLEANUP) | 5 (C5-1, C5-2, C5-4, C5-5, C5-8) |
@@ -224,6 +224,26 @@ The destroy path cleaned up what was subscribed by hand, but not what the XAML c
 
 **DB impact: none.** UI lifetime and event wiring only. No entity, column or index touched, so no migration.
 
+## Fix phase — batch 6: geometry (C2-1 … C2-6, C2-8, C2-9, C2-10, C1-5, C1-6)
+
+**2026-08-11. Nine `fixed`, two code-complete but deliberately left `open`. Build x64 clean, 0 warnings. 319/319 tests pass.**
+
+Cross-cutting theme 2 of this review — "geometry is derived from three different heights" — turned out to be one root cause with several faces: nothing said which box it meant, the window box or the visible content. That is now stated once.
+
+- **New `NetworkMonitor.Core/Widget/FrameInsets.cs`** and one `MeasureFrameInsets(scale)` on the window. The insets are measured from DWM, rescaled to the scale being reasoned about, and fall back to the nominal 7 DIP when the query fails **or returns a degenerate frame** — the `visible == outer` case C2-5 identifies, which passed the old non-negative test while silently reinstating the very overhang the expansion exists to remove.
+- **C2-1** — `RestorePlacement` re-reads `GetCurrentScale()` after `MoveAndResize` and re-applies the size at the live scale if it differs from the `GetScaleForPoint` value used to size. Restore and save now agree on which monitor decides. New `ComputeRestoreSize` is the single sizing rule.
+- **C2-3 / C1-6** — `DerivedStripWidth` subtracts the frame from the window height, so it derives the font scale from the same panel height the layout uses.
+- **C2-6** — new `DerivedStripWindowWidth(scale)` adds the horizontal frame when converting the content metric to a window width.
+- **C2-4** — `ClampStripSize` uses `MoveAndResize` holding the bottom and right edges instead of origin-anchored `Resize`.
+- **C1-5** — `ClampMinimumSize`, `SectionsPanelSizeChanged` and `ComputeShowPeak` read `_appliedOrientation`.
+- **C2-8** — dragging requires `PointerDeviceType.Mouse`. **C2-9** — the grab offset rescales mid-drag. **C2-10** — `ShowWidget` re-clamps when the orientation has not changed.
+
+**C2-2 and C2-5 are code-complete and still `open`, on purpose.** Both turn on WinUI's own `WM_DPICHANGED` behaviour, and the DPI *transition* path has still never been walked on real hardware — `8023ffa` was verified on a primary 4K at 200%, where no transition occurs. The C2-1 reconciliation makes the outcome deterministic either way, which is what both findings asked for, but a clean build is not evidence about a code path nobody has executed. They close after the mixed-DPI walkthrough in *Manual verification*, not before.
+
+**C2-11 was not pulled forward, unlike C4-3 in batch 4a.** The comparison was considered and rejected: C4-3 was a verbatim duplicate, so moving it was cheap and made the subsequent fixes testable for free. The placement path is not that — it is entangled with `AppWindow`, `DisplayArea` and DWM interop, so extracting a pure `PlacementMath` is a design task rather than a move, and doing it *while* changing nine behaviours would have made both harder to review. It stays in batch 7, where the arithmetic these fixes introduced (`ComputeRestoreSize`, the inset conversions, the clamp) can be extracted and pinned with the fixes already settled.
+
+**DB impact: none.** Window geometry and pointer handling only. No entity, column or index touched, so no migration.
+
 ## Next step
 
 **Batches 1–3 are done.** C4-1 no longer gates schema work — the baseline exists and is verified, so the next entity change can ship a migration normally (generate it through `Tools/MigrationVerify`, then run that tool).
@@ -232,7 +252,7 @@ Next is **batch 4 — live-chart correctness & always-on cost**: C3-1 with C5-9'
 
 **Batch 4 was split.** 4a (done) took the cluster that shares one code path: C4-3 pulled forward from batch 7, then C3-4, C5-2, C3-1 and — incidentally — C3-3.
 
-**Batches 1–5 are done.** Next is **batch 6 — geometry**, the largest remaining: C2-1, C2-2, C2-3, C2-4, C2-5, C2-6, C2-8, C2-9, C2-10, C1-5, C1-6. C2-1 subsumes C2-2 and half of C2-5; C1-6 is fixed by C2-3. **C2-2 and C2-5 cannot move to `fixed` on a green build** — they need the mixed-DPI multi-monitor walkthrough in *Manual verification*. Then 7 (testability & layering — C4-3 already done, C5-3 and C2-11 remain), 8 (public-repo hygiene), 9 (conventions & docs).
+**Batches 1–6 are done.** Next is **batch 7 — testability & layering**: C2-11 (extract `PlacementMath` into `NetworkMonitor.Core/Widget` and pin the arithmetic batch 6 just settled), C5-3 (move the widget's two filters and the last-section invariant out of `Services` into Core), plus the remaining coverage gaps in `chunk-5-tests-and-peripheral.md`. C4-3 was already done in batch 4a. Then 8 (public-repo hygiene: C5-6, C5-7, C5-9's `int.Parse` item, C4-6) and 9 (conventions & docs: C1-8, C3-6, C3-7, C3-11, C2-7, C4-4, C4-5, C4-7, C4-8, C4-9, C5-9's `_manualResult` item).
 
 
 For each batch: apply the fixes, build x64 (`dotnet build NetworkMonitor.slnx -p:Platform=x64`) with 0 errors, run `dotnet test` green, state the DB impact explicitly even when it is "none", add a `## Fix phase — <name>` entry here recording what changed and why, then commit and push with a subject line the user has approved.
