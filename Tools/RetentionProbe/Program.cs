@@ -25,15 +25,35 @@ if (args.Length < 1)
 }
 
 string dbPath = Path.GetFullPath(args[0]);
-int retentionMinutes = args.Length > 1 ? int.Parse(args[1], CultureInfo.InvariantCulture) : 60;
+int retentionMinutes = 60;
 
-string liveFolder = Path.Combine(
-    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-    "UmnathaNetworkMonitor");
-
-if (dbPath.StartsWith(liveFolder, StringComparison.OrdinalIgnoreCase))
+// A typo produced an unhandled FormatException and a stack trace instead of the usage text.
+if (args.Length > 1 && !int.TryParse(args[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out retentionMinutes))
 {
-    Console.WriteLine($"Refusing to run: {dbPath} is inside the live data folder.");
+    Console.WriteLine($"Not a number: {args[1]}");
+    Console.WriteLine("usage: dotnet run -- <path-to-database-copy.db> [retentionMinutes]");
+
+    return 1;
+}
+
+// This tool is NOT read-only and cannot be made so — issuing DELETE FROM and
+// PRAGMA wal_checkpoint(TRUNCATE) on a read-write connection is its whole purpose. This guard and
+// the warning in the file header are the only protection there is, so it canonicalises both paths
+// and compares whole directory segments.
+//
+// A bare StartsWith was wrong in both directions: "…\UmnathaNetworkMonitorBackup\" was refused
+// although it is a different folder (harmless), and a junction, symbolic link, UNC path or subst
+// drive pointing AT the live folder was accepted (not harmless). GetFullPath with a resolved link
+// target closes the second, which is the one that destroys a user's only copy of their history.
+string liveFolder = ResolveDirectory(Path.Combine(
+    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+    "UmnathaNetworkMonitor"));
+
+string probeFolder = ResolveDirectory(Path.GetDirectoryName(dbPath) ?? dbPath);
+
+if (IsSameOrBeneath(probeFolder, liveFolder))
+{
+    Console.WriteLine($"Refusing to run: {Path.GetFileName(dbPath)} resolves inside the live data folder.");
     Console.WriteLine("This tool deletes rows. Copy the database somewhere else and point at the copy.");
 
     return 1;
@@ -46,7 +66,11 @@ if (!File.Exists(dbPath))
     return 1;
 }
 
-Console.WriteLine($"Database : {dbPath}");
+// File name only. The full path of a copy under a user profile contains their Windows username, and
+// it was the ONE piece of identifying data on stdout — in a diagnostic whose whole purpose is having
+// its output pasted into an issue on a public repo. Everything else printed is row counts, page
+// counts, minute epochs and MB totals: no MACs, IPs, device names or process names.
+Console.WriteLine($"Database : {Path.GetFileName(dbPath)}");
 Console.WriteLine($"Retention: {retentionMinutes} minutes (TrafficTracker ships 60)");
 Console.WriteLine();
 
@@ -119,7 +143,7 @@ reopened.Open();
 
 Console.WriteLine("=== History beyond the raw window ===");
 
-foreach (int hours in new[] { 1, 6, 24 })
+foreach (int hours in new int[] { 1, 6, 24 })
 {
     ReportRollupWindow(reopened, "TrafficRollups", hours, cutoff);
     ReportRollupWindow(reopened, "LocalTrafficRollups", hours, cutoff);
@@ -155,10 +179,16 @@ static void CompareMinutes(SqliteConnection connection, string rawTable, string 
     if (reader.IsDBNull(2))
     {
         Console.WriteLine($"{rawTable,-20} no raw rows to compare");
-
-        return;
+    }
+    else
+    {
+        ReportMinuteComparison(reader, rawTable, rollupTable);
     }
 
+}
+
+static void ReportMinuteComparison(SqliteDataReader reader, string rawTable, string rollupTable)
+{
     long rawMinutes = reader.GetInt64(0);
     long missing = reader.GetInt64(1);
     string from = DateTimeOffset.FromUnixTimeSeconds(reader.GetInt64(2)).UtcDateTime.ToString("HH:mm");
@@ -266,4 +296,44 @@ static void ReportPages(string label, SqliteConnection connection)
 
     Console.WriteLine($"{label} pages: {pageCount,9:N0} total, {freelist,9:N0} free "
         + $"({freelist * pageSize / 1024.0 / 1024.0:N1} MB reusable, page size {pageSize})");
+}
+
+// Resolves a directory to a comparable canonical form: full path, link target followed, trailing
+// separator normalised away. A junction, symbolic link, UNC path or subst drive pointing at the live
+// data folder must not be able to slip past the guard.
+static string ResolveDirectory(string path)
+{
+    string resolved = Path.GetFullPath(path);
+
+    try
+    {
+        DirectoryInfo directory = new DirectoryInfo(resolved);
+
+        if (directory.Exists && directory.LinkTarget is not null)
+        {
+            resolved = Path.GetFullPath(directory.ResolveLinkTarget(true)?.FullName ?? resolved);
+        }
+
+    }
+    catch (Exception)
+    {
+        // An unreadable or malformed path stays as GetFullPath left it; the comparison below then
+        // simply fails to match, which errs towards allowing the run rather than blocking it. The
+        // file-header warning remains the backstop.
+    }
+
+    string trimmed = Path.TrimEndingDirectorySeparator(resolved);
+
+    return trimmed;
+}
+
+// Whole-segment comparison, so "UmnathaNetworkMonitorBackup" is no longer mistaken for a child of
+// "UmnathaNetworkMonitor" — which the old StartsWith refused outright.
+static bool IsSameOrBeneath(string candidate, string ancestor)
+{
+    bool same = string.Equals(candidate, ancestor, StringComparison.OrdinalIgnoreCase);
+    bool beneath = candidate.StartsWith(ancestor + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+    bool inside = same || beneath;
+
+    return inside;
 }

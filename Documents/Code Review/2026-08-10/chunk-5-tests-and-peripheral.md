@@ -104,7 +104,7 @@ Everything else it prints is clean: row counts, page counts, minute epochs, MB t
 
 **Fix.** Print only the file name.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 8. `RetentionProbe` prints `Path.GetFileName(dbPath)` on its report header. The one remaining full-path print is the `No such file:` error, kept deliberately — it fires before any report exists, produces no output anyone would paste into an issue, and showing the resolved path is the entire point of that message.
 
 ---
 
@@ -118,7 +118,7 @@ For the record: **this tool is not read-only and cannot be made so** — issuing
 
 **Fix.** Tighten to a canonicalised comparison using `Path.GetFullPath` and `Path.EndsInDirectorySeparator`.
 
-**Status:** `open`
+**Status:** `fixed` — 2026-08-11, fix-phase batch 8. The guard now canonicalises both paths through a new `ResolveDirectory` — `Path.GetFullPath`, then `DirectoryInfo.ResolveLinkTarget(true)` to follow a junction or symbolic link, then `TrimEndingDirectorySeparator` — and compares whole segments via `IsSameOrBeneath`. Smoke-tested: the live folder is refused, and `UmnathaNetworkMonitorBackup` now gets past the guard, which the old bare `StartsWith` wrongly refused. A path that cannot be resolved is left as `GetFullPath` returned it and therefore fails to match, erring towards allowing the run — the file-header warning stays the backstop, as it always was.
 
 ---
 
@@ -140,7 +140,7 @@ A window with no data never advances `GetLastPeriodEndUtcAsync`, so it stays in 
 - **`Tools/RetentionProbe/Program.cs:28`** — `int.Parse(args[1])` is unguarded; a typo produces an unhandled `FormatException` stack trace instead of the usage text. Use `int.TryParse`.
 - **`LiveRateBuffer.AddInterval` silently drops bytes on a stale flush.** If `endEpoch < _lastEpoch` (a drain arriving after a newer `Add`), `Advance` is a no-op, `firstEpoch` clamps above `endEpoch`, the loop at `:68` produces an empty `bucketStarts`, and `Distribute` returns an empty array. No crash, but the bytes vanish with no diagnostic. Untested. Related to chunk 3's C3-1.
 
-**Status:** `open`
+**Status:** `partially fixed` — 2026-08-11, fix-phase batch 8. The `int.Parse` item is done: `int.TryParse` with an explicit `NumberStyles.Integer` and invariant culture, printing `Not a number: <arg>` plus the usage line instead of an unhandled `FormatException`. The `_manualResult` and `AddInterval`-stale-flush items belong to batch 9 and to C3-1 respectively; the stale-flush case was already closed in batch 4a by the sub-window discontinuity branch.
 
 ---
 

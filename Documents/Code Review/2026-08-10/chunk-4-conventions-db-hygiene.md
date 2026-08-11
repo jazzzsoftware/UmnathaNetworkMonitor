@@ -126,7 +126,9 @@ The same file gets it right eight lines later each time (:1065→1066, :1078→1
 
 Guard clauses in a throwaway CLI are defensible, but CLAUDE.md grants `/Tools/` no exemption from the coding conventions — it exempts it only from being a solution project.
 
-**Status:** `open`
+**Status:** `partially fixed` — 2026-08-11, fix-phase batch 8. Two of the three items are done: `CompareMinutes`' early `return` is gone (the tail moved to a new `ReportMinuteComparison`, so both methods have a single exit), and `:122` is now the explicit `new int[] { 1, 6, 24 }`.
+
+**The four top-level `return 1` guards are deliberately left.** `Program.cs` uses top-level statements, which have no method body to give a single exit — satisfying the rule literally means wrapping ~250 lines of program in a function purely to change where the returns are. CLAUDE.md's single-exit rule is written about methods, and every method in the file now obeys it. Flagged to the user rather than done silently; say the word and the wrapper goes in.
 
 ---
 

@@ -4,9 +4,9 @@
 
 ---
 
-## Status: FIX PHASE IN PROGRESS — batches 1–7 done, 8–9 remaining
+## Status: FIX PHASE IN PROGRESS — batches 1–8 done, batch 9 remaining
 
-All five chunks reviewed and co-reviewed. **50 findings (50 reviewer + 0 user) — 34 fixed, 16 open.** Fix phase in progress: batches 1–7 complete. Two of the 16 (C2-2, C2-5) are code-complete and awaiting hardware verification, not unstarted.
+All five chunks reviewed and co-reviewed. **50 findings (50 reviewer + 0 user) — 37 fixed, 13 open.** Fix phase in progress: batches 1–8 complete. C4-6 and C5-9 are `partially fixed` — see batch 8. Two of the 13 (C2-2, C2-5) are code-complete and awaiting hardware verification, not unstarted.
 
 Co-review ran 2026-08-11, one chunk at a time. **Every finding in all five chunks was confirmed for fixing.** None rejected, none deferred, none marked `won't-fix`, no `U`-IDs added. That includes the findings each report flagged as candidates to close — C1-4, C1-9, C1-10 (not currently reachable) and C4-8 (does not breach the documented rule) — which the user chose to fix anyway.
 
@@ -52,8 +52,8 @@ Chunked by review dimension rather than by subsystem, because the feature is one
 | 1 | Window lifetime, state & threading | complete · **co-reviewed** · all 10 confirmed | 10 (1 BUG · 4 RISK · 5 CLEANUP) | 9 (all but C1-8) |
 | 2 | DPI, geometry & multi-monitor | complete · **co-reviewed** · all 11 confirmed | 11 (3 BUG · 3 RISK · 5 CLEANUP) | 8 fixed + 2 pending hardware (C2-2, C2-5) |
 | 3 | Traffic data pipeline & concurrency | complete · **co-reviewed** · all 11 confirmed | 11 (2 BUG · 1 RISK · 8 CLEANUP/PERF) | 8 (C3-1 … C3-5, C3-8, C3-9, C3-10) |
-| 4 | Conventions, DB & project hygiene | complete · **co-reviewed** · all 9 confirmed | 9 (0 BUG · 2 RISK · 7 CLEANUP) | 3 (C4-1, C4-2, C4-3) |
-| 5 | Tests & incidentally-touched code | complete · **co-reviewed** · all 9 confirmed | 9 (2 BUG · 5 RISK · 1 PERF · 1 CLEANUP) | 6 (C5-1 … C5-5, C5-8) |
+| 4 | Conventions, DB & project hygiene | complete · **co-reviewed** · all 9 confirmed | 9 (0 BUG · 2 RISK · 7 CLEANUP) | 3 fixed + C4-6 partial |
+| 5 | Tests & incidentally-touched code | complete · **co-reviewed** · all 9 confirmed | 9 (2 BUG · 5 RISK · 1 PERF · 1 CLEANUP) | 8 fixed + C5-9 partial |
 
 **50 findings total.** IDs: `C<chunk>-<n>` reviewer, `U<chunk>-<n>` user.
 
@@ -263,6 +263,23 @@ Cross-cutting theme 6 — "what makes the widget *correct* was placed where it c
 
 **DB impact: none.** Code movement between projects plus new tests. No entity, column or index touched, so no migration.
 
+## Fix phase — batch 8: public-repo hygiene (C5-6, C5-7, C5-9 part, C4-6 part)
+
+**2026-08-11. Two `fixed`, two `partially fixed`. Build x64 clean, 0 warnings. 347/347 tests pass. Guard smoke-tested by hand.**
+
+`Tools/RetentionProbe` is a tool that **deletes rows**, in a public repo, whose output is meant to be pasted into issues. Both of those facts had a hole in them.
+
+- **C5-6** — the report header prints `Path.GetFileName(dbPath)`. The full path of a copy under a user profile contains their Windows username, and it was the one piece of identifying data on stdout. The `No such file:` message still prints the full path, deliberately: it fires before any report exists, produces nothing anyone would paste, and showing the resolved path is the entire point of that message.
+- **C5-7** — the delete guard now canonicalises both paths through a new `ResolveDirectory` (`GetFullPath` → `DirectoryInfo.ResolveLinkTarget(true)` → `TrimEndingDirectorySeparator`) and compares whole segments via `IsSameOrBeneath`. A junction, symbolic link, UNC path or `subst` drive pointing at the live folder can no longer slip past. A path that cannot be resolved is left as `GetFullPath` returned it and therefore fails to match — erring towards allowing the run, with the file-header warning as the backstop, exactly as before.
+- **C5-9's `int.Parse`** — `int.TryParse` with explicit `NumberStyles.Integer` and invariant culture; a typo now prints `Not a number: <arg>` and the usage line instead of an unhandled `FormatException`.
+- **C4-6** — `CompareMinutes`' early `return` is gone (its tail moved to a new `ReportMinuteComparison`, so both methods have a single exit) and the implicit `new[]` is now `new int[]`.
+
+**Verified by running it, not by reading it.** Three cases: the live folder is refused and prints only the file name; `UmnathaNetworkMonitorBackup` now gets *past* the guard, which the old bare `StartsWith` wrongly refused; a bad number prints usage rather than a stack trace.
+
+**C4-6 is deliberately not complete, and this is flagged rather than buried.** The four top-level `return 1` guards remain. `Program.cs` uses top-level statements, which have no method body to give a single exit — satisfying the rule literally means wrapping ~250 lines of program in a function purely to move where the returns are. CLAUDE.md's single-exit rule is written about methods, and every method in the file now obeys it. The user's call; the wrapper is a mechanical change if wanted.
+
+**DB impact: none.** A diagnostic tool that is not part of the shipped app, plus its argument handling. No entity, column or index touched, so no migration.
+
 ## Next step
 
 **Batches 1–3 are done.** C4-1 no longer gates schema work — the baseline exists and is verified, so the next entity change can ship a migration normally (generate it through `Tools/MigrationVerify`, then run that tool).
@@ -271,7 +288,7 @@ Next is **batch 4 — live-chart correctness & always-on cost**: C3-1 with C5-9'
 
 **Batch 4 was split.** 4a (done) took the cluster that shares one code path: C4-3 pulled forward from batch 7, then C3-4, C5-2, C3-1 and — incidentally — C3-3.
 
-**Batches 1–7 are done.** Next is **batch 8 — public-repo hygiene**: C5-6 (`RetentionProbe` prints the user's Windows username in a tool whose output is meant to be pasted into a public repo's issues), C5-7 (its delete guard is a bare prefix compare that does not resolve junctions, symlinks, UNC or `subst`), C5-9's unguarded `int.Parse`, and C4-6 (its conventions). Then **batch 9 — conventions & docs**: C1-8, C3-6, C3-7, C3-11, C2-7, C4-4, C4-5, C4-7, C4-8, C4-9, C5-9's `_manualResult` item, plus the remaining coverage-gap items from `chunk-5`.
+**Batches 1–8 are done.** Next is **batch 9 — conventions & docs**, the last: C1-8 (`SettingsViewModel` seeds 6 of 8 mini-graph backing fields), C3-6 (`FlushSpread` and `LiveRateBuffer` disagree on a negative total), C3-7 (the eased trace never reaches the labelled peak), C3-11 (`LiveRateBuffer` has no internal synchronisation and does not say so), C2-7 (the spec claims the 34 DIP peak threshold is unreachable — it is not), C4-4, C4-5, C4-7, C4-8, C4-9 (CLAUDE.md names a canonical XAML reference file that does not exist), C5-9's `_manualResult` item, and the remaining coverage-gap items from `chunk-5`.
 
 
 For each batch: apply the fixes, build x64 (`dotnet build NetworkMonitor.slnx -p:Platform=x64`) with 0 errors, run `dotnet test` green, state the DB impact explicitly even when it is "none", add a `## Fix phase — <name>` entry here recording what changed and why, then commit and push with a subject line the user has approved.
