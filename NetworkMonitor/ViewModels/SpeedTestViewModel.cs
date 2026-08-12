@@ -177,7 +177,7 @@ namespace NetworkMonitor.ViewModels
 
         private void OnPaletteChanged(object? sender, EventArgs args)
         {
-            RebuildSeries();
+            _dispatcherQueue.TryEnqueue(RebuildSeries);
         }
 
         private void ApplySort()
