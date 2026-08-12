@@ -433,7 +433,7 @@ namespace NetworkMonitor.Tests
         }
 
         [Fact]
-        public void AmberIsLoweredForTheLightSurfaceAndRaisedForTheDark()
+        public void AmberIsDarkenedForBothSurfaces()
         {
             double source = OklchColour.ToOklch("#EDA100").Lightness;
             double onLight = OklchColour.ToOklch(PaletteVariant.Derive("#EDA100", ChartSurface.Light)).Lightness;
@@ -1158,10 +1158,29 @@ namespace NetworkMonitor.Charting
             { ChartRole.Selection, "ChartSelectionBrush" }
         };
 
+        private static ChartPaletteService? _palette;
+
         public static void Attach(ChartPaletteService palette)
         {
-            palette.PaletteChanged += (object? sender, EventArgs args) => Apply(palette);
+
+            if (_palette is not null)
+            {
+                _palette.PaletteChanged -= OnPaletteChanged;
+            }
+
+            _palette = palette;
+            _palette.PaletteChanged += OnPaletteChanged;
             Apply(palette);
+        }
+
+        private static void OnPaletteChanged(object? sender, EventArgs args)
+        {
+
+            if (_palette is not null)
+            {
+                Apply(_palette);
+            }
+
         }
 
         private static void Apply(ChartPaletteService palette)
@@ -1519,60 +1538,68 @@ Replace the constructor at lines 25–33:
 
 Add `using NetworkMonitor.Core.Charting;` and `using NetworkMonitor.Services.Charting;` to the using block.
 
-- [ ] **Step 2: Take the hexes from the service**
+- [ ] **Step 2: Retain the plotted values**
+
+A palette change must re-colour without re-querying the database, which means the four `ChartValue` lists have to outlive `LoadAsync`. Add these fields after `_allResults` (line 23):
+
+```csharp
+        private IReadOnlyList<ChartValue> _downloadValues = [];
+        private IReadOnlyList<ChartValue> _uploadValues = [];
+        private IReadOnlyList<ChartValue> _latencyValues = [];
+        private IReadOnlyList<ChartValue> _jitterValues = [];
+```
+
+- [ ] **Step 3: Take the hexes from the service**
 
 Replace lines 116–126:
 
 ```csharp
-            ThroughputSeries = new List<ChartSeries>
-            {
-                new ChartSeries("Download", _chartPalette.ResolveHex(ChartRole.Download), download),
-                new ChartSeries("Upload", _chartPalette.ResolveHex(ChartRole.Upload), upload)
-            };
+            _downloadValues = download;
+            _uploadValues = upload;
+            _latencyValues = latency;
+            _jitterValues = jitter;
 
-            LatencySeries = new List<ChartSeries>
-            {
-                new ChartSeries("Latency", _chartPalette.ResolveHex(ChartRole.Latency), latency),
-                new ChartSeries("Jitter", _chartPalette.ResolveHex(ChartRole.Jitter), jitter)
-            };
+            RebuildSeries();
 ```
 
-- [ ] **Step 3: Rebuild on a palette change**
+- [ ] **Step 4: Rebuild on a palette change**
 
 Add to the Private methods section:
 
 ```csharp
+        private void RebuildSeries()
+        {
+            ThroughputSeries = new List<ChartSeries>
+            {
+                new ChartSeries("Download", _chartPalette.ResolveHex(ChartRole.Download), _downloadValues),
+                new ChartSeries("Upload", _chartPalette.ResolveHex(ChartRole.Upload), _uploadValues)
+            };
+
+            LatencySeries = new List<ChartSeries>
+            {
+                new ChartSeries("Latency", _chartPalette.ResolveHex(ChartRole.Latency), _latencyValues),
+                new ChartSeries("Jitter", _chartPalette.ResolveHex(ChartRole.Jitter), _jitterValues)
+            };
+        }
+
         private void OnPaletteChanged(object? sender, EventArgs args)
         {
-            List<ChartSeries> throughput = ThroughputSeries
-                .Select(series => new ChartSeries(
-                    series.Name,
-                    _chartPalette.ResolveHex(series.Name == "Download" ? ChartRole.Download : ChartRole.Upload),
-                    series.Points))
-                .ToList();
-
-            List<ChartSeries> latency = LatencySeries
-                .Select(series => new ChartSeries(
-                    series.Name,
-                    _chartPalette.ResolveHex(series.Name == "Latency" ? ChartRole.Latency : ChartRole.Jitter),
-                    series.Points))
-                .ToList();
-
-            ThroughputSeries = throughput;
-            LatencySeries = latency;
+            RebuildSeries();
         }
 ```
 
-This re-colours in place rather than re-querying the database, so a scheme change costs no I/O. `ThroughputSeries` and `LatencySeries` are observable properties, so assigning them raises the change notification that makes `SpeedTrendChart` redraw.
+One builder serves both the initial load and every later re-colour, so the role of each series is fixed in one place rather than inferred from its display name. `ThroughputSeries` and `LatencySeries` are observable properties, so assigning them raises the change notification that makes `SpeedTrendChart` redraw.
 
-- [ ] **Step 4: Build and verify**
+`ChartSeries` takes `IReadOnlyList<ChartValue>` for its points, so the fields match its parameter type directly.
+
+- [ ] **Step 5: Build and verify**
 
 Run: `dotnet build NetworkMonitor.slnx -c Debug -p:Platform=x64`
 Expected: build succeeds.
 
 Launch the app, open Speed test. Expected: both charts and all four legend swatches render as before. `ThroughputSeries` (line 55) and `LatencySeries` are already `IReadOnlyList<ChartSeries>` properties backed by `SetProperty`, so assigning a `List<ChartSeries>` to them raises the change notification `SpeedTrendChart` needs.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add NetworkMonitor/ViewModels/SpeedTestViewModel.cs
