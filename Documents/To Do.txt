@@ -202,4 +202,4 @@ Roadmap:
 Done - Auto update
 Done - Floating mini graph.
 Done - Taskbar version of Mini graph
-Chart colour schemes
+Done - Chart colour schemes

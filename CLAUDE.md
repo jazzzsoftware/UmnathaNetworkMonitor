@@ -110,6 +110,9 @@ Solution-folder layout: the five projects are grouped under `/App/` (NetworkMoni
 | `NetworkMonitor.Core/Traffic/LocalFlowClassifier.cs` | `(protocol, remotePort)` → Data/Discovery + service tag (SMB…); single source of the discovery port list (`DiscoverySqlPredicate`) |
 | `NetworkMonitor.Core/Traffic/LocalTrafficGrouper.cs` | Builds the two-level app/device row model + background (discovery) fold |
 | `NetworkMonitor.Core/Traffic/LiveRateBuffer.cs` | Fixed ring of one-second buckets behind the mini graph; zero-fills idle gaps, spreads a flush across its interval |
+| `NetworkMonitor.Core/Charting/PaletteVariant.cs` | Derives a chart colour for the dark or light card surface from one base hex |
+| `NetworkMonitor.Core/Charting/ChartSchemeCatalog.cs` | The five chart colour presets; Classic is the default |
+| `NetworkMonitor.Services/Charting/ChartPaletteService.cs` | Resolved palette per role + `PaletteChanged`; the single source of chart colour |
 | `NetworkMonitor/ViewModels/InternetViewModel.cs` | WAN per-app grid + area chart + live rate badge |
 | `NetworkMonitor/ViewModels/LocalViewModel.cs` | LAN app/device lenses, in-place row reconcile, live rate badge |
 | `NetworkMonitor/Views/LocalPage.xaml` | Local traffic grid (lens toggle, service/discovery/rate chips, drill-down) |
