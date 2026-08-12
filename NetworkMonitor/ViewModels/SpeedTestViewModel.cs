@@ -8,8 +8,10 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.UI.Dispatching;
 using NetworkMonitor.Services.Data;
+using NetworkMonitor.Core.Charting;
 using NetworkMonitor.Models.Charting;
 using NetworkMonitor.Models.SpeedTest;
+using NetworkMonitor.Services.Charting;
 using NetworkMonitor.Services.SpeedTest;
 
 namespace NetworkMonitor.ViewModels
@@ -19,17 +21,24 @@ namespace NetworkMonitor.ViewModels
         private readonly SpeedTestWorker _worker;
         private readonly Settings _settings;
         private readonly IDbContextFactory<AppDbContext> _dbFactory;
+        private readonly ChartPaletteService _chartPalette;
         private readonly DispatcherQueue _dispatcherQueue;
         private List<SpeedTestResult> _allResults = new();
+        private IReadOnlyList<ChartValue> _downloadValues = [];
+        private IReadOnlyList<ChartValue> _uploadValues = [];
+        private IReadOnlyList<ChartValue> _latencyValues = [];
+        private IReadOnlyList<ChartValue> _jitterValues = [];
 
-        public SpeedTestViewModel(SpeedTestWorker worker, Settings settings, IDbContextFactory<AppDbContext> dbFactory)
+        public SpeedTestViewModel(SpeedTestWorker worker, Settings settings, IDbContextFactory<AppDbContext> dbFactory, ChartPaletteService chartPalette)
         {
             _dispatcherQueue = DispatcherQueue.GetForCurrentThread();
             _worker = worker;
             _settings = settings;
             _dbFactory = dbFactory;
+            _chartPalette = chartPalette;
             RunNowCommand = new AsyncRelayCommand(RunNowAsync);
             _worker.SpeedTestCompleted += OnSpeedTestCompleted;
+            _chartPalette.PaletteChanged += OnPaletteChanged;
         }
 
         public ObservableCollection<SpeedTestResult> History
@@ -113,17 +122,12 @@ namespace NetworkMonitor.ViewModels
             List<ChartValue> latency = chartRows.Select(result => new ChartValue(result.LocalTimestamp, result.LatencyMs)).ToList();
             List<ChartValue> jitter = chartRows.Select(result => new ChartValue(result.LocalTimestamp, result.JitterMs)).ToList();
 
-            ThroughputSeries = new List<ChartSeries>
-            {
-                new ChartSeries("Download", "#1976D2", download),
-                new ChartSeries("Upload", "#AB47BC", upload)
-            };
+            _downloadValues = download;
+            _uploadValues = upload;
+            _latencyValues = latency;
+            _jitterValues = jitter;
 
-            LatencySeries = new List<ChartSeries>
-            {
-                new ChartSeries("Latency", "#F57C00", latency),
-                new ChartSeries("Jitter", "#2E7D32", jitter)
-            };
+            RebuildSeries();
 
             Latest = rows.Count > 0 ? rows[^1] : null;
             ApplySort();
@@ -154,6 +158,26 @@ namespace NetworkMonitor.ViewModels
         private void OnSpeedTestCompleted(object? sender, SpeedTestCompletedEventArgs args)
         {
             _dispatcherQueue.TryEnqueue(() => _ = LoadAsync());
+        }
+
+        private void RebuildSeries()
+        {
+            ThroughputSeries = new List<ChartSeries>
+            {
+                new ChartSeries("Download", _chartPalette.ResolveHex(ChartRole.Download), _downloadValues),
+                new ChartSeries("Upload", _chartPalette.ResolveHex(ChartRole.Upload), _uploadValues)
+            };
+
+            LatencySeries = new List<ChartSeries>
+            {
+                new ChartSeries("Latency", _chartPalette.ResolveHex(ChartRole.Latency), _latencyValues),
+                new ChartSeries("Jitter", _chartPalette.ResolveHex(ChartRole.Jitter), _jitterValues)
+            };
+        }
+
+        private void OnPaletteChanged(object? sender, EventArgs args)
+        {
+            RebuildSeries();
         }
 
         private void ApplySort()
