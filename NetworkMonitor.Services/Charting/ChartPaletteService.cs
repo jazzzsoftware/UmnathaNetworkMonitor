@@ -13,6 +13,7 @@ namespace NetworkMonitor.Services.Charting
         private readonly Dictionary<ChartRole, Color> _colours = new Dictionary<ChartRole, Color>();
         private readonly Dictionary<ChartRole, string> _hexes = new Dictionary<ChartRole, string>();
         private ChartSurface _surface = ChartSurface.Dark;
+        private bool _hasUnsavedCustomColours;
 
         // Every current caller raises this on the UI thread — SetSurface from MainWindow's
         // ActualThemeChanged, ApplyScheme/ApplyCustomColour/ResetToDefault from Settings bindings —
@@ -117,15 +118,27 @@ namespace NetworkMonitor.Services.Charting
 
             if (isKnownRole)
             {
+                _hasUnsavedCustomColours = true;
                 Recompute();
                 PaletteChanged?.Invoke(this, EventArgs.Empty);
             }
 
         }
 
+        // Custom colours are applied live but written to disk only at a boundary, because the
+        // ColorPicker is bound TwoWay and fires on every drag tick — saving per tick meant a full
+        // serialize and file move each time. The dirty flag lets every boundary that could be the
+        // last one call this without paying for a redundant write: the flyout closing, and the
+        // settings page unloading, which is what catches a window closed with a picker still open.
         public void SaveCustomColours()
         {
-            _settings.Save();
+
+            if (_hasUnsavedCustomColours)
+            {
+                _hasUnsavedCustomColours = false;
+                _settings.Save();
+            }
+
         }
 
         public void ResetToDefault()

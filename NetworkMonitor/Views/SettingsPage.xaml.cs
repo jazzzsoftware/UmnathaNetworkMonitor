@@ -178,6 +178,10 @@ namespace NetworkMonitor.Views
         private void OnPageUnloaded(object sender, RoutedEventArgs args)
         {
             _miniGraphState.Changed -= OnMiniGraphStateChanged;
+
+            // A colour picker left open when the window closes never raises Flyout.Closed, so this
+            // is the last chance to write a colour the user has already seen applied.
+            ViewModel.SaveCustomColours();
         }
     }
 }
