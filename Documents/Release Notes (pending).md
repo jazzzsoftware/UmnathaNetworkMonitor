@@ -26,15 +26,24 @@ mislabelled as shipped, because nothing unreleased is in the dialog at all.
    (`FontWeight="SemiBold"`, `FontSize="16"`, `Margin="0,12,0,0"`), then one `TextBlock` per bullet
    below it, matching the existing groups.
 3. Move the bullets below into that group and clear the *Next release* section here.
+4. Strike through any `README.md` **Roadmap** entry the release ships, matching the existing
+   `~~**Name** — description.~~ Shipped in vX.Y.Z.` form. The roadmap is only marked shipped at
+   release, never when the work merges, so it stays accurate for whoever reads it between releases.
 
 ## Next release
 
-- New: Chart colour schemes. Settings has a new Theme tab, between Devices and Other, with five
-  colour schemes to choose from — Classic, Horizon, Aurora, Ember and Ocean — plus a Custom option
-  where you pick your own colours by selecting a swatch. The choice applies straight away, across the Internet, Local and
-  Speed test charts, the mini graph widget, the coloured Download/Upload figures in the grids, and
-  the chart legends. Each colour is automatically adjusted to stay readable on both dark and light
-  cards, so a scheme looks right whichever mode you are in. The daily digest report keeps its own
-  fixed colours and is not affected. If you have not changed anything, you may notice the default
-  chart colours are very slightly lighter than before — that is this same readability adjustment
-  applying to the default scheme too.
+- New: Chart colour schemes. Settings has a new **Theme** tab, between Devices and Other, with five
+  schemes to choose from — Classic, Horizon, Aurora, Ember and Ocean — plus **Custom**, where you
+  set each colour yourself by clicking its swatch. The choice applies straight away, across the
+  Internet, Local and Speed test charts, the mini graph widget, the coloured Download and Upload
+  figures in the grids, and the chart legends. Each colour is adjusted automatically to stay
+  readable on both the dark and light card backgrounds, so a scheme looks right whichever Windows
+  mode you are in.
+- New: a preview on the Theme tab draws sample charts in the scheme you have picked, so you can see
+  every colour in context — including the hover line, which on a real chart only appears while you
+  are pointing at it.
+- Changed: the chart hover line now uses your scheme's colour. Previously it was grey while you
+  hovered and only picked up the scheme colour once you clicked a point.
+- Note: the daily digest report keeps its own fixed colours and is not affected by any of this.
+- Note: if you have not changed anything, the default chart colours are very slightly lighter than
+  before. That is the same readability adjustment being applied to the default scheme.

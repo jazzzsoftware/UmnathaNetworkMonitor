@@ -8,7 +8,7 @@
 | Runtime | .NET 10 |
 | MVVM | CommunityToolkit.Mvvm (`ObservableObject`, `[RelayCommand]`) |
 | Data grid | CommunityToolkit.WinUI.UI.Controls.DataGrid 7.x |
-| ORM | EF Core 10 + SQLite (schema currently created by `EnsureCreated`; see [Data model](#data-model)) |
+| ORM | EF Core 10 + SQLite (migrations applied at startup by `DatabaseInitializer`; see [Data model](#data-model)) |
 | DI / hosting | Microsoft.Extensions.Hosting, BackgroundService |
 | Per-process traffic | ETW kernel network provider (Microsoft.Diagnostics.Tracing / TraceEvent) |
 | Chart rendering (reports + widget) | Win2D (Microsoft.Graphics.Canvas) |
@@ -49,6 +49,9 @@ NetworkMonitor.Models/   (class library, net10.0 — referenced by the app AND t
 NetworkMonitor.Core/     (class library, net10.0 — pure, UI-free service logic; referenced by the app AND the tests;
 │                         each sub-folder is its own namespace, e.g. NetworkMonitor.Core.Traffic)
 ├── Charting/            AxisScale — the 1/2/5/10 × 10ⁿ "nice maximum" axis ladder
+│                        Oklch, OklchColour — sRGB ↔ OKLab ↔ OKLCH conversion, gamut reduction, WCAG contrast
+│                        PaletteVariant — base hex + surface → the hex actually drawn
+│                        ChartRole, ChartSurface, ChartPalette, ChartSchemePreset, ChartSchemeCatalog
 ├── Common/              Watchdog (timeout wrapper), CollectionReconciler (in-place list reconcile)
 ├── Csv/                 CsvField, DeviceCsvExporter, DeviceCsvImporter, SpeedTestCsvExporter
 ├── Data/                OuiDatabase — loads oui.txt → MAC prefix → vendor name
@@ -64,9 +67,12 @@ NetworkMonitor.Core/     (class library, net10.0 — pure, UI-free service logic
 
 NetworkMonitor.Services/ (class library, net10.0-windows — background/platform services; UseWinUI for the Win2D
 │                         digest renderer; each sub-folder is its own namespace, e.g. NetworkMonitor.Services.Traffic)
+├── Charting/
+│   └── ChartPaletteService.cs  Singleton: resolves the chosen scheme + surface → a cached Color per role;
+│                               raises PaletteChanged. The single source of chart colour at runtime.
 ├── Data/
-│   ├── AppDbContext.cs       EF Core context; DbPath → LocalApplicationData; schema via EnsureCreated
-│   ├── Settings.cs           Scan, traffic, digest, notification, update, widget and window settings → settings.json
+│   ├── AppDbContext.cs       EF Core context; DbPath → LocalApplicationData; migrations via DatabaseInitializer
+│   ├── Settings.cs           Scan, traffic, digest, notification, update, widget, chart-scheme and window settings → settings.json
 │   ├── SortPreference.cs     Per-page sort state persisted to LocalApplicationData
 │   ├── DatabaseCheckpoint.cs WAL checkpoint (TRUNCATE) on clean exit
 │   └── AppPaths.cs / AtomicFile.cs  App-data folder resolution + atomic file writes
@@ -141,7 +147,7 @@ NetworkMonitor/           (the WinUI app — pure UI shell)
     ├── LocalPage.xaml(.cs)           LAN traffic grid: lens toggle, service/discovery/rate chips, drill-down
     ├── SpeedTestPage.xaml(.cs)       Speed-test tiles, throughput/latency charts and history grid
     ├── ReportsPage.xaml(.cs)         Daily digest viewer + history + PDF/CSV export
-    ├── SettingsPage.xaml(.cs)        Settings form (Traffic / Devices / Other tabs) with sticky Save footer
+    ├── SettingsPage.xaml(.cs)        Settings form (Traffic / Devices / Theme / Other tabs) with sticky Save footer
     └── Controls/
         ├── TrafficAreaChart.xaml(.cs)  Live stacked area chart with smooth scrolling + a compact mode
         ├── MiniTrafficSection.xaml(.cs) One labelled chart cell of the mini graph
@@ -499,7 +505,7 @@ DigestReport
 
 Every table is an EF entity — there is no hand-written DDL, no `CREATE TABLE IF NOT EXISTS` guards and no in-place `ALTER`/rename. WAL mode is enabled on startup. The only raw SQL is the retention `DELETE`s and the per-minute rollup upsert (`INSERT … ON CONFLICT`).
 
-> **Schema changes now require an EF Core migration.** `App.OnLaunched` still calls `EnsureCreatedAsync` — the one remaining such call, and the reason this section used to say "a breaking schema change means deleting the database". That is no longer an acceptable answer: the app is publicly released, so a user's `networkmonitor.db` holds the only copy of their device and traffic history. Every schema change (a new `DbSet`, a new property on an existing entity, a changed key or index) ships a migration in the same commit, and the startup path needs converting from `EnsureCreatedAsync` to `MigrateAsync`. Because v0.0.8-era databases were created by `EnsureCreated` and therefore have no `__EFMigrationsHistory` table, the first migration has to be **baselined** against the existing schema rather than replayed. See the *Database* section of [`CLAUDE.md`](../CLAUDE.md).
+> **Every schema change ships an EF Core migration, in the same commit as the change.** The app is publicly released, so a user's `networkmonitor.db` holds the only copy of their device and traffic history — "delete the database and let it rebuild" is not an acceptable answer to a schema change. `App.OnLaunched` calls `DatabaseInitializer.InitializeAsync`, which baselines and then migrates: a database with application tables but no `__EFMigrationsHistory` (anything created by the pre-migration `EnsureCreated` path) has `InitialCreate` written into the history table as **already applied** rather than replayed onto it, so `MigrateAsync` then applies only what came after. `EnsureCreated` is gone from the app — it is a no-op against an existing file and would silently skip every later migration. Its only remaining uses are in `Tools/MigrationVerify`, which builds v0.0.8-era databases on purpose to prove the baseline path. Migrations live in `NetworkMonitor.Services/Data/Migrations/`. See the *Database* section of [`CLAUDE.md`](../CLAUDE.md).
 
 ## Data retention
 
@@ -529,6 +535,8 @@ The check also carries its own **20-second deadline** (`UpdateService.CheckTimeo
 ## Settings persistence
 
 `Settings` is loaded from `settings.json` at startup (falling back to `appsettings.json` defaults, with subnet auto-detection, if the file does not exist) and registered as a singleton. Settings changes persist **immediately**: `SettingsViewModel` writes the singleton back to `settings.json` on any property change (atomic temp-file + rename via `AtomicFile`). The Settings page Save button re-saves but is redundant. Scan changes take effect on the next scan cycle — no restart required. Window placement (`WindowX/Y/Width/Height`, `WindowMaximized`) is also persisted in `settings.json` and restored on launch, as is the mini graph's per-orientation placement, section selection, opacity, border and orientation, and the per-page state that is set from the page rather than from Settings (`InternetTimeRangeHours`, `LocalTimeRangeHours`, `LocalLens`, `DevicesOnlineOnly`).
+
+The chart scheme is the exception to "writes on any property change". `ChartSchemeId` and the five `ChartCustom*` colours are written by `ChartPaletteService`, not by `PersistAll`, and their view-model properties are excluded from `SettingsViewModel.OnSettingChanged` — that handler is an opt-out list, so anything persisting through its own service has to be named there or it double-writes and raises a second "Settings saved" toast. Picking a scheme saves immediately; a custom colour does not, because the `ColorPicker` is bound `TwoWay` and fires on every drag tick. Those are marked dirty and flushed at a boundary — the picker's flyout closing, or the settings page unloading, which is what catches a window closed with a picker still open.
 
 ## Registry usage
 

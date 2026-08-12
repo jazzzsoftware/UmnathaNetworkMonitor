@@ -32,7 +32,7 @@ The app runs **as administrator** — capturing per-process traffic uses a kerne
 | **Devices** | A host page with four tabs: **Devices** (everything seen in the last 24 hours; amber rows are unknown, with an **Online only** toggle), **Approved** (devices you've identified — set a friendly name, type and notes), **Unapproved** (unknown devices awaiting approval), and **History** (per-device appeared/disappeared log). |
 | **Reports** | The daily digest viewer: see the latest report, browse past reports, generate one on demand, and export to PDF or CSV. |
 | **Speed Test** | The third Traffic tab: internet speed history — run a test on demand or hourly; download/upload throughput (Mb/s & MB/s), latency and jitter shown as charts and a sortable grid, exportable to CSV. |
-| **Settings** | Three tabs — **Traffic**, **Devices** and **Other** — covering scan parameters, traffic and speed-test options, data retention with manual purge buttons, startup, notifications, software updates, the floating mini graph, digest options, diagnostics, a Data folder section, and About / Release Notes. |
+| **Settings** | Four tabs — **Traffic**, **Devices**, **Theme** and **Other** — covering scan parameters, traffic and speed-test options, data retention with manual purge buttons, chart colour schemes, startup, notifications, software updates, the floating mini graph, digest options, diagnostics, a Data folder section, and About / Release Notes. |
 
 ## Traffic monitoring
 
@@ -144,6 +144,30 @@ Settings are split across three tabs.
 | Ping Timeout (ms)         | How long to wait for each ping reply.                                                                                                                    | 150                        |
 | Max Parallel Pings        | Concurrency limit for the ping sweep.                                                                                                                    | 50                         |
 | Purge history older than  | Device events older than this many days are deleted automatically. Set to 0 to disable. **Purge Now** runs it immediately.                                | 30                         |
+
+### Theme
+
+| Setting        | Description                                                                                                                                                                    | Default |
+|----------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------|
+| Colour scheme  | The palette used by every chart. Five presets — **Classic**, **Horizon**, **Aurora**, **Ember** and **Ocean** — plus **Custom**, where you set each of the five colours yourself. | Classic |
+
+The scheme sets five colours: Download, Upload, Latency, Jitter, and the hover line that marks the
+point you are pointing at or have selected. Choosing one applies it immediately across the Internet,
+Local and Speed test charts, the mini graph widget, the coloured Download and Upload figures in the
+grids, and the chart legends — no restart. With **Custom** selected, click any swatch to open a
+colour picker for that role.
+
+Each colour is adjusted automatically for the background it is drawn on, so the same scheme stays
+legible whether Windows is in light or dark mode. That adjustment also applies to Classic, which is
+why the default colours are a touch lighter than in versions before this feature — the originals sat
+just under the contrast floor on the dark card.
+
+A preview beneath the picker draws sample charts in the chosen scheme. It uses made-up data, and
+exists so you can see every colour at once, including the hover line, which on a real chart only
+appears while you point at it.
+
+The daily digest report is deliberately unaffected and keeps its own fixed colours, so an emailed
+report stays readable regardless of the scheme you pick.
 
 ### Other
 
