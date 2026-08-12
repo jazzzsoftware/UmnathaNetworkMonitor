@@ -375,7 +375,7 @@ The procedure (`../code-review-procedure.md` §7) now requires a plan like this 
 
 - **C3-2 — the fix was real but half-done.** Batch 4b added the `SmoothScrolling` dependency property and set it from `MiniGraphWindow`'s **constructor**, matching `InternetPage` and `LocalPage`. But those two are reconstructed on every navigation and the widget is created once and then hidden and shown, and `Settings` has no change notification — so a toggle could never reach the widget again for the life of the session. Manual test: *"Turn smooth chart scrolling OFF"* → mini graph stayed smooth.
 
-  Fixed in two goes. The first applied it on `ShowWidget()` too, matching the pages' "takes effect when the view is next opened" contract — **and the user rejected it on test**: a widget has no natural reopen, so "hide and show it first" is not the setting working. `Settings.ChartSmoothScrolling` is now a hand-written property raising `ChartSmoothScrollingChanged`, which `MiniGraphWindow` subscribes to in its constructor, marshals through `DispatcherQueue.TryEnqueue`, and unsubscribes in `Teardown` next to the `MiniGraphState` and ViewModel handlers so it cannot become the leak C5-5 was. The toggle now lands on the live widget. It is the only setting with a live watcher, and the reason is recorded on the event.
+  Fixed in two goes. The first applied it on `ShowWidget()` too, matching the pages' "takes effect when the view is next opened" contract — **and the user rejected it on test**: a widget has no natural reopen, so "hide and show it first" is not the setting working. `Settings.ChartSmoothScrolling` is now a hand-written property raising `ChartSmoothScrollingChanged`, which `MiniGraphWindow` subscribes to in its constructor, marshals through `DispatcherQueue.TryEnqueue`, and unsubscribes in `Teardown` next to the `MiniGraphState` and ViewModel handlers so it cannot become the leak C5-5 was. The toggle now lands on the live widget. It is the only setting with a live watcher, and the reason is recorded on the event. **Retested on the real app and confirmed:** the charts stop animating the moment the switch goes off and resume when it goes back on, with no hide and show.
 
 ### One `[F]` that is not a defect
 
@@ -391,7 +391,7 @@ The procedure (`../code-review-procedure.md` §7) now requires a plan like this 
 
 ### What is still not tested
 
-**`manual-test-plan.md` Part 8** now collects it in one place: the whole of Part 1 (the second monitor, still the only thing gating the review), the monitor-disconnect and touch-drag checks, the backward clock step, the long-gap spike, the `<0.1` slow-link case, and two retests owed by the fixes above — the tray exit *after a network change*, and turning smooth scrolling off with the widget on screen. Items move back to their own part as they pass, so that list only shrinks. The strip-height retest has already passed and moved.
+**`manual-test-plan.md` Part 8** now collects it in one place: the whole of Part 1 (the second monitor, still the only thing gating the review), the monitor-disconnect and touch-drag checks, the backward clock step, the long-gap spike, the `<0.1` slow-link case, and one retest owed by the fixes above — the tray exit *after a network change*, which is the path that armed the throw. Items move back to their own part as they pass, so that list only shrinks; the strip-height and smooth-scrolling retests have both passed and moved.
 
 ## Next step
 

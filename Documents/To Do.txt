@@ -198,7 +198,8 @@ Testing - Documents/Code Review/2026-08-10/manual-test-plan.md
     Part 1 needs a second monitor at a different scale factor - it is the only
     thing still holding the 2026-08-10 review open (C2-2, C2-5).
     Plus monitor disconnect, touch drag, backward clock step, long-gap spike,
-    the <0.1 slow-link case, and 2 retests of the fixes.
+    the <0.1 slow-link case, and 1 retest of the fixes (tray exit after a
+    network change).
 
 
 Github:

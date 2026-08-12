@@ -19,7 +19,7 @@ Marks: `[P]` passed · `[F]` failed · `[Done]` done · `[ ]` not run. Everythin
 | 1 | **New** — the horizontal strip grows taller on every orientation switch | Fixed, **retested and confirmed** — the strip now holds its position and height across switches. `SaveCurrentPlacement` stored the *window* height into `MiniGraphStripHeight`, which every reader treats as the *panel* height and adds the frame back onto, so each save/restore round trip fed the frame in twice — ~7 DIP per switch until `ClampHeight` pinned it at 120. Now converts through `PlacementMath.PanelHeightInDips` first |
 | 2 | **New** — `The CancellationTokenSource has been disposed`, `ScanWorker:56`, on tray Exit | Fixed. `ScanWorker` is registered twice (`AddSingleton` + an `AddHostedService` factory resolving that same singleton), so the container disposes the one instance twice; the second `Cancel()` threw. `Dispose` is now idempotent, matching `TrayIconService` and `TaskbarTopmostGuard` |
 | 3 | Part 3 `[F]` — the peak is still shown at the smallest strip height | **C2-7 withdrawn.** The finding was wrong and its batch-9 "fix" made the docs worse. `ClampHeight` floors the *panel* at 40 against a 34 threshold, so the peak is shown at every height that can be dragged to — exactly as the spec said before C2-7 rewrote it. Spec, code comment and coverage note reverted; two tests pin it |
-| 4 | Part 4 `[F]` — the mini graph ignores smooth-scrolling | **C3-2 reopened and completed.** Batch 4b wired the property correctly but read it once in the constructor; the widget is created once and then hidden and shown, so a toggle could never reach it again. A first fix re-read it on show and was rejected on test — a widget has no natural reopen. `Settings` now raises a change event the widget subscribes to, so the toggle lands live |
+| 4 | Part 4 `[F]` — the mini graph ignores smooth-scrolling | **C3-2 reopened and completed. Retested and confirmed** — the toggle now lands on the live widget, no hide and show. Batch 4b wired the property correctly but read it once in the constructor; the widget is created once and then hidden and shown, so a toggle could never reach it again. A first fix re-read it on show and was rejected on test — a widget has no natural reopen. `Settings` now raises a change event the widget subscribes to |
 | 5 | Part 5 `[F]` — Internet and Local read 8 b/s and 1 B/s with the internet disconnected | **Not a defect** — user's call, left as is. Those are the traffic lines, not the speed line Part 5 is about, and a few b/s of retried DNS, ARP and mDNS with the cable out is real traffic being reported honestly |
 
 **Parts 2 through 7 are now complete and all pass.** Part 7's three command-line checks were run by Claude; its two log checks by the user. What is left is in Part 8 — chiefly Part 1, which needs a second display.
@@ -100,7 +100,7 @@ Not reachable by any test. C1-1, C1-2 and C5-4 are all timing windows, so repeti
 - [P] Navigate away from the Internet tab, wait **five minutes**, then come back. **Expected: the chart shows history and normal traffic — no uniform raised "floor" across the whole width** (C5-2, the phantom baseline).
 - [P] Do the same on the Local tab.
 - [P] Sit on the **24h** range for a couple of minutes, then switch to **5m**. **Expected: same — no phantom floor.**
-- [F→fixed] Turn **Settings → smooth chart scrolling OFF**. Mini graph stayed smooth. C3-2 reopened and completed — the setting was read once in the constructor of a window that is never reconstructed, and a first fix that re-read it on show was rejected on test as still not the setting working. `Settings` now raises a change event the widget subscribes to. **Retest:** with the widget on screen, turn it off; the charts must stop animating **without hiding and showing it**. Worth checking battery/CPU with it off if you use the widget all day.
+- [F→fixed, retested P] Turn **Settings → smooth chart scrolling OFF**. Mini graph stayed smooth. C3-2 reopened and completed — the setting was read once in the constructor of a window that is never reconstructed, and a first fix that re-read it on show was rejected on test as still not the setting working. `Settings` now raises a change event the widget subscribes to. **Retested 2026-08-12 and passed:** with the widget on screen the charts stop animating the moment the switch is turned off, and resume when it is turned back on — no hide and show. Worth checking battery/CPU with it off if you use the widget all day.
 
 ---
 
@@ -163,7 +163,8 @@ Nothing here has failed. It is the work the 2026-08-12 run could not reach — m
 ### Retests owed by the 2026-08-12 fixes
 
 - [ ] Let the app run through at least one network change (or toggle Wi-Fi off and on), then exit from the tray. **Expected: no error dialog.** The plain tray exit already passes in Part 7; what is untested is the path that arms `_networkChangeCts`, which is the only one that ever threw.
-- [ ] With the widget on screen, turn smooth chart scrolling off. **Expected: the charts stop animating immediately, with no hide and show.** Then turn it back on and confirm they resume.
+
+The strip-height and smooth-scrolling retests have both passed and moved back to Parts 2 and 4.
 
 ---
 
