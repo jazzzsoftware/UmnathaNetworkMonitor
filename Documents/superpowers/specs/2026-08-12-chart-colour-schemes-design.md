@@ -101,7 +101,7 @@ Five, each authoring one base colour per role. ΔE figures are the download↔up
 | Preset | Download | Upload | Latency | Jitter | Selection | ΔE |
 |---|---|---|---|---|---|---|
 | **Classic** (default) | `#1976D2` | `#AB47BC` | `#F57C00` | `#2E7D32` | `#F57C00` | 6.5 |
-| **Contrast** | `#2a78d6` | `#eb6834` | `#eda100` | `#1baf7a` | `#e87ba4` | 24.7 |
+| **Horizon** | `#2a78d6` | `#eb6834` | `#eda100` | `#1baf7a` | `#e87ba4` | 24.7 |
 | **Aurora** | `#1baf7a` | `#7c5cdb` | `#eda100` | `#2a78d6` | `#eb6834` | 24.1 |
 | **Ember** | `#e34948` | `#eda100` | `#7c5cdb` | `#1baf7a` | `#2a78d6` | 15.3 |
 | **Ocean** | `#6ea8e8` | `#1c5fa8` | `#eda100` | `#1baf7a` | `#eb6834` | 23.4 |

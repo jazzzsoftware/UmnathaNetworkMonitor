@@ -560,105 +560,13 @@
                             <StackPanel
                                 Spacing="4">
 
-                                <Rectangle
-                                    Width="44"
-                                    Height="20"
-                                    Fill="{StaticResource ChartDownloadBrush}"
-                                    RadiusX="3"
-                                    RadiusY="3" />
-
-                                <TextBlock
-                                    Text="Download"
-                                    FontSize="11"
-                                    Opacity="0.65" />
-
-                            </StackPanel>
-
-                            <StackPanel
-                                Spacing="4">
-
-                                <Rectangle
-                                    Width="44"
-                                    Height="20"
-                                    Fill="{StaticResource ChartUploadBrush}"
-                                    RadiusX="3"
-                                    RadiusY="3" />
-
-                                <TextBlock
-                                    Text="Upload"
-                                    FontSize="11"
-                                    Opacity="0.65" />
-
-                            </StackPanel>
-
-                            <StackPanel
-                                Spacing="4">
-
-                                <Rectangle
-                                    Width="44"
-                                    Height="20"
-                                    Fill="{StaticResource ChartLatencyBrush}"
-                                    RadiusX="3"
-                                    RadiusY="3" />
-
-                                <TextBlock
-                                    Text="Latency"
-                                    FontSize="11"
-                                    Opacity="0.65" />
-
-                            </StackPanel>
-
-                            <StackPanel
-                                Spacing="4">
-
-                                <Rectangle
-                                    Width="44"
-                                    Height="20"
-                                    Fill="{StaticResource ChartJitterBrush}"
-                                    RadiusX="3"
-                                    RadiusY="3" />
-
-                                <TextBlock
-                                    Text="Jitter"
-                                    FontSize="11"
-                                    Opacity="0.65" />
-
-                            </StackPanel>
-
-                            <StackPanel
-                                Spacing="4">
-
-                                <Rectangle
-                                    Width="44"
-                                    Height="20"
-                                    Fill="{StaticResource ChartSelectionBrush}"
-                                    RadiusX="3"
-                                    RadiusY="3" />
-
-                                <TextBlock
-                                    Text="Hover"
-                                    FontSize="11"
-                                    Opacity="0.65" />
-
-                            </StackPanel>
-
-                        </StackPanel>
-
-                        <StackPanel
-                            Spacing="8"
-                            Visibility="{x:Bind ViewModel.IsCustomScheme, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
-
-                            <TextBlock
-                                Text="Custom colours"
-                                FontSize="12"
-                                Opacity="0.65" />
-
-                            <StackPanel
-                                Orientation="Horizontal"
-                                Spacing="8">
-
                                 <Button
-                                    Content="Download">
+                                    Padding="3"
+                                    MinWidth="0"
+                                    MinHeight="0"
+                                    CornerRadius="4"
+                                    ToolTipService.ToolTip="Choose the Download colour"
+                                    IsHitTestVisible="{x:Bind ViewModel.IsCustomScheme, Mode=OneWay}">
 
                                     <Button.Flyout>
 
@@ -675,10 +583,32 @@
 
                                     </Button.Flyout>
 
+                                    <Rectangle
+                                        Width="44"
+                                        Height="20"
+                                        Fill="{StaticResource ChartDownloadBrush}"
+                                        RadiusX="3"
+                                        RadiusY="3" />
+
                                 </Button>
 
+                                <TextBlock
+                                    Text="Download"
+                                    FontSize="11"
+                                    Opacity="0.65" />
+
+                            </StackPanel>
+
+                            <StackPanel
+                                Spacing="4">
+
                                 <Button
-                                    Content="Upload">
+                                    Padding="3"
+                                    MinWidth="0"
+                                    MinHeight="0"
+                                    CornerRadius="4"
+                                    ToolTipService.ToolTip="Choose the Upload colour"
+                                    IsHitTestVisible="{x:Bind ViewModel.IsCustomScheme, Mode=OneWay}">
 
                                     <Button.Flyout>
 
@@ -695,10 +625,32 @@
 
                                     </Button.Flyout>
 
+                                    <Rectangle
+                                        Width="44"
+                                        Height="20"
+                                        Fill="{StaticResource ChartUploadBrush}"
+                                        RadiusX="3"
+                                        RadiusY="3" />
+
                                 </Button>
 
+                                <TextBlock
+                                    Text="Upload"
+                                    FontSize="11"
+                                    Opacity="0.65" />
+
+                            </StackPanel>
+
+                            <StackPanel
+                                Spacing="4">
+
                                 <Button
-                                    Content="Latency">
+                                    Padding="3"
+                                    MinWidth="0"
+                                    MinHeight="0"
+                                    CornerRadius="4"
+                                    ToolTipService.ToolTip="Choose the Latency colour"
+                                    IsHitTestVisible="{x:Bind ViewModel.IsCustomScheme, Mode=OneWay}">
 
                                     <Button.Flyout>
 
@@ -715,16 +667,32 @@
 
                                     </Button.Flyout>
 
+                                    <Rectangle
+                                        Width="44"
+                                        Height="20"
+                                        Fill="{StaticResource ChartLatencyBrush}"
+                                        RadiusX="3"
+                                        RadiusY="3" />
+
                                 </Button>
+
+                                <TextBlock
+                                    Text="Latency"
+                                    FontSize="11"
+                                    Opacity="0.65" />
 
                             </StackPanel>
 
                             <StackPanel
-                                Orientation="Horizontal"
-                                Spacing="8">
+                                Spacing="4">
 
                                 <Button
-                                    Content="Jitter">
+                                    Padding="3"
+                                    MinWidth="0"
+                                    MinHeight="0"
+                                    CornerRadius="4"
+                                    ToolTipService.ToolTip="Choose the Jitter colour"
+                                    IsHitTestVisible="{x:Bind ViewModel.IsCustomScheme, Mode=OneWay}">
 
                                     <Button.Flyout>
 
@@ -741,10 +709,32 @@
 
                                     </Button.Flyout>
 
+                                    <Rectangle
+                                        Width="44"
+                                        Height="20"
+                                        Fill="{StaticResource ChartJitterBrush}"
+                                        RadiusX="3"
+                                        RadiusY="3" />
+
                                 </Button>
 
+                                <TextBlock
+                                    Text="Jitter"
+                                    FontSize="11"
+                                    Opacity="0.65" />
+
+                            </StackPanel>
+
+                            <StackPanel
+                                Spacing="4">
+
                                 <Button
-                                    Content="Hover line">
+                                    Padding="3"
+                                    MinWidth="0"
+                                    MinHeight="0"
+                                    CornerRadius="4"
+                                    ToolTipService.ToolTip="Choose the hover line colour"
+                                    IsHitTestVisible="{x:Bind ViewModel.IsCustomScheme, Mode=OneWay}">
 
                                     <Button.Flyout>
 
@@ -761,17 +751,30 @@
 
                                     </Button.Flyout>
 
+                                    <Rectangle
+                                        Width="44"
+                                        Height="20"
+                                        Fill="{StaticResource ChartSelectionBrush}"
+                                        RadiusX="3"
+                                        RadiusY="3" />
+
                                 </Button>
+
+                                <TextBlock
+                                    Text="Hover"
+                                    FontSize="11"
+                                    Opacity="0.65" />
 
                             </StackPanel>
 
-                            <TextBlock
-                                Text="Each colour is adjusted automatically for the light and dark card backgrounds, so it always stays readable."
-                                FontSize="12"
-                                Opacity="0.65"
-                                TextWrapping="Wrap" />
-
                         </StackPanel>
+
+                        <TextBlock
+                            Text="Select a swatch to choose that colour. Each one is adjusted automatically for the light and dark card backgrounds, so it always stays readable."
+                            FontSize="12"
+                            Opacity="0.65"
+                            TextWrapping="Wrap"
+                            Visibility="{x:Bind ViewModel.IsCustomScheme, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
 
                         <Button
                             Content="Reset to Classic"

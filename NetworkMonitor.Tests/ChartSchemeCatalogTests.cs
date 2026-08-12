@@ -42,7 +42,7 @@ namespace NetworkMonitor.Tests
         {
             string[] result = ChartSchemeCatalog.Presets.Select(preset => preset.Id).ToArray();
 
-            Assert.Equal(new[] { "classic", "contrast", "aurora", "ember", "ocean" }, result);
+            Assert.Equal(new[] { "classic", "horizon", "aurora", "ember", "ocean" }, result);
         }
 
         [Fact]

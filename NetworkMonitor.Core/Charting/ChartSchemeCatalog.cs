@@ -16,8 +16,8 @@ namespace NetworkMonitor.Core.Charting
                 "Classic",
                 new ChartPalette("#1976D2", "#AB47BC", "#F57C00", "#2E7D32", "#F57C00")),
             new ChartSchemePreset(
-                "contrast",
-                "Contrast",
+                "horizon",
+                "Horizon",
                 new ChartPalette("#2A78D6", "#EB6834", "#EDA100", "#1BAF7A", "#E87BA4")),
             new ChartSchemePreset(
                 "aurora",

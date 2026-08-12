@@ -488,6 +488,7 @@ namespace NetworkMonitor.ViewModels
                         : ChartSchemeCatalog.CustomSchemeId;
                     _chartPalette.ApplyScheme(schemeId);
                     OnPropertyChanged(nameof(IsCustomScheme));
+                    NotifyCustomColoursChanged();
                 }
 
             }
@@ -500,7 +501,7 @@ namespace NetworkMonitor.ViewModels
             get => ColourForRole(ChartRole.Download);
             set
             {
-                SetCustomColour(ChartRole.Download, value, nameof(CustomDownloadColour));
+                SetCustomColour(ChartRole.Download, value);
             }
         }
 
@@ -509,7 +510,7 @@ namespace NetworkMonitor.ViewModels
             get => ColourForRole(ChartRole.Upload);
             set
             {
-                SetCustomColour(ChartRole.Upload, value, nameof(CustomUploadColour));
+                SetCustomColour(ChartRole.Upload, value);
             }
         }
 
@@ -518,7 +519,7 @@ namespace NetworkMonitor.ViewModels
             get => ColourForRole(ChartRole.Latency);
             set
             {
-                SetCustomColour(ChartRole.Latency, value, nameof(CustomLatencyColour));
+                SetCustomColour(ChartRole.Latency, value);
             }
         }
 
@@ -527,7 +528,7 @@ namespace NetworkMonitor.ViewModels
             get => ColourForRole(ChartRole.Jitter);
             set
             {
-                SetCustomColour(ChartRole.Jitter, value, nameof(CustomJitterColour));
+                SetCustomColour(ChartRole.Jitter, value);
             }
         }
 
@@ -536,7 +537,7 @@ namespace NetworkMonitor.ViewModels
             get => ColourForRole(ChartRole.Selection);
             set
             {
-                SetCustomColour(ChartRole.Selection, value, nameof(CustomSelectionColour));
+                SetCustomColour(ChartRole.Selection, value);
             }
         }
 
@@ -627,6 +628,7 @@ namespace NetworkMonitor.ViewModels
             _chartPalette.ResetToDefault();
             ChartSchemeIndex = IndexForSchemeId(ChartSchemeCatalog.DefaultSchemeId);
             OnPropertyChanged(nameof(IsCustomScheme));
+            NotifyCustomColoursChanged();
         }
 
         public void SaveCustomColours()
@@ -736,17 +738,38 @@ namespace NetworkMonitor.ViewModels
             return result;
         }
 
-        private void SetCustomColour(ChartRole role, Color colour, string propertyName)
+        // Deliberately does NOT raise PropertyChanged for the property being set. These five
+        // properties are the target of a TwoWay x:Bind from a ColorPicker, so notifying the
+        // property the binding is currently writing pushes the value straight back into the
+        // picker, which re-raises its own change, which re-enters this method — an unbounded
+        // source→target→source cycle that overflowed the stack inside the PaletteChanged
+        // fan-out. The picker already holds the value it just sent; it needs no echo. When the
+        // base palette changes from somewhere else, NotifyCustomColoursChanged does the refresh.
+        private void SetCustomColour(ChartRole role, Color colour)
         {
-            string hex = string.Format(
-                CultureInfo.InvariantCulture,
-                "#{0:X2}{1:X2}{2:X2}",
-                colour.R,
-                colour.G,
-                colour.B);
+            Color current = ColourForRole(role);
 
-            _chartPalette.ApplyCustomColour(role, hex);
-            OnPropertyChanged(propertyName);
+            if (current.R != colour.R || current.G != colour.G || current.B != colour.B)
+            {
+                string hex = string.Format(
+                    CultureInfo.InvariantCulture,
+                    "#{0:X2}{1:X2}{2:X2}",
+                    colour.R,
+                    colour.G,
+                    colour.B);
+
+                _chartPalette.ApplyCustomColour(role, hex);
+            }
+
+        }
+
+        private void NotifyCustomColoursChanged()
+        {
+            OnPropertyChanged(nameof(CustomDownloadColour));
+            OnPropertyChanged(nameof(CustomUploadColour));
+            OnPropertyChanged(nameof(CustomLatencyColour));
+            OnPropertyChanged(nameof(CustomJitterColour));
+            OnPropertyChanged(nameof(CustomSelectionColour));
         }
     }
 }
