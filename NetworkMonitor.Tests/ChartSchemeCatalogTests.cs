@@ -8,6 +8,40 @@ namespace NetworkMonitor.Tests
 {
     public class ChartSchemeCatalogTests
     {
+        // OKLab Euclidean distance x100. 15 is the floor below which two colours are hard to tell
+        // apart even with full colour vision. Contrast against the surface is a separate gate and
+        // does not imply this one: Ocean once passed contrast on both surfaces while its two blues
+        // collapsed to 10.9 on dark, because the band ceiling pulled one down while the contrast
+        // floor pushed the other up.
+        private const double MinimumSeparation = 15.0;
+
+        public static IEnumerable<object[]> EverySharedChartPairAndSurface()
+        {
+
+            foreach (ChartSchemePreset preset in ChartSchemeCatalog.Presets)
+            {
+                yield return new object[] { preset.Id, ChartRole.Download, ChartRole.Upload, ChartSurface.Dark };
+                yield return new object[] { preset.Id, ChartRole.Download, ChartRole.Upload, ChartSurface.Light };
+                yield return new object[] { preset.Id, ChartRole.Latency, ChartRole.Jitter, ChartSurface.Dark };
+                yield return new object[] { preset.Id, ChartRole.Latency, ChartRole.Jitter, ChartSurface.Light };
+            }
+
+        }
+
+        [Theory]
+        [MemberData(nameof(EverySharedChartPairAndSurface))]
+        public void SeriesThatShareAChartStayDistinguishable(string presetId, ChartRole firstRole, ChartRole secondRole, ChartSurface surface)
+        {
+            ChartSchemePreset preset = ChartSchemeCatalog.Resolve(presetId);
+            string firstHex = PaletteVariant.Derive(preset.Palette.ForRole(firstRole), surface);
+            string secondHex = PaletteVariant.Derive(preset.Palette.ForRole(secondRole), surface);
+            double separation = Separation(firstHex, secondHex);
+
+            Assert.True(
+                separation >= MinimumSeparation,
+                $"{presetId} {firstRole}/{secondRole} on {surface} derived to {firstHex} and {secondHex}, only {separation:F1} apart");
+        }
+
         public static IEnumerable<object[]> EveryPresetRoleAndSurface()
         {
 
@@ -115,5 +149,19 @@ namespace NetworkMonitor.Tests
             Assert.Equal("#444444", result.Jitter);
             Assert.Equal("#555555", result.Selection);
         }
+
+        private static double Separation(string oneHex, string otherHex)
+        {
+            Oklch first = OklchColour.ToOklch(oneHex);
+            Oklch second = OklchColour.ToOklch(otherHex);
+
+            double lightnessGap = first.Lightness - second.Lightness;
+            double aGap = Math.Cos(first.Hue) * first.Chroma - Math.Cos(second.Hue) * second.Chroma;
+            double bGap = Math.Sin(first.Hue) * first.Chroma - Math.Sin(second.Hue) * second.Chroma;
+            double result = Math.Sqrt(lightnessGap * lightnessGap + aGap * aGap + bGap * bGap) * 100.0;
+
+            return result;
+        }
+
     }
 }

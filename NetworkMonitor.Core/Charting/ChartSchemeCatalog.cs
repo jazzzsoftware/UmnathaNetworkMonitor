@@ -30,7 +30,7 @@ namespace NetworkMonitor.Core.Charting
             new ChartSchemePreset(
                 "ocean",
                 "Ocean",
-                new ChartPalette("#6EA8E8", "#1C5FA8", "#EDA100", "#1BAF7A", "#EB6834"))
+                new ChartPalette("#2FC8CE", "#3358C0", "#EDA100", "#1BAF7A", "#EB6834"))
         };
 
         public static IReadOnlyList<ChartSchemePreset> Presets => _presets;

@@ -58,10 +58,10 @@
 
         <Line
             x:Name="CrosshairLine"
-            Stroke="{ThemeResource TextFillColorPrimaryBrush}"
-            StrokeThickness="1"
-            StrokeDashArray="4,3"
-            Opacity="0.35"
+            Stroke="{StaticResource ChartSelectionBrush}"
+            StrokeThickness="1.5"
+            StrokeDashArray="2,2"
+            Opacity="0.8"
             IsHitTestVisible="False"
             Visibility="Collapsed" />
 

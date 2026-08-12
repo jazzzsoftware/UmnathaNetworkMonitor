@@ -104,13 +104,15 @@ Five, each authoring one base colour per role. ΔE figures are the download↔up
 | **Horizon** | `#2a78d6` | `#eb6834` | `#eda100` | `#1baf7a` | `#e87ba4` | 24.7 |
 | **Aurora** | `#1baf7a` | `#7c5cdb` | `#eda100` | `#2a78d6` | `#eb6834` | 24.1 |
 | **Ember** | `#e34948` | `#eda100` | `#7c5cdb` | `#1baf7a` | `#2a78d6` | 15.3 |
-| **Ocean** | `#6ea8e8` | `#1c5fa8` | `#eda100` | `#1baf7a` | `#eb6834` | 23.4 |
+| **Ocean** | `#2fc8ce` | `#3358c0` | `#eda100` | `#1baf7a` | `#eb6834` | 30.0 |
 
 Classic remains the default and keeps its hues, but the derivation lifts each of its five roles slightly on the dark card: the legacy hexes measured 2.99:1 against `#2D2D2D`, just under the 3:1 floor, so `#1976D2`→`#227CD9`, `#AB47BC`→`#B24DC3`, `#F57C00`→`#E07311` and `#2E7D32`→`#3B893E`. On the light card, Latency and Selection also move, to `#E37200`. Every existing user therefore sees a very slightly lighter Classic palette on upgrade — the trade-off is that every chart now clears the contrast floor, including for users who never open Settings.
 
 Selection is authored per preset so the hover line never collides with that preset's series hues. In Ember, amber is taken by Upload, so selection moves to blue.
 
-Download and Upload are the only two series that ever share a chart. `SpeedTestPage` renders Latency on its own `SpeedTrendChart` instance, and the Latency↔Jitter pairing occurs only in the digest, which is fixed. Latency and Jitter therefore need to pass the per-colour band and contrast gates, not the pair separation gate.
+Two pairs share a chart and both must stay distinguishable: Download↔Upload on the traffic charts, and Latency↔Jitter, which `SpeedTestViewModel` puts in the same `LatencySeries` and so on the same `SpeedTrendChart`. Selection never shares an axis with a series, so it needs only the per-colour band and contrast gates.
+
+**Ocean was originally monochrome — one hue in two lightness steps — and that could not work.** On the dark card the band ceiling pulls Download down to L 0.670 while the 3:1 contrast floor pushes Upload up from L 0.484 to 0.564, leaving a usable window of roughly L 0.56–0.67. A base separation of 0.19 collapsed to 0.106, and the two blues derived to `#6099D8` and `#3677C2` — only ΔE 10.9 apart, below the 15 floor at which colours are hard to tell apart even with full colour vision. Contrast passed on both surfaces throughout; the two gates are independent. Ocean is now a cyan-to-blue pair, so it separates on hue and chroma as well as lightness, which is the only way to clear the floor inside that window.
 
 ## Settings
 
@@ -144,7 +146,8 @@ Naming the tab Theme rather than "Chart colours" leaves the obvious home for a f
 
 - `OklchColour` round-trips: hex → OKLCH → hex within a tolerance, across a spread of hues and both extremes.
 - `PaletteVariant.Derive` holds hue within a small epsilon while moving lightness.
-- **Every preset × every role × both surfaces clears 3:1 contrast against its surface constant.** This is the test that stops a preset shipping unreadable, and it is the reason the derivation lives in Core rather than in the view.
+- **Every preset × every role × both surfaces clears 3:1 contrast against its surface constant.** This is the test that stops a preset shipping invisible, and it is the reason the derivation lives in Core rather than in the view.
+- **Every preset × both shared-chart pairs × both surfaces stays at least 15 apart** in OKLab distance ×100, measured on the *derived* values. Contrast does not imply separation — Ocean passed every contrast case while its two blues collapsed to 10.9 on dark — so this is a second, independent gate. Without it a preset can ship readable against the background and still be unreadable against itself.
 - Derived L lands inside the target band, or at its edge where the contrast loop stopped early.
 - Gamut: no derived value has a channel outside `[0, 1]`.
 - `ChartSchemeCatalog` falls back to Classic for an unknown or empty id, covering a hand-edited `settings.json`.
