@@ -428,6 +428,7 @@ namespace NetworkMonitor.Views.Controls
 
             if (!_paletteHooked)
             {
+                ReadPaletteColours();
                 _palette.PaletteChanged += OnPaletteChanged;
                 _paletteHooked = true;
             }

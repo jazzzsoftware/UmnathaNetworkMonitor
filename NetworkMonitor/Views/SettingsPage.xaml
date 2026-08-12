@@ -662,7 +662,8 @@
 
                                     <Button.Flyout>
 
-                                        <Flyout>
+                                        <Flyout
+                                            Closed="ChartColourFlyoutClosed">
 
                                             <ColorPicker
                                                 IsAlphaEnabled="False"
@@ -681,7 +682,8 @@
 
                                     <Button.Flyout>
 
-                                        <Flyout>
+                                        <Flyout
+                                            Closed="ChartColourFlyoutClosed">
 
                                             <ColorPicker
                                                 IsAlphaEnabled="False"
@@ -700,7 +702,8 @@
 
                                     <Button.Flyout>
 
-                                        <Flyout>
+                                        <Flyout
+                                            Closed="ChartColourFlyoutClosed">
 
                                             <ColorPicker
                                                 IsAlphaEnabled="False"
@@ -725,7 +728,8 @@
 
                                     <Button.Flyout>
 
-                                        <Flyout>
+                                        <Flyout
+                                            Closed="ChartColourFlyoutClosed">
 
                                             <ColorPicker
                                                 IsAlphaEnabled="False"
@@ -744,7 +748,8 @@
 
                                     <Button.Flyout>
 
-                                        <Flyout>
+                                        <Flyout
+                                            Closed="ChartColourFlyoutClosed">
 
                                             <ColorPicker
                                                 IsAlphaEnabled="False"

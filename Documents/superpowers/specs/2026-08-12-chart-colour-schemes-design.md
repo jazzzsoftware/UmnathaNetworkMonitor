@@ -106,7 +106,7 @@ Five, each authoring one base colour per role. ΔE figures are the download↔up
 | **Ember** | `#e34948` | `#eda100` | `#7c5cdb` | `#1baf7a` | `#2a78d6` | 15.3 |
 | **Ocean** | `#6ea8e8` | `#1c5fa8` | `#eda100` | `#1baf7a` | `#eb6834` | 23.4 |
 
-Classic ships unchanged and remains the default, so no existing user's charts shift on upgrade.
+Classic remains the default and keeps its hues, but the derivation lifts each of its five roles slightly on the dark card: the legacy hexes measured 2.99:1 against `#2D2D2D`, just under the 3:1 floor, so `#1976D2`→`#227CD9`, `#AB47BC`→`#B24DC3`, `#F57C00`→`#E07311` and `#2E7D32`→`#3B893E`. On the light card, Latency and Selection also move, to `#E37200`. Every existing user therefore sees a very slightly lighter Classic palette on upgrade — the trade-off is that every chart now clears the contrast floor, including for users who never open Settings.
 
 Selection is authored per preset so the hover line never collides with that preset's series hues. In Ember, amber is taken by Upload, so selection moves to blue.
 

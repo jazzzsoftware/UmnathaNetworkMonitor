@@ -275,6 +275,7 @@ namespace NetworkMonitor
                             : ChartSurface.Dark;
                         chartPalette.SetSurface(surface);
                     };
+
                 }
 
                 ChartBrushes.Attach(chartPalette);

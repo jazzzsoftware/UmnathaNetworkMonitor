@@ -35,4 +35,6 @@ mislabelled as shipped, because nothing unreleased is in the dialog at all.
   Speed test charts, the mini graph widget, the coloured Download/Upload figures in the grids, and
   the chart legends. Each colour is automatically adjusted to stay readable on both dark and light
   cards, so a scheme looks right whichever mode you are in. The daily digest report keeps its own
-  fixed colours and is not affected.
+  fixed colours and is not affected. If you have not changed anything, you may notice the default
+  chart colours are very slightly lighter than before — that is this same readability adjustment
+  applying to the default scheme too.

@@ -52,6 +52,11 @@ namespace NetworkMonitor.Views
 
         }
 
+        private void ChartColourFlyoutClosed(object sender, object args)
+        {
+            ViewModel.SaveCustomColours();
+        }
+
         private void TrafficIntervalSecondsBoxValueChanged(NumberBox sender, NumberBoxValueChangedEventArgs args)
         {
 

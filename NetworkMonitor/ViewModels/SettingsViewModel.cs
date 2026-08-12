@@ -629,6 +629,11 @@ namespace NetworkMonitor.ViewModels
             OnPropertyChanged(nameof(IsCustomScheme));
         }
 
+        public void SaveCustomColours()
+        {
+            _chartPalette.SaveCustomColours();
+        }
+
         private void OnSettingChanged(object? sender, PropertyChangedEventArgs args)
         {
             bool isPersistable = args.PropertyName is not null

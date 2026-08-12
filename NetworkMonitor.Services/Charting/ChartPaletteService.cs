@@ -14,6 +14,11 @@ namespace NetworkMonitor.Services.Charting
         private readonly Dictionary<ChartRole, string> _hexes = new Dictionary<ChartRole, string>();
         private ChartSurface _surface = ChartSurface.Dark;
 
+        // Every current caller raises this on the UI thread — SetSurface from MainWindow's
+        // ActualThemeChanged, ApplyScheme/ApplyCustomColour/ResetToDefault from Settings bindings —
+        // and two of the three subscribers (ChartBrushes.Apply, TrafficAreaChart.OnPaletteChanged)
+        // mutate DependencyObjects directly with no marshalling, relying on that. A future caller that
+        // raises this from a background thread must marshal onto the UI thread first.
         public event EventHandler? PaletteChanged;
 
         public ChartPaletteService(Settings settings)
@@ -86,6 +91,7 @@ namespace NetworkMonitor.Services.Charting
 
         public void ApplyCustomColour(ChartRole role, string baseHex)
         {
+            bool isKnownRole = true;
 
             switch (role)
             {
@@ -104,11 +110,22 @@ namespace NetworkMonitor.Services.Charting
                 case ChartRole.Selection:
                     _settings.ChartCustomSelection = baseHex;
                     break;
+                default:
+                    isKnownRole = false;
+                    break;
             }
 
+            if (isKnownRole)
+            {
+                Recompute();
+                PaletteChanged?.Invoke(this, EventArgs.Empty);
+            }
+
+        }
+
+        public void SaveCustomColours()
+        {
             _settings.Save();
-            Recompute();
-            PaletteChanged?.Invoke(this, EventArgs.Empty);
         }
 
         public void ResetToDefault()
@@ -119,10 +136,18 @@ namespace NetworkMonitor.Services.Charting
         private void Recompute()
         {
             ChartPalette basePalette = CurrentBasePalette();
+            ChartPalette classicPalette = ChartSchemeCatalog.Resolve(ChartSchemeCatalog.DefaultSchemeId).Palette;
 
             foreach (ChartRole role in Enum.GetValues<ChartRole>())
             {
-                string derived = PaletteVariant.Derive(basePalette.ForRole(role), _surface);
+                string baseHex = basePalette.ForRole(role);
+
+                if (!OklchColour.TryParseHex(baseHex, out string normalisedHex))
+                {
+                    normalisedHex = classicPalette.ForRole(role);
+                }
+
+                string derived = PaletteVariant.Derive(normalisedHex, _surface);
                 _hexes[role] = derived;
                 _colours[role] = ToColor(derived);
             }

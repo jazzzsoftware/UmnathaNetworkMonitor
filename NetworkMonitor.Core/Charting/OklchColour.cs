@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.Text.RegularExpressions;
 
 namespace NetworkMonitor.Core.Charting
 {
@@ -7,6 +8,30 @@ namespace NetworkMonitor.Core.Charting
     {
         private const double ChromaReductionStep = 0.005;
         private const double GamutTolerance = 0.0005;
+        private const string HexDigitsPattern = "^[0-9A-Fa-f]{6}$";
+
+        public static bool TryParseHex(string? hex, out string normalisedHex)
+        {
+            bool isValid = false;
+            string candidate = string.Empty;
+
+            if (!string.IsNullOrWhiteSpace(hex))
+            {
+                string trimmed = hex.Trim();
+                string body = trimmed.StartsWith("#", StringComparison.Ordinal) ? trimmed.Substring(1) : trimmed;
+
+                if (Regex.IsMatch(body, HexDigitsPattern))
+                {
+                    candidate = "#" + body.ToUpperInvariant();
+                    isValid = true;
+                }
+
+            }
+
+            normalisedHex = candidate;
+
+            return isValid;
+        }
 
         public static Oklch ToOklch(string hex)
         {

@@ -85,5 +85,77 @@ namespace NetworkMonitor.Tests
 
             Assert.Equal(withHash.Lightness, withoutHash.Lightness, 9);
         }
+
+        [Fact]
+        public void TryParseHexAcceptsAValidHashPrefixedHex()
+        {
+            bool isValid = OklchColour.TryParseHex("#1976D2", out string normalisedHex);
+
+            Assert.True(isValid);
+            Assert.Equal("#1976D2", normalisedHex);
+        }
+
+        [Fact]
+        public void TryParseHexAcceptsAValidBareHex()
+        {
+            bool isValid = OklchColour.TryParseHex("1976D2", out string normalisedHex);
+
+            Assert.True(isValid);
+            Assert.Equal("#1976D2", normalisedHex);
+        }
+
+        [Fact]
+        public void TryParseHexNormalisesLowercaseToUppercase()
+        {
+            bool isValid = OklchColour.TryParseHex("#1976d2", out string normalisedHex);
+
+            Assert.True(isValid);
+            Assert.Equal("#1976D2", normalisedHex);
+        }
+
+        [Fact]
+        public void TryParseHexRejectsNull()
+        {
+            bool isValid = OklchColour.TryParseHex(null, out string normalisedHex);
+
+            Assert.False(isValid);
+            Assert.Equal(string.Empty, normalisedHex);
+        }
+
+        [Fact]
+        public void TryParseHexRejectsEmpty()
+        {
+            bool isValid = OklchColour.TryParseHex(string.Empty, out string normalisedHex);
+
+            Assert.False(isValid);
+            Assert.Equal(string.Empty, normalisedHex);
+        }
+
+        [Fact]
+        public void TryParseHexRejectsWhitespace()
+        {
+            bool isValid = OklchColour.TryParseHex("   ", out string normalisedHex);
+
+            Assert.False(isValid);
+            Assert.Equal(string.Empty, normalisedHex);
+        }
+
+        [Fact]
+        public void TryParseHexRejectsTheWrongLength()
+        {
+            bool isValid = OklchColour.TryParseHex("#19D2", out string normalisedHex);
+
+            Assert.False(isValid);
+            Assert.Equal(string.Empty, normalisedHex);
+        }
+
+        [Fact]
+        public void TryParseHexRejectsNonHexCharacters()
+        {
+            bool isValid = OklchColour.TryParseHex("#GGGGGG", out string normalisedHex);
+
+            Assert.False(isValid);
+            Assert.Equal(string.Empty, normalisedHex);
+        }
     }
 }

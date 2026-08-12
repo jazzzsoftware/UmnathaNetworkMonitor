@@ -162,6 +162,7 @@ namespace NetworkMonitor.ViewModels
 
         private void RebuildSeries()
         {
+
             ThroughputSeries = new List<ChartSeries>
             {
                 new ChartSeries("Download", _chartPalette.ResolveHex(ChartRole.Download), _downloadValues),
@@ -173,6 +174,7 @@ namespace NetworkMonitor.ViewModels
                 new ChartSeries("Latency", _chartPalette.ResolveHex(ChartRole.Latency), _latencyValues),
                 new ChartSeries("Jitter", _chartPalette.ResolveHex(ChartRole.Jitter), _jitterValues)
             };
+
         }
 
         private void OnPaletteChanged(object? sender, EventArgs args)
