@@ -93,7 +93,7 @@
                     <Rectangle
                         Width="8"
                         Height="8"
-                        Fill="#1976D2"
+                        Fill="{StaticResource ChartDownloadBrush}"
                         RadiusX="1"
                         RadiusY="1"
                         VerticalAlignment="Center" />
@@ -111,7 +111,7 @@
                     <Rectangle
                         Width="8"
                         Height="8"
-                        Fill="#AB47BC"
+                        Fill="{StaticResource ChartUploadBrush}"
                         RadiusX="1"
                         RadiusY="1"
                         VerticalAlignment="Center" />

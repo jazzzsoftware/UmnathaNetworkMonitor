@@ -99,14 +99,14 @@
                             x:Name="DownloadBitsText"
                             FontSize="20"
                             FontWeight="SemiBold"
-                            Foreground="#1976D2"
+                            Foreground="{StaticResource ChartDownloadBrush}"
                             Text="{x:Bind ViewModel.Latest.DownloadMbps, Mode=OneWay, Converter={StaticResource DoubleFormatConverter}, ConverterParameter='0.0 Mb/s'}" />
 
                         <TextBlock
                             x:Name="DownloadBytesText"
                             FontSize="20"
                             FontWeight="SemiBold"
-                            Foreground="#1976D2"
+                            Foreground="{StaticResource ChartDownloadBrush}"
                             Text="{x:Bind ViewModel.Latest.DownloadMBps, Mode=OneWay, Converter={StaticResource DoubleFormatConverter}, ConverterParameter='0.0 MB/s'}" />
 
                     </StackPanel>
@@ -123,14 +123,14 @@
                             x:Name="UploadBitsText"
                             FontSize="20"
                             FontWeight="SemiBold"
-                            Foreground="#AB47BC"
+                            Foreground="{StaticResource ChartUploadBrush}"
                             Text="{x:Bind ViewModel.Latest.UploadMbps, Mode=OneWay, Converter={StaticResource DoubleFormatConverter}, ConverterParameter='0.0 Mb/s'}" />
 
                         <TextBlock
                             x:Name="UploadBytesText"
                             FontSize="20"
                             FontWeight="SemiBold"
-                            Foreground="#AB47BC"
+                            Foreground="{StaticResource ChartUploadBrush}"
                             Text="{x:Bind ViewModel.Latest.UploadMBps, Mode=OneWay, Converter={StaticResource DoubleFormatConverter}, ConverterParameter='0.0 MB/s'}" />
 
                     </StackPanel>
@@ -206,7 +206,7 @@
                                     Width="10"
                                     Height="10"
                                     VerticalAlignment="Center"
-                                    Fill="#1976D2"
+                                    Fill="{StaticResource ChartDownloadBrush}"
                                     RadiusX="2"
                                     RadiusY="2" />
 
@@ -226,7 +226,7 @@
                                     Width="10"
                                     Height="10"
                                     VerticalAlignment="Center"
-                                    Fill="#AB47BC"
+                                    Fill="{StaticResource ChartUploadBrush}"
                                     RadiusX="2"
                                     RadiusY="2" />
 
@@ -289,7 +289,7 @@
                                     Width="10"
                                     Height="10"
                                     VerticalAlignment="Center"
-                                    Fill="#F57C00"
+                                    Fill="{StaticResource ChartLatencyBrush}"
                                     RadiusX="2"
                                     RadiusY="2" />
 
@@ -309,7 +309,7 @@
                                     Width="10"
                                     Height="10"
                                     VerticalAlignment="Center"
-                                    Fill="#2E7D32"
+                                    Fill="{StaticResource ChartJitterBrush}"
                                     RadiusX="2"
                                     RadiusY="2" />
 
