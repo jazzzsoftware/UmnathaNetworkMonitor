@@ -6,6 +6,7 @@ using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text.Json;
 using NetworkMonitor.Models.Formatting;
+using NetworkMonitor.Core.Charting;
 using NetworkMonitor.Core.Traffic;
 
 namespace NetworkMonitor.Services.Data
@@ -139,6 +140,42 @@ namespace NetworkMonitor.Services.Data
 
             }
         }
+
+        public string ChartSchemeId
+        {
+            get;
+            set;
+        } = ChartSchemeCatalog.DefaultSchemeId;
+
+        public string ChartCustomDownload
+        {
+            get;
+            set;
+        } = "#1976D2";
+
+        public string ChartCustomUpload
+        {
+            get;
+            set;
+        } = "#AB47BC";
+
+        public string ChartCustomLatency
+        {
+            get;
+            set;
+        } = "#F57C00";
+
+        public string ChartCustomJitter
+        {
+            get;
+            set;
+        } = "#2E7D32";
+
+        public string ChartCustomSelection
+        {
+            get;
+            set;
+        } = "#F57C00";
 
         public int WindowX
         {
