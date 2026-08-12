@@ -162,7 +162,7 @@ Nothing here has failed. It is the work the 2026-08-12 run could not reach — m
 
 ### Retests owed by the 2026-08-12 fixes
 
-- [ ] Let the app run through at least one network change (or toggle Wi-Fi off and on), then exit from the tray. **Expected: no error dialog.** The plain tray exit already passes in Part 7; what is untested is the path that arms `_networkChangeCts`, which is the only one that ever threw.
+- [P] Let the app run through at least one network change (or toggle Wi-Fi off and on), then exit from the tray. **Expected: no error dialog.** The plain tray exit already passes in Part 7; what is untested is the path that arms `_networkChangeCts`, which is the only one that ever threw.
 
 The strip-height and smooth-scrolling retests have both passed and moved back to Parts 2 and 4.
 
