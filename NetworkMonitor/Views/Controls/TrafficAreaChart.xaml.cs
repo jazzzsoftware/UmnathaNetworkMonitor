@@ -1,4 +1,5 @@
 using System.Numerics;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Graphics.Canvas;
 using Microsoft.Graphics.Canvas.Brushes;
 using Microsoft.Graphics.Canvas.Geometry;
@@ -12,6 +13,7 @@ using Microsoft.UI.Xaml.Media;
 using NetworkMonitor.Core.Charting;
 using NetworkMonitor.Models.Charting;
 using NetworkMonitor.Models.Formatting;
+using NetworkMonitor.Services.Charting;
 using Windows.Foundation;
 using Windows.UI;
 
@@ -19,13 +21,16 @@ namespace NetworkMonitor.Views.Controls
 {
     public sealed partial class TrafficAreaChart : UserControl
     {
-        private static readonly Color DownloadStrokeColor = Color.FromArgb(0xFF, 0x19, 0x76, 0xD2);
-        private static readonly Color DownloadFillTop = Color.FromArgb(0xCC, 0x19, 0x76, 0xD2);
-        private static readonly Color DownloadFillBottom = Color.FromArgb(0x00, 0x19, 0x76, 0xD2);
-        private static readonly Color UploadStrokeColor = Color.FromArgb(0xFF, 0xAB, 0x47, 0xBC);
-        private static readonly Color UploadFillTop = Color.FromArgb(0xCC, 0xAB, 0x47, 0xBC);
-        private static readonly Color UploadFillBottom = Color.FromArgb(0x00, 0xAB, 0x47, 0xBC);
-        private static readonly Color SelectionLineColor = Color.FromArgb(0xCC, 0xF5, 0x7C, 0x00);
+        private readonly ChartPaletteService _palette;
+
+        private Color _downloadStrokeColour;
+        private Color _downloadFillTop;
+        private Color _downloadFillBottom;
+        private Color _uploadStrokeColour;
+        private Color _uploadFillTop;
+        private Color _uploadFillBottom;
+        private Color _selectionLineColour;
+        private bool _paletteHooked;
 
         private const double EaseTimeConstantSeconds = 2.5;
 
@@ -130,6 +135,9 @@ namespace NetworkMonitor.Views.Controls
         public TrafficAreaChart()
         {
             InitializeComponent();
+
+            _palette = App.AppHost.Services.GetRequiredService<ChartPaletteService>();
+            ReadPaletteColours();
 
             Loaded += OnLoaded;
             Unloaded += OnUnloaded;
@@ -418,6 +426,12 @@ namespace NetworkMonitor.Views.Controls
                 _renderingHooked = true;
             }
 
+            if (!_paletteHooked)
+            {
+                _palette.PaletteChanged += OnPaletteChanged;
+                _paletteHooked = true;
+            }
+
         }
 
         private void OnUnloaded(object sender, RoutedEventArgs args)
@@ -427,6 +441,12 @@ namespace NetworkMonitor.Views.Controls
             {
                 CompositionTarget.Rendering -= OnRendering;
                 _renderingHooked = false;
+            }
+
+            if (_paletteHooked)
+            {
+                _palette.PaletteChanged -= OnPaletteChanged;
+                _paletteHooked = false;
             }
 
             _downloadFill?.Dispose();
@@ -455,10 +475,40 @@ namespace NetworkMonitor.Views.Controls
 
         }
 
+        private void ReadPaletteColours()
+        {
+            Color download = _palette.Resolve(ChartRole.Download);
+            Color upload = _palette.Resolve(ChartRole.Upload);
+            Color selection = _palette.Resolve(ChartRole.Selection);
+
+            _downloadStrokeColour = Color.FromArgb(0xFF, download.R, download.G, download.B);
+            _downloadFillTop = Color.FromArgb(0xCC, download.R, download.G, download.B);
+            _downloadFillBottom = Color.FromArgb(0x00, download.R, download.G, download.B);
+            _uploadStrokeColour = Color.FromArgb(0xFF, upload.R, upload.G, upload.B);
+            _uploadFillTop = Color.FromArgb(0xCC, upload.R, upload.G, upload.B);
+            _uploadFillBottom = Color.FromArgb(0x00, upload.R, upload.G, upload.B);
+            _selectionLineColour = Color.FromArgb(0xCC, selection.R, selection.G, selection.B);
+        }
+
+        private void OnPaletteChanged(object? sender, EventArgs args)
+        {
+            ReadPaletteColours();
+
+            if (ChartCanvas.ReadyToDraw)
+            {
+                _downloadFill?.Dispose();
+                _downloadFill = new CanvasLinearGradientBrush(ChartCanvas, _downloadFillTop, _downloadFillBottom);
+                _uploadFill?.Dispose();
+                _uploadFill = new CanvasLinearGradientBrush(ChartCanvas, _uploadFillTop, _uploadFillBottom);
+            }
+
+            ChartCanvas.Invalidate();
+        }
+
         private void ChartCanvasCreateResources(CanvasControl sender, CanvasCreateResourcesEventArgs args)
         {
-            _downloadFill = new CanvasLinearGradientBrush(sender, DownloadFillTop, DownloadFillBottom);
-            _uploadFill = new CanvasLinearGradientBrush(sender, UploadFillTop, UploadFillBottom);
+            _downloadFill = new CanvasLinearGradientBrush(sender, _downloadFillTop, _downloadFillBottom);
+            _uploadFill = new CanvasLinearGradientBrush(sender, _uploadFillTop, _uploadFillBottom);
 
             _axisTextFormat?.Dispose();
             _axisTextFormat = new CanvasTextFormat
@@ -516,8 +566,8 @@ namespace NetworkMonitor.Views.Controls
                 _downloadPointBuffer = BuildPoints(_downloadPointBuffer, _timeEpoch, _displayedDownload, _count, leftEdge, span, width, plotBottom, usableHeight, safeMax, scrolling, nowEpoch);
                 _uploadPointBuffer = BuildPoints(_uploadPointBuffer, _timeEpoch, _displayedUpload, _count, leftEdge, span, width, plotBottom, usableHeight, safeMax, scrolling, nowEpoch);
 
-                DrawArea(sender, args.DrawingSession, _downloadPointBuffer, plotBottom, _downloadFill, DownloadStrokeColor);
-                DrawArea(sender, args.DrawingSession, _uploadPointBuffer, plotBottom, _uploadFill, UploadStrokeColor);
+                DrawArea(sender, args.DrawingSession, _downloadPointBuffer, plotBottom, _downloadFill, _downloadStrokeColour);
+                DrawArea(sender, args.DrawingSession, _uploadPointBuffer, plotBottom, _uploadFill, _uploadStrokeColour);
 
                 if (Compact)
                 {
@@ -556,7 +606,7 @@ namespace NetworkMonitor.Views.Controls
                             DashStyle = CanvasDashStyle.Dash
                         };
 
-                        args.DrawingSession.DrawLine(selectionX, 0f, selectionX, (float)height, SelectionLineColor, 1.5f, dashStyle);
+                        args.DrawingSession.DrawLine(selectionX, 0f, selectionX, (float)height, _selectionLineColour, 1.5f, dashStyle);
                     }
 
                 }
