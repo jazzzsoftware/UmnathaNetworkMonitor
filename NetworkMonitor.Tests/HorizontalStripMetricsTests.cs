@@ -87,8 +87,22 @@ namespace NetworkMonitor.Tests
         public void ThePeakFigureIsDroppedOnlyBelowThirtyFour()
         {
             Assert.False(HorizontalStripMetrics.ShowsPeak(30.0));
+            Assert.False(HorizontalStripMetrics.ShowsPeak(33.9));
             Assert.True(HorizontalStripMetrics.ShowsPeak(34.0));
             Assert.True(HorizontalStripMetrics.ShowsPeak(48.0));
+        }
+
+        // Pins the relationship that C2-7 got wrong in both directions. The clamp floors the PANEL
+        // height, and every caller clamps before asking, so the drop threshold cannot be reached by
+        // dragging — the peak is shown at every strip height the user can produce. Lower
+        // MinimumHeight below 34 and this fails, which is the point: that would be a behaviour change.
+        [Fact]
+        public void ThePeakDropThresholdIsBelowTheHeightFloorAndSoCannotBeReached()
+        {
+            bool showsPeakAtTheFloor = HorizontalStripMetrics.ShowsPeak(HorizontalStripMetrics.ClampHeight(0.0));
+
+            Assert.True(showsPeakAtTheFloor);
+            Assert.True(HorizontalStripMetrics.ShowsPeak(HorizontalStripMetrics.MinimumHeight));
         }
     }
 }

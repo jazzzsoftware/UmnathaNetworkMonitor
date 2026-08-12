@@ -47,6 +47,28 @@ namespace NetworkMonitor.Tests
             Assert.Equal(40.0, panelHeight, 3);
         }
 
+        // The strip grew a step taller on every orientation switch because the save path stored the
+        // WINDOW height into MiniGraphStripHeight, which ComputeRestoreSize and ClampStripSize both
+        // treat as a PANEL height and add the frame back onto — so each save/restore round trip fed
+        // the frame in twice and the strip climbed ~7 DIP until ClampHeight pinned it at 120. Going
+        // back through PanelHeightInDips before saving, which is what SaveCurrentPlacement now does,
+        // is stable however many times it runs.
+        [Fact]
+        public void SavingThePanelHeightKeepsTheStripTheSameSizeAcrossRepeatedRoundTrips()
+        {
+            double savedPanelHeight = 40.0;
+
+            for (int round = 0; round < 5; round++)
+            {
+                double clamped = HorizontalStripMetrics.ClampHeight(savedPanelHeight);
+                PlacementRect restored = PlacementMath.SizeFromDips(704.0, clamped, 1.0, StandardInsets);
+
+                savedPanelHeight = PlacementMath.PanelHeightInDips(restored.Height, 1.0, StandardInsets);
+            }
+
+            Assert.Equal(40.0, savedPanelHeight, 3);
+        }
+
         [Fact]
         public void PanelHeightTreatsAZeroScaleAsOneRatherThanDividingByIt()
         {

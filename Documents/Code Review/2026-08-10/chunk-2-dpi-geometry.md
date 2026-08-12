@@ -116,7 +116,7 @@ Both sites set the derived width as `AppWindow.Size.Width`, which includes the ~
 
 ---
 
-## C2-7 `[CLEANUP]` — the spec's claim that the 34 DIP peak threshold is unreachable is wrong
+## C2-7 `[CLEANUP]` — ~~the spec's claim that the 34 DIP peak threshold is unreachable is wrong~~ WITHDRAWN, the spec was right
 
 `Documents/superpowers/specs/2026-08-05-horizontal-mini-graph-design.md` · `NetworkMonitor/MiniGraphWindow.xaml.cs:364, 550`
 
@@ -126,7 +126,13 @@ The behaviour is fine, probably desirable. The recorded understanding is not, an
 
 **Fix.** Correct the note in the spec.
 
-**Status:** `fixed` — 2026-08-11, fix-phase batch 9. Both the design note and the manual-verification bullet in `2026-08-05-horizontal-mini-graph-design.md` corrected, with the correction marked rather than silently rewritten: the peak **is** dropped at the 40 DIP minimum, because `ComputeShowPeak` is fed the panel height (~32) and not the window height.
+**Status:** `withdrawn` — 2026-08-12, after manual testing. **This finding was wrong, and the batch-9 "fix" made the documentation worse rather than better.** Both have been reverted.
+
+The finding read `MinimumHeight = 40` as a *window* height with the ~7 DIP frame to be subtracted, giving a panel of ~32. It is the other way round: `ClampHeight` floors the **panel** height, and the frame is added on top of the clamped panel (`PlacementMath.SizeFromDips`, `ClampStripSize:936-938`), never taken out of it. `ShowsPeak` is therefore never given less than 40 against its 34 threshold.
+
+Settled by manual test on 2026-08-12 — *"At the smallest strip height, check the peak figure. Expected: it is not shown."* → **failed, still visible.** `e2ef93f`'s original wording ("unreachable at a 40px floor, a retained guard, not exercised behaviour") was right all along.
+
+Reverted in the spec, in `HorizontalStripMetrics.PeakMinimumHeight`'s comment, and in the chunk-5 coverage note that repeated the claim. Two new tests pin the relationship so it cannot be misread a third time: `ThePeakDropThresholdIsBelowTheHeightFloorAndSoCannotBeReached`, plus a `33.9` case on the existing threshold test.
 
 ---
 

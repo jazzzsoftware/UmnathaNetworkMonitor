@@ -124,12 +124,7 @@ namespace NetworkMonitor
 
             _appliedOrientation = _state.Orientation;
 
-            // The widget's charts carry five times the geometry of the full-page ones (300 one-second
-            // points against 60 five-second ones) and run all day, so this is the chart that most
-            // needs the setting the full-page charts already honour.
-            InternetSection.SmoothScrolling = _settings.ChartSmoothScrolling;
-            LocalSection.SmoothScrolling = _settings.ChartSmoothScrolling;
-
+            ApplySmoothScrolling();
             ConfigureWindow();
             ApplyLayout();
 
@@ -143,6 +138,7 @@ namespace NetworkMonitor
             RestorePlacement();
 
             _state.Changed += OnStateChanged;
+            _settings.ChartSmoothScrollingChanged += OnChartSmoothScrollingChanged;
             ViewModel.PropertyChanged += OnViewModelPropertyChanged;
             AppWindow.Changed += OnAppWindowChanged;
             Closed += OnWindowClosed;
@@ -286,6 +282,7 @@ namespace NetworkMonitor
             _alphaFadeTimer.Stop();
             _topmostGuard.Dispose();
             _state.Changed -= OnStateChanged;
+            _settings.ChartSmoothScrollingChanged -= OnChartSmoothScrollingChanged;
             ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
             ViewModel.Detach();
 
@@ -322,7 +319,15 @@ namespace NetworkMonitor
 
             if (_appliedOrientation == MiniGraphOrientation.Horizontal)
             {
-                _state.SaveStripPlacement(position.X, position.Y, height);
+
+                // MiniGraphStripHeight is a PANEL height: ComputeRestoreSize and ClampStripSize both
+                // add the frame back onto it. Saving the window height here fed the frame in a second
+                // time on every save/restore round trip, and an orientation switch is exactly one of
+                // those — so the strip grew ~7 DIP per switch until ClampHeight pinned it at 120.
+                FrameInsets insets = MeasureFrameInsets(scale);
+                int panelHeight = (int)Math.Round(PlacementMath.PanelHeightInDips(size.Height, scale, insets));
+
+                _state.SaveStripPlacement(position.X, position.Y, panelHeight);
             }
             else if (width >= MinimumWidth && height >= MinimumHeight)
             {
@@ -364,6 +369,31 @@ namespace NetworkMonitor
         {
             InternetSection.IsLive = isLive;
             LocalSection.IsLive = isLive;
+        }
+
+        private void OnChartSmoothScrollingChanged(object? sender, EventArgs args)
+        {
+            DispatcherQueue.TryEnqueue(ApplySmoothScrolling);
+        }
+
+        // The widget's charts carry five times the geometry of the full-page ones (300 one-second
+        // points against 60 five-second ones) and run all day, so this is the chart that most needs
+        // the setting the full-page charts already honour.
+        //
+        // Driven by Settings.ChartSmoothScrollingChanged rather than read once in the constructor.
+        // InternetPage and LocalPage get away with a constructor read because navigation rebuilds
+        // them; this window is created once and thereafter hidden and shown, so a constructor read
+        // meant the switch could never reach the widget again for the life of the session, and
+        // re-reading on show only moved that to "hide and show it first".
+        private void ApplySmoothScrolling()
+        {
+
+            if (!_teardownStarted)
+            {
+                InternetSection.SmoothScrolling = _settings.ChartSmoothScrolling;
+                LocalSection.SmoothScrolling = _settings.ChartSmoothScrolling;
+            }
+
         }
 
         // Every size the widget can be dragged to is a legitimate one, and text fixed at 12 point looks

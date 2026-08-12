@@ -63,7 +63,17 @@ The setting exists precisely to let a user stop this, and the one chart that run
 
 **Fix.** Bind `SmoothScrolling` through `MiniTrafficSection` to `Settings.ChartSmoothScrolling` the way the two pages do. Separately, consider decimating the snapshot to roughly one point per 2px (max-of-window) before building the geometry.
 
-**Status:** `fixed` — 2026-08-11, fix-phase batch 4b. New `SmoothScrolling` dependency property on `MiniTrafficSection` forwarding to `SectionChart`; `MiniGraphWindow`'s constructor sets it on both sections from `_settings.ChartSmoothScrolling`, matching what `InternetPage` and `LocalPage` already do. Per the co-review note, the decimation idea is a separate, larger optimisation and was **not** required to close this finding — it remains available if the widget still costs too much on battery.
+**Status:** `fixed` — 2026-08-11 (batch 4b), **reopened and completed 2026-08-12** after manual testing.
+
+Batch 4b added the `SmoothScrolling` dependency property on `MiniTrafficSection` forwarding to `SectionChart`, and set it from `MiniGraphWindow`'s **constructor** — matching what `InternetPage` and `LocalPage` do. That was only half a fix, and the manual test caught it: *"Turn smooth chart scrolling OFF. Expected: the widget's charts stop animating"* → **failed, mini graph always smooth.**
+
+The two pages get away with a constructor read because they are reconstructed on every navigation. `MiniGraphWindow` is created once and thereafter hidden and shown, and `Settings` is a plain object with no change notification, so the constructor read meant a toggle could never reach the widget again for the life of the session.
+
+First attempt applied it on `ShowWidget()` as well as in the constructor, on the reasoning that "takes effect when the view is next opened" matched the contract the two pages have. **The user tested that and rejected it** — having to hide and show the widget to make a switch take is not the setting working, and unlike a page the widget has no natural reopen.
+
+`Settings.ChartSmoothScrolling` is now a hand-written property raising `ChartSmoothScrollingChanged` when the value actually changes. `MiniGraphWindow` subscribes in its constructor, marshals through `DispatcherQueue.TryEnqueue` and unsubscribes in `Teardown` alongside the `MiniGraphState` and ViewModel handlers — so it cannot become the leak C5-5 was. The toggle now lands on the live widget. The two pages do not subscribe: navigation rebuilds them and they re-read for free.
+
+Per the co-review note, the decimation idea is a separate, larger optimisation and was **not** required to close this finding — it remains available if the widget still costs too much on battery.
 
 ---
 

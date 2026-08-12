@@ -19,6 +19,7 @@ namespace NetworkMonitor.Services.Scanning
         private readonly SemaphoreSlim _scanGate = new(1, 1);
         private CancellationTokenSource? _networkChangeCts;
         private CancellationToken _stoppingToken;
+        private bool _disposed;
 
         public event EventHandler<ScanCompletedEventArgs>? ScanCompleted;
         public event EventHandler<DeviceStatusChangedEventArgs>? DeviceStatusChanged;
@@ -51,11 +52,23 @@ namespace NetworkMonitor.Services.Scanning
 
         }
 
+        // Registered twice — AddSingleton<ScanWorker> plus an AddHostedService factory that resolves
+        // that same singleton — so the container tracks the one instance in its disposables list
+        // twice and disposes it twice at shutdown. SemaphoreSlim tolerates that; CancellationTokenSource
+        // does not, and Cancel() on a disposed source threw a visible fatal dialog on tray Exit
+        // whenever a network change had armed _networkChangeCts during the session. TrayIconService
+        // and TaskbarTopmostGuard already guard the same way.
         public override void Dispose()
         {
-            _networkChangeCts?.Cancel();
-            _networkChangeCts?.Dispose();
-            _scanGate.Dispose();
+
+            if (!_disposed)
+            {
+                _disposed = true;
+
+                _networkChangeCts?.Cancel();
+                _networkChangeCts?.Dispose();
+                _scanGate.Dispose();
+            }
 
             base.Dispose();
         }

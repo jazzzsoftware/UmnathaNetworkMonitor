@@ -21,6 +21,13 @@ namespace NetworkMonitor.Core.Widget
 
         // The label and the peak share one baseline row and the chart needs whatever is left. Below
         // this the two collide, so the peak goes rather than being allowed to overlap the label.
+        //
+        // Unreachable in the shipped app, and deliberately kept: ClampHeight floors the PANEL height
+        // at 40, and every caller clamps the panel before asking. Review finding C2-7 claimed the
+        // opposite by reading MinimumHeight as a window height (40 window - 7 frame = 33, below the
+        // threshold); the frame is added on top of the clamped panel, not taken out of it. Manual
+        // testing on 2026-08-12 confirmed the peak is still shown at the smallest strip height.
+        // Anything that lowers MinimumHeight below 34 turns this back into live behaviour.
         private const double PeakMinimumHeight = 34.0;
 
         public static double FontScale(double height)

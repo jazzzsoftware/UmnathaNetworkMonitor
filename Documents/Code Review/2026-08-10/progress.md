@@ -4,9 +4,11 @@
 
 ---
 
-## Status: CLOSED — 48 of 50 fixed; C2-2 and C2-5 await the manual test plan
+## Status: CLOSED — 47 of 49 fixed; C2-2 and C2-5 await a second monitor
 
-All five chunks reviewed and co-reviewed. **50 findings (50 reviewer + 0 user) — 48 fixed, 2 open.** All nine batches complete. C4-6 is `partially fixed` by explicit decision — see batch 8. The two remaining (C2-2, C2-5) are code-complete and awaiting hardware verification, not unstarted.
+All five chunks reviewed and co-reviewed. **49 live findings — 47 fixed, 2 open.** Ten batches complete. C4-6 is `partially fixed` by explicit decision (batch 8). The two remaining (C2-2, C2-5) are code-complete and awaiting hardware verification, not unstarted.
+
+**Count moved 50 → 49 on 2026-08-12: C2-7 was withdrawn.** The manual test run showed the finding was wrong and the spec it "corrected" was right — see *Manual test run — 2026-08-12*. That run also raised two new defects (U-1, U-2), both fixed in the same batch, and reopened C3-2, whose batch-4b fix was real but incomplete. New findings raised by a test run are counted separately from the original 50 rather than folded into it.
 
 Co-review ran 2026-08-11, one chunk at a time. **Every finding in all five chunks was confirmed for fixing.** None rejected, none deferred, none marked `won't-fix`, no `U`-IDs added. That includes the findings each report flagged as candidates to close — C1-4, C1-9, C1-10 (not currently reachable) and C4-8 (does not breach the documented rule) — which the user chose to fix anyway.
 
@@ -344,6 +346,52 @@ Nine batches, nine commits, `486d820` through this one. Tests **307 → 363**; b
 Parts 2–7 are regression confirmation for work already `fixed`. A failure there is a **new** finding, not a reopened one — recorded as such so this ledger's history stays honest.
 
 The procedure (`../code-review-procedure.md` §7) now requires a plan like this at the end of every review, precisely because a green suite cannot speak for the paths `NetworkMonitor.Tests` cannot reach.
+
+## Manual test run — 2026-08-12, and fix batch 10
+
+**Run on a single monitor, so Part 1 never started.** Everything reachable was worked through. Build x64 clean, 0 warnings, **372 tests pass** (363 → 370 over the intervening commit → 372 here, 2 new).
+
+**Result: three `[F]`s and two new defects, all now resolved. The count moves 50 → 49 findings, because C2-7 was withdrawn.**
+
+### Two new findings, both fixed
+
+- **U-1 `[BUG]` — the horizontal strip grew taller on every orientation switch.** `MiniGraphWindow.SaveCurrentPlacement:315` stored `AppWindow.Size.Height / scale` — the **window** height, invisible frame included — into `MiniGraphStripHeight`. Every reader treats that setting as a **panel** height and adds the frame back onto it: `ComputeRestoreSize:551` via `SizeFromDips`, and `ClampStripSize:936`. So each save/restore round trip fed the frame in twice, and an orientation switch is exactly one save plus one restore — ~7 DIP per switch, climbing until `ClampHeight` pinned it at the 120 DIP ceiling. It was the only place in the file not converting through `PlacementMath.PanelHeightInDips`, which is now what it does. Pinned by `SavingThePanelHeightKeepsTheStripTheSameSizeAcrossRepeatedRoundTrips` — five round trips, same height. **Retested on the real app and confirmed:** the strip now holds its position and height across orientation switches.
+
+  Worth noting against batch 6: C2-1 was the *floating widget* shrinking a step per launch, and its fix was correct. This is the same class of defect on the strip's own save path, which batch 6 did not touch. The tests written then covered the arithmetic; nothing covered the round trip through the setting.
+
+- **U-2 `[BUG]` — `ObjectDisposedException` from `ScanWorker:56` as a fatal dialog on tray Exit.** `ScanWorker` is registered twice (`App.xaml.cs:122-123` — `AddSingleton<ScanWorker>()` plus an `AddHostedService` factory resolving that same singleton), so MS DI tracks the one instance in its disposables list twice and disposes it twice at shutdown. The second pass called `Cancel()` on an already-disposed `CancellationTokenSource`, which throws. It only fired when a network change had armed `_networkChangeCts` during the session, which is why it had not been seen before.
+
+  Seven services share that double-registration shape. `ScanWorker` is the only one whose `Dispose` calls something that throws after disposal — `SemaphoreSlim.Dispose` and `_session?.Dispose()` are repeat-safe — so it is the only one that surfaced. `Dispose` is now guarded by a `_disposed` flag, the same way `TrayIconService` and `TaskbarTopmostGuard` already were.
+
+### One finding withdrawn
+
+- **C2-7 — withdrawn, and its batch-9 "fix" reverted.** The finding claimed the spec was wrong to call the 34 DIP peak threshold unreachable. It was not. `ClampHeight` floors the **panel** height at 40 and every caller clamps the panel before asking; the frame is added on top of the clamped panel, never taken out of it. The finding read 40 as a window height and subtracted a frame that was never there.
+
+  The manual test settled it: *"At the smallest strip height, check the peak figure. Expected: it is not shown"* → still visible. `e2ef93f`'s original wording was right. Spec, `PeakMinimumHeight`'s comment and the chunk-5 coverage note are all back to it, with the correction history kept in the spec rather than silently undone, and two tests now pin the relationship.
+
+  **This is the second claim this review got backwards** (a9a17af corrected two others). The pattern is the same each time: reasoning about which coordinate space a number lives in, without a test to settle it. The tests added here are the answer to that, not the doc edit.
+
+### One finding reopened and completed
+
+- **C3-2 — the fix was real but half-done.** Batch 4b added the `SmoothScrolling` dependency property and set it from `MiniGraphWindow`'s **constructor**, matching `InternetPage` and `LocalPage`. But those two are reconstructed on every navigation and the widget is created once and then hidden and shown, and `Settings` has no change notification — so a toggle could never reach the widget again for the life of the session. Manual test: *"Turn smooth chart scrolling OFF"* → mini graph stayed smooth.
+
+  Fixed in two goes. The first applied it on `ShowWidget()` too, matching the pages' "takes effect when the view is next opened" contract — **and the user rejected it on test**: a widget has no natural reopen, so "hide and show it first" is not the setting working. `Settings.ChartSmoothScrolling` is now a hand-written property raising `ChartSmoothScrollingChanged`, which `MiniGraphWindow` subscribes to in its constructor, marshals through `DispatcherQueue.TryEnqueue`, and unsubscribes in `Teardown` next to the `MiniGraphState` and ViewModel handlers so it cannot become the leak C5-5 was. The toggle now lands on the live widget. It is the only setting with a live watcher, and the reason is recorded on the event.
+
+### One `[F]` that is not a defect
+
+- With the internet disconnected, the widget's Internet and Local lines read 8 b/s and 1 B/s rather than `0`. Those are the **traffic** lines, not the speed line Part 5 is about, and a few b/s of retried DNS, ARP and mDNS with the cable out is real traffic being reported honestly. **User's decision: leave as is, minor.** Recorded so it is not re-raised as a bug.
+
+### Part 7 — complete, all passed
+
+`RetentionProbe` refused the live folder naming only `networkmonitor.db` (no path, no username, exit 1); rejected `abc` with `Not a number: abc` plus the usage line and no stack trace; ran against a copy at exit 0 with no username anywhere in the report. That closes the evidence for C5-6, C5-7 and C4-6's argument handling. The user then ran the two log checks: **Check for updates** works and logs (C5-1), and a normal exit produces no `RefreshUnapprovedCount` error and no silent checkpoint failure (C3-9, C4-2).
+
+**Parts 2 through 7 are now complete and all pass.**
+
+**DB impact: none.** One widget placement conversion, one `Dispose` guard, one settings re-read, plus documentation and tests. No entity, column or index touched, so no migration.
+
+### What is still not tested
+
+**`manual-test-plan.md` Part 8** now collects it in one place: the whole of Part 1 (the second monitor, still the only thing gating the review), the monitor-disconnect and touch-drag checks, the backward clock step, the long-gap spike, the `<0.1` slow-link case, and two retests owed by the fixes above — the tray exit *after a network change*, and turning smooth scrolling off with the widget on screen. Items move back to their own part as they pass, so that list only shrinks. The strip-height retest has already passed and moved.
 
 ## Next step
 

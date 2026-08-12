@@ -14,6 +14,13 @@ namespace NetworkMonitor.Services.Data
     {
         private static readonly object _saveLock = new object();
 
+        // The one setting that has a live watcher. SettingsPage writes straight through to this
+        // object, and the mini graph window is created once and then hidden and shown for the life of
+        // the session — so without a signal a toggle could not reach it at all, and re-reading on show
+        // only meant the user had to hide and show the widget to make the switch take. InternetPage
+        // and LocalPage are reconstructed on navigation and re-read for free, so they do not subscribe.
+        public event EventHandler? ChartSmoothScrollingChanged;
+
         public static string SettingsFilePath =>
             Path.Combine(
                 AppPaths.AppDataFolder,
@@ -115,11 +122,23 @@ namespace NetworkMonitor.Services.Data
             set;
         } = 7;
 
+        private bool _chartSmoothScrolling = true;
+
         public bool ChartSmoothScrolling
         {
-            get;
-            set;
-        } = true;
+            get => _chartSmoothScrolling;
+            set
+            {
+
+                if (_chartSmoothScrolling != value)
+                {
+                    _chartSmoothScrolling = value;
+
+                    ChartSmoothScrollingChanged?.Invoke(this, EventArgs.Empty);
+                }
+
+            }
+        }
 
         public int WindowX
         {

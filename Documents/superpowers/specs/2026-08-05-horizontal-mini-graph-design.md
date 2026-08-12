@@ -187,13 +187,17 @@ An orientation selector beside the existing mini graph preferences, writing thro
 - **Height below 34 px.** The label and peak share a baseline row and the chart needs the remainder.
   The peak figure is dropped below 34 px rather than being allowed to collide with the label.
 
-  > **Corrected 2026-08-11 (review finding C2-7).** This previously claimed the 34 px threshold was
-  > "retained in code as a guard, but unreachable at the current 40 DIP height floor". That is wrong.
-  > `ComputeShowPeak` is fed the **panel** height, not the window height, and at the 40 DIP window
-  > minimum the panel is roughly 32 — below 34. **The peak is therefore dropped at the minimum strip
-  > height, and always has been.** The behaviour is fine and probably desirable; the recorded
-  > understanding was not, and a future change to `MinimumHeight` would have been reasoned about from
-  > a false premise.
+  > **The threshold is unreachable in the shipped app** — retained in code as a guard, not exercised
+  > behaviour. `ClampHeight` floors the **panel** height at 40, and every caller clamps the panel
+  > before asking, so `ShowsPeak` is never given less than 40. Lower `MinimumHeight` below 34 and this
+  > becomes live behaviour again.
+  >
+  > **Correction history, kept deliberately.** Review finding C2-7 (2026-08-11) called the above claim
+  > wrong, reasoning that 40 was a *window* height from which the ~7 DIP frame is subtracted, leaving a
+  > panel of ~32. It is the other way round: the frame is added on top of the clamped panel
+  > (`SizeFromDips`), never taken out of it. Manual testing on 2026-08-12 settled it — the peak is
+  > still shown at the smallest strip height — and the 2026-08-11 edit was reverted. Recorded rather
+  > than silently undone so the same reading isn't made a third time.
 - **Alt+F4 on the strip.** Already covered — `OnWindowClosed` tears down and clears
   `MiniGraphState.IsVisible` regardless of orientation.
 
@@ -210,9 +214,10 @@ Manual verification:
 
 - Switch orientation both ways with the widget open; confirm each form returns to its own saved
   position.
-- Drag the strip's height across 74 (chart labels return). Also check the peak figure at the 40 DIP
-  minimum: it **is** dropped there, because the panel height is ~32 against the 34 threshold. (This
-  bullet previously said the threshold could not be exercised — see the correction above.)
+- Drag the strip's height across 74 (chart labels return). The peak figure cannot be exercised: the
+  panel floors at 40 against a 34 threshold, so it is shown at every height the user can drag to.
+  (This bullet briefly claimed the opposite between 2026-08-11 and 2026-08-12 — see the correction
+  history above.)
 - Toggle each section and confirm the strip resizes rather than stretching its cells.
 - Repeat placement and drag checks on a 200% display, given the two prior high-DPI defects.
 
