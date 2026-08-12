@@ -190,7 +190,7 @@ Performance review
 
 
 
-Github:
+Github/Marketing:
 Done - Topics
 Post on Reddit
 Post on Hacker News, Product Hunt, Dev.to and Hashnode

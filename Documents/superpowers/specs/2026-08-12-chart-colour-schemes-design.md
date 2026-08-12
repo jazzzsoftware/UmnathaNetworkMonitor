@@ -49,6 +49,7 @@ One type per file:
 | `ChartPalette` | record holding one base hex per role |
 | `ChartSchemePreset` | record: `Id`, `DisplayName`, `ChartPalette` |
 | `ChartSchemeCatalog` | the fixed preset list, lookup by id, fallback to Classic on an unknown id |
+| `Oklch` | An L/C/H triple |
 | `OklchColour` | sRGB ↔ OKLab ↔ OKLCH conversion, plus `Contrast(a, b)` |
 | `PaletteVariant` | the derivation: base hex + surface → display hex |
 
@@ -81,7 +82,7 @@ A DI singleton, the one place that answers "what colour is Download right now".
 
 `ChartBrushes` registers five `SolidColorBrush` instances into `Application.Resources` at startup — `ChartDownloadBrush`, `ChartUploadBrush`, `ChartLatencyBrush`, `ChartJitterBrush`, `ChartSelectionBrush` — and mutates their `.Color` on `PaletteChanged`.
 
-WinUI brushes are live `DependencyObject`s shared by reference, so every `{StaticResource ChartDownloadBrush}` repaints with no per-page code. This is what makes immediate application cheap across the twelve XAML literals, which all become resource references.
+WinUI brushes are live `DependencyObject`s shared by reference, so every `{StaticResource ChartDownloadBrush}` repaints with no per-page code. This is what makes immediate application cheap across the twenty XAML literals — `InternetPage` 4, `LocalPage` 6, `SpeedTestPage` 8, `TrafficAreaChart` 2 — which all become resource references.
 
 ### Consumers
 
