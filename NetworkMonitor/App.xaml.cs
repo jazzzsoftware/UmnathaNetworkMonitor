@@ -23,6 +23,9 @@ using NetworkMonitor.ViewModels;
 using NetworkMonitor.Models.Formatting;
 using NetworkMonitor.Core.Data;
 using NetworkMonitor.Core.Traffic;
+using NetworkMonitor.Core.Charting;
+using NetworkMonitor.Services.Charting;
+using NetworkMonitor.Charting;
 
 namespace NetworkMonitor
 {
@@ -112,6 +115,7 @@ namespace NetworkMonitor
 
                         services.AddSingleton(scannerSettings);
                         services.AddSingleton<MiniGraphState>();
+                        services.AddSingleton<ChartPaletteService>();
                         services.AddSingleton<OuiDatabase>();
                         services.AddSingleton<MdnsProbe>();
                         services.AddSingleton<WindowsStartupService>();
@@ -254,6 +258,26 @@ namespace NetworkMonitor
                 await AppHost.StartAsync();
 
                 MainWindow window = AppHost.Services.GetRequiredService<MainWindow>();
+
+                ChartPaletteService chartPalette = AppHost.Services.GetRequiredService<ChartPaletteService>();
+
+                if (window.Content is FrameworkElement paletteRoot)
+                {
+                    ChartSurface startingSurface = paletteRoot.ActualTheme == ElementTheme.Light
+                        ? ChartSurface.Light
+                        : ChartSurface.Dark;
+                    chartPalette.SetSurface(startingSurface);
+
+                    paletteRoot.ActualThemeChanged += (FrameworkElement sender, object args) =>
+                    {
+                        ChartSurface surface = sender.ActualTheme == ElementTheme.Light
+                            ? ChartSurface.Light
+                            : ChartSurface.Dark;
+                        chartPalette.SetSurface(surface);
+                    };
+                }
+
+                ChartBrushes.Attach(chartPalette);
                 _mainWindowHwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
 
                 if (splash is not null)

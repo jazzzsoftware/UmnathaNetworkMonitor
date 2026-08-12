@@ -79,6 +79,26 @@
 
             </ResourceDictionary.ThemeDictionaries>
 
+            <SolidColorBrush
+                x:Key="ChartDownloadBrush"
+                Color="#FF1976D2" />
+
+            <SolidColorBrush
+                x:Key="ChartUploadBrush"
+                Color="#FFAB47BC" />
+
+            <SolidColorBrush
+                x:Key="ChartLatencyBrush"
+                Color="#FFF57C00" />
+
+            <SolidColorBrush
+                x:Key="ChartJitterBrush"
+                Color="#FF2E7D32" />
+
+            <SolidColorBrush
+                x:Key="ChartSelectionBrush"
+                Color="#FFF57C00" />
+
             <converters:OnlineStatusConverter
                 x:Key="OnlineStatusConverter" />
 
