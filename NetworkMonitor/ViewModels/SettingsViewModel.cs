@@ -643,7 +643,14 @@ namespace NetworkMonitor.ViewModels
                 && args.PropertyName != nameof(MiniGraphShowUnknownDevices)
                 && args.PropertyName != nameof(MiniGraphOpacity)
                 && args.PropertyName != nameof(MiniGraphHorizontal)
-                && args.PropertyName != nameof(MiniGraphShowBorder);
+                && args.PropertyName != nameof(MiniGraphShowBorder)
+                && args.PropertyName != nameof(ChartSchemeIndex)
+                && args.PropertyName != nameof(IsCustomScheme)
+                && args.PropertyName != nameof(CustomDownloadColour)
+                && args.PropertyName != nameof(CustomUploadColour)
+                && args.PropertyName != nameof(CustomLatencyColour)
+                && args.PropertyName != nameof(CustomJitterColour)
+                && args.PropertyName != nameof(CustomSelectionColour);
 
             if (isPersistable)
             {
