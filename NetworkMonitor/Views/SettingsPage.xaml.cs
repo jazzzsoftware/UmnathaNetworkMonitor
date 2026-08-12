@@ -46,6 +46,7 @@ namespace NetworkMonitor.Views
                 string selectedTag = (string)sender.SelectedItem.Tag;
                 TrafficPanel.Visibility = selectedTag == "Traffic" ? Visibility.Visible : Visibility.Collapsed;
                 DevicePanel.Visibility = selectedTag == "Device" ? Visibility.Visible : Visibility.Collapsed;
+                ThemePanel.Visibility = selectedTag == "Theme" ? Visibility.Visible : Visibility.Collapsed;
                 OtherPanel.Visibility = selectedTag == "Other" ? Visibility.Visible : Visibility.Collapsed;
             }
 

@@ -1,15 +1,20 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.UI.Dispatching;
+using NetworkMonitor.Core.Charting;
 using NetworkMonitor.Services.Data;
 using NetworkMonitor.Models.Formatting;
 using NetworkMonitor.Models.Widget;
+using NetworkMonitor.Services.Charting;
 using NetworkMonitor.Services.Platform;
+using Windows.UI;
 
 namespace NetworkMonitor.ViewModels
 {
@@ -21,8 +26,9 @@ namespace NetworkMonitor.ViewModels
         private readonly InAppNotificationService _notificationService;
         private readonly DispatcherQueue _dispatcherQueue;
         private readonly MiniGraphState _miniGraphState;
+        private readonly ChartPaletteService _chartPalette;
 
-        public SettingsViewModel(Settings settings, IDbContextFactory<AppDbContext> dbFactory, WindowsStartupService startupService, InAppNotificationService notificationService, MiniGraphState miniGraphState)
+        public SettingsViewModel(Settings settings, IDbContextFactory<AppDbContext> dbFactory, WindowsStartupService startupService, InAppNotificationService notificationService, MiniGraphState miniGraphState, ChartPaletteService chartPalette)
         {
             _dispatcherQueue = DispatcherQueue.GetForCurrentThread();
             _settings = settings;
@@ -30,6 +36,8 @@ namespace NetworkMonitor.ViewModels
             _startupService = startupService;
             _notificationService = notificationService;
             _miniGraphState = miniGraphState;
+            _chartPalette = chartPalette;
+            _chartSchemeIndex = IndexForSchemeId(chartPalette.SchemeId);
             _subnetBase = settings.SubnetBase;
             _autoDetectSubnet = settings.AutoDetectSubnet;
             _startHost = settings.StartHost;
@@ -457,6 +465,81 @@ namespace NetworkMonitor.ViewModels
             }
         }
 
+        public IReadOnlyList<string> ChartSchemeNames
+        {
+            get;
+        } = ChartSchemeCatalog.Presets
+            .Select(preset => preset.DisplayName)
+            .Append("Custom")
+            .ToList();
+
+        private int _chartSchemeIndex;
+
+        public int ChartSchemeIndex
+        {
+            get => _chartSchemeIndex;
+            set
+            {
+
+                if (SetProperty(ref _chartSchemeIndex, value))
+                {
+                    string schemeId = value >= 0 && value < ChartSchemeCatalog.Presets.Count
+                        ? ChartSchemeCatalog.Presets[value].Id
+                        : ChartSchemeCatalog.CustomSchemeId;
+                    _chartPalette.ApplyScheme(schemeId);
+                    OnPropertyChanged(nameof(IsCustomScheme));
+                }
+
+            }
+        }
+
+        public bool IsCustomScheme => _chartPalette.IsCustom;
+
+        public Color CustomDownloadColour
+        {
+            get => ColourForRole(ChartRole.Download);
+            set
+            {
+                SetCustomColour(ChartRole.Download, value, nameof(CustomDownloadColour));
+            }
+        }
+
+        public Color CustomUploadColour
+        {
+            get => ColourForRole(ChartRole.Upload);
+            set
+            {
+                SetCustomColour(ChartRole.Upload, value, nameof(CustomUploadColour));
+            }
+        }
+
+        public Color CustomLatencyColour
+        {
+            get => ColourForRole(ChartRole.Latency);
+            set
+            {
+                SetCustomColour(ChartRole.Latency, value, nameof(CustomLatencyColour));
+            }
+        }
+
+        public Color CustomJitterColour
+        {
+            get => ColourForRole(ChartRole.Jitter);
+            set
+            {
+                SetCustomColour(ChartRole.Jitter, value, nameof(CustomJitterColour));
+            }
+        }
+
+        public Color CustomSelectionColour
+        {
+            get => ColourForRole(ChartRole.Selection);
+            set
+            {
+                SetCustomColour(ChartRole.Selection, value, nameof(CustomSelectionColour));
+            }
+        }
+
         private void PersistAll()
         {
             _settings.SubnetBase = SubnetBase;
@@ -538,6 +621,14 @@ namespace NetworkMonitor.ViewModels
             return deleted;
         }
 
+        [RelayCommand]
+        public void ResetChartScheme()
+        {
+            _chartPalette.ResetToDefault();
+            ChartSchemeIndex = IndexForSchemeId(ChartSchemeCatalog.DefaultSchemeId);
+            OnPropertyChanged(nameof(IsCustomScheme));
+        }
+
         private void OnSettingChanged(object? sender, PropertyChangedEventArgs args)
         {
             bool isPersistable = args.PropertyName is not null
@@ -601,6 +692,49 @@ namespace NetworkMonitor.ViewModels
                 AppLog.Error("SettingsViewModel.ApplyStartup", exception);
             }
 
+        }
+
+        private static int IndexForSchemeId(string schemeId)
+        {
+            int match = -1;
+
+            for (int index = 0; index < ChartSchemeCatalog.Presets.Count; index++)
+            {
+
+                if (string.Equals(ChartSchemeCatalog.Presets[index].Id, schemeId, StringComparison.OrdinalIgnoreCase))
+                {
+                    match = index;
+                }
+
+            }
+
+            int result = match >= 0 ? match : ChartSchemeCatalog.Presets.Count;
+
+            return result;
+        }
+
+        private Color ColourForRole(ChartRole role)
+        {
+            string hex = _chartPalette.CurrentBasePalette().ForRole(role);
+            byte red = byte.Parse(hex.Substring(1, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+            byte green = byte.Parse(hex.Substring(3, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+            byte blue = byte.Parse(hex.Substring(5, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+            Color result = Color.FromArgb(0xFF, red, green, blue);
+
+            return result;
+        }
+
+        private void SetCustomColour(ChartRole role, Color colour, string propertyName)
+        {
+            string hex = string.Format(
+                CultureInfo.InvariantCulture,
+                "#{0:X2}{1:X2}{2:X2}",
+                colour.R,
+                colour.G,
+                colour.B);
+
+            _chartPalette.ApplyCustomColour(role, hex);
+            OnPropertyChanged(propertyName);
         }
     }
 }
