@@ -15,6 +15,15 @@ namespace NetworkMonitor.Services.Data
     {
         private static readonly object _saveLock = new object();
 
+        // Held rather than built per save. Every JsonSerializerOptions instance owns its own converter
+        // and type-metadata cache, so constructing one inside Save redid the reflection warm-up for the
+        // whole of this type on every write and threw the cache away again. Saves are not rare: the
+        // widget's placement debounce alone writes every 400 ms for the length of a drag.
+        private static readonly JsonSerializerOptions SaveOptions = new JsonSerializerOptions
+        {
+            WriteIndented = true
+        };
+
         // The one setting that has a live watcher. SettingsPage writes straight through to this
         // object, and the mini graph window is created once and then hidden and shown for the life of
         // the session — so without a signal a toggle could not reach it at all, and re-reading on show
@@ -354,10 +363,7 @@ namespace NetworkMonitor.Services.Data
 
             lock (_saveLock)
             {
-                string json = JsonSerializer.Serialize(this, new JsonSerializerOptions
-                {
-                    WriteIndented = true
-                });
+                string json = JsonSerializer.Serialize(this, SaveOptions);
 
                 AtomicFile.WriteAllText(SettingsFilePath, json);
             }

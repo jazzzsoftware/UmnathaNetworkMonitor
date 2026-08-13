@@ -144,12 +144,17 @@ namespace NetworkMonitor.ViewModels
 
             if (!string.IsNullOrWhiteSpace(SearchText))
             {
-                string query = SearchText.Trim().ToLowerInvariant();
+                // Ordinal-ignore-case rather than lowercasing both sides. The old form allocated a new
+                // string per field per event on every pass — four for every row of a thirty-day history,
+                // all discarded — and it also left IpAddress matched case-sensitively against a query
+                // that had already been lowercased, which only went unnoticed because an IP has no
+                // letters in it.
+                string query = SearchText.Trim();
                 filtered = filtered.Where(deviceEvent =>
-                    (deviceEvent.Device?.DisplayName?.ToLowerInvariant().Contains(query) ?? false) ||
-                    (deviceEvent.Device?.IpAddress?.Contains(query) ?? false) ||
-                    (deviceEvent.Device?.MacAddress?.ToLowerInvariant().Contains(query) ?? false) ||
-                    (deviceEvent.Device?.Vendor?.ToLowerInvariant().Contains(query) ?? false));
+                    (deviceEvent.Device?.DisplayName?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                    (deviceEvent.Device?.IpAddress?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                    (deviceEvent.Device?.MacAddress?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                    (deviceEvent.Device?.Vendor?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false));
             }
 
             List<DeviceEvent> target = ApplySorting(filtered).ToList();
@@ -157,20 +162,32 @@ namespace NetworkMonitor.ViewModels
             StatusText = $"{Events.Count} events";
         }
 
+        // The key selector used to be typed Func<DeviceEvent, object?>, which boxed a DateTime or an int
+        // for every event and then compared those boxes through Comparer<object>.Default — an interface
+        // dispatch and a type check per comparison, where a typed comparer inlines. This runs over the
+        // whole thirty-day list on every scan, every column-header click and every debounced keystroke,
+        // so the generic helper below keeps each key at its own type all the way to the comparer.
         private IEnumerable<DeviceEvent> ApplySorting(IEnumerable<DeviceEvent> source)
         {
-            Func<DeviceEvent, object?> key = _sortProperty switch
+            IEnumerable<DeviceEvent> sorted = _sortProperty switch
             {
-                "Timestamp" => deviceEvent => deviceEvent.Timestamp,
-                "EventType" => deviceEvent => (int) deviceEvent.EventType,
-                "Type" => deviceEvent => (int) (deviceEvent.Device?.Type ?? DeviceType.Unknown),
-                "DisplayName" => deviceEvent => deviceEvent.Device?.DisplayName,
-                "IpAddress" => deviceEvent => deviceEvent.Device?.IpAddress,
-                "MacAddress" => deviceEvent => deviceEvent.Device?.MacAddress,
-                "Vendor" => deviceEvent => deviceEvent.Device?.Vendor,
-                _ => deviceEvent => deviceEvent.Timestamp
+                "EventType" => SortBy(source, deviceEvent => (int)deviceEvent.EventType),
+                "Type" => SortBy(source, deviceEvent => (int)(deviceEvent.Device?.Type ?? DeviceType.Unknown)),
+                "DisplayName" => SortBy(source, deviceEvent => deviceEvent.Device?.DisplayName),
+                "IpAddress" => SortBy(source, deviceEvent => deviceEvent.Device?.IpAddress),
+                "MacAddress" => SortBy(source, deviceEvent => deviceEvent.Device?.MacAddress),
+                "Vendor" => SortBy(source, deviceEvent => deviceEvent.Device?.Vendor),
+                _ => SortBy(source, deviceEvent => deviceEvent.Timestamp)
             };
-            IEnumerable<DeviceEvent> sorted = _sortAscending ? source.OrderBy(key) : source.OrderByDescending(key);
+
+            return sorted;
+        }
+
+        private IEnumerable<DeviceEvent> SortBy<TKey>(IEnumerable<DeviceEvent> source, Func<DeviceEvent, TKey> keySelector)
+        {
+            IEnumerable<DeviceEvent> sorted = _sortAscending
+                ? source.OrderBy(keySelector)
+                : source.OrderByDescending(keySelector);
 
             return sorted;
         }

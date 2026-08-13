@@ -51,6 +51,7 @@ namespace NetworkMonitor.Views.Controls
         private double _frozenNowEpoch;
         private bool _animateNext;
         private bool _renderingHooked;
+        private bool _isLoaded;
         private double? _selectedBucketEpoch;
         private CanvasLinearGradientBrush? _downloadFill;
         private CanvasLinearGradientBrush? _uploadFill;
@@ -221,6 +222,8 @@ namespace NetworkMonitor.Views.Controls
         {
             TrafficAreaChart chart = (TrafficAreaChart)sender;
             chart._isLive = (bool)args.NewValue;
+
+            chart.UpdateRenderingHook();
             chart.ChartCanvas.Invalidate();
         }
 
@@ -228,6 +231,8 @@ namespace NetworkMonitor.Views.Controls
         {
             TrafficAreaChart chart = (TrafficAreaChart)sender;
             chart._smoothScrolling = (bool)args.NewValue;
+
+            chart.UpdateRenderingHook();
             chart.ChartCanvas.Invalidate();
         }
 
@@ -419,12 +424,9 @@ namespace NetworkMonitor.Views.Controls
 
         private void OnLoaded(object sender, RoutedEventArgs args)
         {
+            _isLoaded = true;
 
-            if (!_renderingHooked)
-            {
-                CompositionTarget.Rendering += OnRendering;
-                _renderingHooked = true;
-            }
+            UpdateRenderingHook();
 
             if (!_paletteHooked)
             {
@@ -437,12 +439,9 @@ namespace NetworkMonitor.Views.Controls
 
         private void OnUnloaded(object sender, RoutedEventArgs args)
         {
+            _isLoaded = false;
 
-            if (_renderingHooked)
-            {
-                CompositionTarget.Rendering -= OnRendering;
-                _renderingHooked = false;
-            }
+            UpdateRenderingHook();
 
             if (_paletteHooked)
             {
@@ -466,10 +465,40 @@ namespace NetworkMonitor.Views.Controls
             ChartCanvas.RemoveFromVisualTree();
         }
 
+        // A live CompositionTarget.Rendering subscription keeps the UI thread waking on every compositor
+        // frame, whether or not the handler does anything. Short-circuiting inside the handler was
+        // therefore not enough: a hidden widget — which stays loaded on purpose, so AppWindow.Hide can
+        // bring it straight back — and a full-page chart parked in History both went on paying for a
+        // per-frame callback that only read a boolean. The hook now tracks the states that can actually
+        // ask for a redraw, so an idle chart is genuinely idle.
+        //
+        // _frozen is deliberately not part of this. It is set while the pointer sits over the chart and
+        // cleared when it leaves, so folding it in would subscribe and unsubscribe on every hover.
+        private void UpdateRenderingHook()
+        {
+            bool wanted = _isLoaded && _isLive && _smoothScrolling;
+
+            if (wanted != _renderingHooked)
+            {
+
+                if (wanted)
+                {
+                    CompositionTarget.Rendering += OnRendering;
+                }
+                else
+                {
+                    CompositionTarget.Rendering -= OnRendering;
+                }
+
+                _renderingHooked = wanted;
+            }
+
+        }
+
         private void OnRendering(object? sender, object args)
         {
 
-            if (_isLive && _smoothScrolling && !_frozen)
+            if (!_frozen)
             {
                 ChartCanvas.Invalidate();
             }
@@ -822,7 +851,7 @@ namespace NetworkMonitor.Views.Controls
                     _displayMax = axisMax;
                 }
 
-                UpdatePeakLabels(points!, maxValue);
+                UpdatePeakLabels(maxValue, newBucketSeconds);
             }
             else
             {
@@ -902,9 +931,10 @@ namespace NetworkMonitor.Views.Controls
         //
         // The axis labels below come from the same maxValue, so the number and the top gridline agree
         // with each other even while the curve is still climbing towards them.
-        private void UpdatePeakLabels(IReadOnlyList<ChartPoint> points, long maxValue)
+        // bucketSeconds is passed in rather than derived again from the points: ApplyPoints has already
+        // walked the list for it, and the two calls could only ever agree.
+        private void UpdatePeakLabels(long maxValue, double bucketSeconds)
         {
-            double bucketSeconds = TrafficRateFormatter.BucketSeconds(points);
             RateUnitMode mode = TrafficRateFormatter.Mode;
             Visibility bitsVisibility = mode == RateUnitMode.Bytes ? Visibility.Collapsed : Visibility.Visible;
             Visibility bytesVisibility = mode == RateUnitMode.Bits ? Visibility.Collapsed : Visibility.Visible;

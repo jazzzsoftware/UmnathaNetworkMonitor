@@ -143,11 +143,19 @@ Work order (my preferred sequencing). Tick **Done** as each is completed.
 
 | # | ID | Fix | Severity | Migration | Done |
 |---|----|-----|----------|-----------|------|
-| 1 | M1 | Cache `JsonSerializerOptions` in `Settings.Save` | Med | No | ✕ |
-| 2 | M2 | Unhook `CompositionTarget.Rendering` when not live | Med | No | ✕ |
-| 3 | M4 | Ordinal `Contains` in the history search | Med | No | ✕ |
-| 4 | M3 | Typed sort keys in `DeviceHistoryViewModel` | Med | No | ✕ |
-| 5 | L4 | Compute `BucketSeconds` once per update | Low | No | ✕ |
+| 1 | M1 | Cache `JsonSerializerOptions` in `Settings.Save` | Med | No | ✅ |
+| 2 | M2 | Unhook `CompositionTarget.Rendering` when not live | Med | No | ✅ |
+| 3 | M4 | Ordinal `Contains` in the history search | Med | No | ✅ |
+| 4 | M3 | Typed sort keys in `DeviceHistoryViewModel` | Med | No | ✅ |
+| 5 | L4 | Compute `BucketSeconds` once per update | Low | No | ✅ |
+
+> **Phase 1 done (2026-08-13).** Builds clean, 494/494 tests pass.
+> - **M1:** `SaveOptions` is now a `static readonly` field beside `_saveLock`.
+> - **M2:** the hook is driven by `UpdateRenderingHook()`, which subscribes only while `_isLoaded && _isLive && _smoothScrolling`. `_frozen` is deliberately left as an in-handler check — it flips on every hover, so folding it in would churn the subscription. A chart turning smooth scrolling off now costs nothing rather than a per-frame no-op.
+> - **M4:** also fixed a latent inconsistency — `IpAddress` was matched case-sensitively against an already-lowercased query, which only went unnoticed because an IP has no letters.
+> - **M3:** `SortBy<TKey>` keeps each key at its own type; the ascending/descending choice stays in one place.
+> - **L4:** `UpdatePeakLabels` now takes `bucketSeconds` rather than re-deriving it from the points.
+> - **Live check passed (2026-08-13):** M2 was tested in the running app — the widget hidden and re-shown, both full-page charts paused and resumed, and `ChartSmoothScrolling` toggled off and back on with the widget visible. Every chart resumed drawing each time.
 
 ### Phase 2 — the widget chart
 
@@ -183,7 +191,7 @@ The rendering and grid changes cannot be signed off from a build and a test run 
 - **H1 (widget charts).** Both orientations, both sections, at the minimum size and dragged large; confirm the trace shape, the peak label, the gridline values and the time row are unchanged, that spikes still show at the decimated resolution, and that scrolling still reads as smooth with `ChartSmoothScrolling` on and off.
 - **H2 (Internet grid).** Watch a live 5-minute range for several minutes: row values must update in place with no flicker, the selection must survive a flush, column sorting and the app drill-in must still work, and the All Apps row must stay pinned first.
 - **H3 (history).** Load a populated 30-day history, sort by every column, search, and deep-link from a device into History.
-- **M2.** Hide and re-show the widget, and pause/resume both full-page charts, confirming they resume drawing each time.
+- **M2.** ✅ Done 2026-08-13. Hide and re-show the widget, pause/resume both full-page charts, and toggle `ChartSmoothScrolling` off and on with the widget visible, confirming they resume drawing each time.
 
 ## Database impact
 
