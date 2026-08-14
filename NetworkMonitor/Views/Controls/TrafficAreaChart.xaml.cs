@@ -34,6 +34,18 @@ namespace NetworkMonitor.Views.Controls
 
         private const double EaseTimeConstantSeconds = 2.5;
 
+        // The frame throttle deliberately stops drawing while the chart is settled, so the next frame
+        // after a quiet second would otherwise see a whole second of ease in one step — factor 0.33
+        // rather than 0.006 — and the ramp that follows a flush would snap rather than ease, which is
+        // the one thing the ease exists for. Three frames' worth is enough to absorb a slow frame and
+        // short enough that no visible jump survives it.
+        private const double MaxEaseStepSeconds = 0.05;
+
+        // Half a pixel of scroll and a quarter pixel of ease: below both, a redraw cannot change a
+        // single pixel of the result.
+        private const double MinimumShiftPixels = 0.5;
+        private const double SettledPixels = 0.25;
+
         private IReadOnlyList<ChartPoint>? _currentPoints;
         private double[]? _timeEpoch;
         private double[]? _download;
@@ -45,6 +57,10 @@ namespace NetworkMonitor.Views.Controls
         private double _targetMax = 1.0;
         private double _displayMax;
         private double _lastFrameEpoch;
+        private double _lastDrawEpoch;
+        private double _drawPixelsPerSecond;
+        private double _maxEaseResidual;
+        private bool _easeSettled;
         private bool _isLive = true;
         private bool _smoothScrolling = true;
         private bool _frozen;
@@ -327,51 +343,17 @@ namespace NetworkMonitor.Views.Controls
             return result;
         }
 
-        private static Vector2[] BuildPoints(
-            Vector2[]? buffer,
-            double[] timeEpoch,
-            double[] values,
-            int count,
-            double leftEdge,
-            double span,
-            double width,
-            double height,
-            double usableHeight,
-            double safeMax,
-            bool isLive,
-            double nowEpoch)
+        private static Vector2[] EnsureBuffer(Vector2[]? buffer, int capacity)
         {
-            int total = isLive ? count + 1 : count;
             Vector2[] points;
 
-            if (buffer != null && buffer.Length == total)
+            if (buffer != null && buffer.Length >= capacity)
             {
                 points = buffer;
             }
             else
             {
-                points = new Vector2[total];
-            }
-
-            for (int index = 0; index < count; index++)
-            {
-                float xValue = (float)((timeEpoch[index] - leftEdge) / span * width);
-                float yValue = (float)(height - values[index] / safeMax * usableHeight);
-                points[index] = new Vector2(xValue, yValue);
-            }
-
-            if (isLive)
-            {
-                // Extend from the last COMPLETE bucket, not the newest one. The newest only ever
-                // holds the fraction of a second the most recent flush actually covered, so during a
-                // sustained transfer the rightmost slice of the trace sat at roughly half the true
-                // rate until the next flush topped it up — a permanent dip at the exact point the eye
-                // goes to. Reading one bucket back costs nothing and the value is whole.
-                int leadSource = count > 1 ? count - 2 : count - 1;
-
-                float leadX = (float)((nowEpoch - leftEdge) / span * width);
-                float leadY = (float)(height - values[leadSource] / safeMax * usableHeight);
-                points[count] = new Vector2(leadX, leadY);
+                points = new Vector2[capacity];
             }
 
             return points;
@@ -381,45 +363,55 @@ namespace NetworkMonitor.Views.Controls
             ICanvasResourceCreator creator,
             CanvasDrawingSession session,
             Vector2[] points,
+            int count,
             double height,
             CanvasLinearGradientBrush fill,
             Color stroke)
         {
-            int count = points.Length;
 
-            using CanvasPathBuilder areaBuilder = new(creator);
-            areaBuilder.BeginFigure(points[0]);
-
-            for (int index = 0; index < count - 1; index++)
+            if (count >= 2)
             {
-                float segmentWidth = points[index + 1].X - points[index].X;
-                Vector2 control1 = new(points[index].X + segmentWidth / 3f, points[index].Y);
-                Vector2 control2 = new(points[index + 1].X - segmentWidth / 3f, points[index + 1].Y);
-                areaBuilder.AddCubicBezier(control1, control2, points[index + 1]);
+
+                using (CanvasPathBuilder areaBuilder = new(creator))
+                {
+                    areaBuilder.BeginFigure(points[0]);
+
+                    for (int index = 0; index < count - 1; index++)
+                    {
+                        float segmentWidth = points[index + 1].X - points[index].X;
+                        Vector2 control1 = new(points[index].X + segmentWidth / 3f, points[index].Y);
+                        Vector2 control2 = new(points[index + 1].X - segmentWidth / 3f, points[index + 1].Y);
+                        areaBuilder.AddCubicBezier(control1, control2, points[index + 1]);
+                    }
+
+                    areaBuilder.AddLine(new Vector2(points[count - 1].X, (float)height));
+                    areaBuilder.AddLine(new Vector2(points[0].X, (float)height));
+                    areaBuilder.EndFigure(CanvasFigureLoop.Closed);
+
+                    using CanvasGeometry areaGeometry = CanvasGeometry.CreatePath(areaBuilder);
+                    session.FillGeometry(areaGeometry, fill);
+                }
+
+                using (CanvasPathBuilder lineBuilder = new(creator))
+                {
+                    lineBuilder.BeginFigure(points[0]);
+
+                    for (int index = 0; index < count - 1; index++)
+                    {
+                        float segmentWidth = points[index + 1].X - points[index].X;
+                        Vector2 control1 = new(points[index].X + segmentWidth / 3f, points[index].Y);
+                        Vector2 control2 = new(points[index + 1].X - segmentWidth / 3f, points[index + 1].Y);
+                        lineBuilder.AddCubicBezier(control1, control2, points[index + 1]);
+                    }
+
+                    lineBuilder.EndFigure(CanvasFigureLoop.Open);
+
+                    using CanvasGeometry lineGeometry = CanvasGeometry.CreatePath(lineBuilder);
+                    session.DrawGeometry(lineGeometry, stroke, 1.5f);
+                }
+
             }
 
-            areaBuilder.AddLine(new Vector2(points[count - 1].X, (float)height));
-            areaBuilder.AddLine(new Vector2(points[0].X, (float)height));
-            areaBuilder.EndFigure(CanvasFigureLoop.Closed);
-
-            using CanvasGeometry areaGeometry = CanvasGeometry.CreatePath(areaBuilder);
-            session.FillGeometry(areaGeometry, fill);
-
-            using CanvasPathBuilder lineBuilder = new(creator);
-            lineBuilder.BeginFigure(points[0]);
-
-            for (int index = 0; index < count - 1; index++)
-            {
-                float segmentWidth = points[index + 1].X - points[index].X;
-                Vector2 control1 = new(points[index].X + segmentWidth / 3f, points[index].Y);
-                Vector2 control2 = new(points[index + 1].X - segmentWidth / 3f, points[index + 1].Y);
-                lineBuilder.AddCubicBezier(control1, control2, points[index + 1]);
-            }
-
-            lineBuilder.EndFigure(CanvasFigureLoop.Open);
-
-            using CanvasGeometry lineGeometry = CanvasGeometry.CreatePath(lineBuilder);
-            session.DrawGeometry(lineGeometry, stroke, 1.5f);
         }
 
         private void OnLoaded(object sender, RoutedEventArgs args)
@@ -498,11 +490,33 @@ namespace NetworkMonitor.Views.Controls
         private void OnRendering(object? sender, object args)
         {
 
-            if (!_frozen)
+            if (!_frozen && ShouldRedraw())
             {
                 ChartCanvas.Invalidate();
             }
 
+        }
+
+        // A frame that scrolls the trace by less than half a pixel and has no ease left to run cannot
+        // change a single pixel of the result, so it is not worth rebuilding the geometry for. The
+        // strip holds a 300 second window in 170 pixels — 0.57 px/s — so an idle widget now redraws
+        // roughly once a second instead of sixty or a hundred and forty times.
+        //
+        // The rate that matters is the one the eye actually reads, and that comes from the post-flush
+        // ease rather than from the scroll: while the ease is still running this returns true every
+        // frame and nothing is throttled. New data does not come through here at all — ApplyPoints
+        // invalidates directly — so a flush always draws whatever this decides.
+        private bool ShouldRedraw()
+        {
+            bool redraw = true;
+
+            if (_easeSettled && _lastDrawEpoch > 0.0 && _drawPixelsPerSecond > 0.0)
+            {
+                double shift = (NowEpoch() - _lastDrawEpoch) * _drawPixelsPerSecond;
+                redraw = shift >= MinimumShiftPixels;
+            }
+
+            return redraw;
         }
 
         private void ReadPaletteColours()
@@ -593,11 +607,22 @@ namespace NetworkMonitor.Views.Controls
                 _uploadFill.StartPoint = new Vector2(0f, (float)plotTop);
                 _uploadFill.EndPoint = new Vector2(0f, (float)plotBottom);
 
-                _downloadPointBuffer = BuildPoints(_downloadPointBuffer, _timeEpoch, _displayedDownload, _count, leftEdge, span, width, plotBottom, usableHeight, safeMax, scrolling, nowEpoch);
-                _uploadPointBuffer = BuildPoints(_uploadPointBuffer, _timeEpoch, _displayedUpload, _count, leftEdge, span, width, plotBottom, usableHeight, safeMax, scrolling, nowEpoch);
+                int capacity = ChartGeometry.RequiredCapacity(_count, scrolling);
+                _downloadPointBuffer = EnsureBuffer(_downloadPointBuffer, capacity);
+                _uploadPointBuffer = EnsureBuffer(_uploadPointBuffer, capacity);
 
-                DrawArea(sender, args.DrawingSession, _downloadPointBuffer, plotBottom, _downloadFill, _downloadStrokeColour);
-                DrawArea(sender, args.DrawingSession, _uploadPointBuffer, plotBottom, _uploadFill, _uploadStrokeColour);
+                int downloadPoints = ChartGeometry.BuildPoints(_downloadPointBuffer, _timeEpoch, _displayedDownload, _count, leftEdge, span, width, plotBottom, usableHeight, safeMax, scrolling, nowEpoch);
+                int uploadPoints = ChartGeometry.BuildPoints(_uploadPointBuffer, _timeEpoch, _displayedUpload, _count, leftEdge, span, width, plotBottom, usableHeight, safeMax, scrolling, nowEpoch);
+
+                DrawArea(sender, args.DrawingSession, _downloadPointBuffer, downloadPoints, plotBottom, _downloadFill, _downloadStrokeColour);
+                DrawArea(sender, args.DrawingSession, _uploadPointBuffer, uploadPoints, plotBottom, _uploadFill, _uploadStrokeColour);
+
+                _lastDrawEpoch = nowEpoch;
+                _drawPixelsPerSecond = span > 0.0 ? width / span : 0.0;
+
+                double residualPixels = _maxEaseResidual / safeMax * usableHeight;
+                double axisPixels = Math.Abs(_targetMax - _displayMax) / safeMax * usableHeight;
+                _easeSettled = residualPixels < SettledPixels && axisPixels < SettledPixels;
 
                 if (Compact)
                 {
@@ -778,17 +803,21 @@ namespace NetworkMonitor.Views.Controls
         private void EaseValues()
         {
             double nowEpoch = NowEpoch();
-            double delta = _lastFrameEpoch > 0 ? nowEpoch - _lastFrameEpoch : 0.016;
+            double delta = _lastFrameEpoch > 0 ? Math.Min(nowEpoch - _lastFrameEpoch, MaxEaseStepSeconds) : 0.016;
             _lastFrameEpoch = nowEpoch;
             double timeConstant = EaseTimeConstantSeconds;
             double factor = 1.0 - Math.Exp(-delta / timeConstant);
+            double residual = 0.0;
 
             for (int index = 0; index < _count; index++)
             {
                 _displayedDownload![index] += (_download![index] - _displayedDownload[index]) * factor;
                 _displayedUpload![index] += (_upload![index] - _displayedUpload[index]) * factor;
+                residual = Math.Max(residual, Math.Abs(_download[index] - _displayedDownload[index]));
+                residual = Math.Max(residual, Math.Abs(_upload[index] - _displayedUpload[index]));
             }
 
+            _maxEaseResidual = residual;
         }
 
         private void ApplyPoints()
