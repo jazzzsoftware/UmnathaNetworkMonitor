@@ -595,29 +595,51 @@ namespace NetworkMonitor.ViewModels
             OnPropertyChanged(nameof(MiniGraphShowBorder));
         }
 
+        // A day count of 0 means "retention disabled" everywhere else in the app — the label under the
+        // box says so, and ScanWorker.PurgeOldHistoryAsync skips the purge entirely on 0. Without the
+        // same guard here, Purge Now at 0 computed a cutoff of "now" and deleted the ENTIRE history,
+        // which is the exact opposite of what the setting claims to do at that value.
         public async Task<int> PurgeHistoryAsync()
         {
-            await using AppDbContext db = await _dbFactory.CreateDbContextAsync();
-            DateTime deviceCutoff = DateTime.UtcNow.AddDays(-HistoryPurgeDays);
-            int deleted = await db.DeviceEvents
-                .Where(deviceEvent => deviceEvent.Timestamp < deviceCutoff)
-                .ExecuteDeleteAsync();
-            await db.ScanSessions
-                .Where(session => session.CompletedAt.HasValue && session.CompletedAt.Value < deviceCutoff)
-                .ExecuteDeleteAsync();
-            PurgeStatus = $"Purged {deleted} event{(deleted == 1 ? string.Empty : "s")} at {DateTime.Now:HH:mm:ss}";
+            int deleted = 0;
+
+            if (HistoryPurgeDays > 0)
+            {
+                await using AppDbContext db = await _dbFactory.CreateDbContextAsync();
+                DateTime deviceCutoff = DateTime.UtcNow.AddDays(-HistoryPurgeDays);
+                deleted = await db.DeviceEvents
+                    .Where(deviceEvent => deviceEvent.Timestamp < deviceCutoff)
+                    .ExecuteDeleteAsync();
+                await db.ScanSessions
+                    .Where(session => session.CompletedAt.HasValue && session.CompletedAt.Value < deviceCutoff)
+                    .ExecuteDeleteAsync();
+                PurgeStatus = $"Purged {deleted} event{(deleted == 1 ? string.Empty : "s")} at {DateTime.Now:HH:mm:ss}";
+            }
+            else
+            {
+                PurgeStatus = "Purging is disabled while the day count is 0.";
+            }
 
             return deleted;
         }
 
         public async Task<int> PurgeTrafficAsync()
         {
-            await using AppDbContext db = await _dbFactory.CreateDbContextAsync();
-            DateTime trafficCutoff = DateTime.UtcNow.AddDays(-TrafficPurgeDays);
-            int deleted = await db.TrafficEntries
-                .Where(entry => entry.Timestamp < trafficCutoff)
-                .ExecuteDeleteAsync();
-            TrafficPurgeStatus = $"Purged {deleted} entr{(deleted == 1 ? "y" : "ies")} at {DateTime.Now:HH:mm:ss}";
+            int deleted = 0;
+
+            if (TrafficPurgeDays > 0)
+            {
+                await using AppDbContext db = await _dbFactory.CreateDbContextAsync();
+                DateTime trafficCutoff = DateTime.UtcNow.AddDays(-TrafficPurgeDays);
+                deleted = await db.TrafficEntries
+                    .Where(entry => entry.Timestamp < trafficCutoff)
+                    .ExecuteDeleteAsync();
+                TrafficPurgeStatus = $"Purged {deleted} entr{(deleted == 1 ? "y" : "ies")} at {DateTime.Now:HH:mm:ss}";
+            }
+            else
+            {
+                TrafficPurgeStatus = "Purging is disabled while the day count is 0.";
+            }
 
             return deleted;
         }
