@@ -94,7 +94,7 @@ namespace NetworkMonitor.ViewModels
         public async Task LoadAsync()
         {
             await using AppDbContext db = await _dbFactory.CreateDbContextAsync();
-            IQueryable<DeviceEvent> query = db.DeviceEvents.AsNoTracking().Include(deviceEvent => deviceEvent.Device);
+            IQueryable<DeviceEvent> query = db.DeviceEvents.AsNoTracking();
 
             if (_settings.HistoryPurgeDays > 0)
             {
@@ -102,9 +102,35 @@ namespace NetworkMonitor.ViewModels
                 query = query.Where(deviceEvent => deviceEvent.Timestamp >= cutoff);
             }
 
-            _allEvents = await query
+            // Deliberately NOT Include(deviceEvent => deviceEvent.Device). AsNoTracking keeps no
+            // identity map, so an Include materialises a separate Device for every event row — a
+            // thirty-day history of a household that flaps a few phones is thousands of rows against
+            // perhaps fifty distinct devices, and each duplicate carries its own copy of every string
+            // on the entity. Reading the referenced devices once into a dictionary and handing the
+            // same instance to every event that points at it removes both the duplicate objects and
+            // the duplicate strings, and it leaves the object graph the grid, the sort, the search and
+            // the CSV exporter already read exactly as it was.
+            IQueryable<int> referenced = query.Select(deviceEvent => deviceEvent.DeviceId).Distinct();
+            Dictionary<int, Device> devices = await db.Devices
+                .AsNoTracking()
+                .Where(device => referenced.Contains(device.Id))
+                .ToDictionaryAsync(device => device.Id);
+
+            List<DeviceEvent> events = await query
                 .OrderByDescending(deviceEvent => deviceEvent.Timestamp)
                 .ToListAsync();
+
+            foreach (DeviceEvent deviceEvent in events)
+            {
+
+                if (devices.TryGetValue(deviceEvent.DeviceId, out Device? device))
+                {
+                    deviceEvent.Device = device;
+                }
+
+            }
+
+            _allEvents = events;
             _dispatcherQueue.TryEnqueue(ApplyFilter);
         }
 

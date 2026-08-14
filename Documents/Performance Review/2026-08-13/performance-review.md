@@ -53,6 +53,7 @@ What has changed is the **workload**. The mini graph widget, the Local tab and t
 - `AsNoTracking()` has **no identity resolution**. With an `Include`, EF materialises a **separate `Device` instance for every `DeviceEvent` row**, rather than one shared instance per device. A month of events for a household that flaps a few phones on and off is easily thousands of rows, so a load allocates thousands of `Device` objects where ~50 distinct ones exist — and each carries every string column (hostname, vendor, notes, MAC, IP).
 - **Frequency:** the initial tab load, every scan while the History tab is active (`:204-214`), and any settings change to `HistoryPurgeDays`.
 - **Fix:** either `AsNoTrackingWithIdentityResolution()` (one line, keeps the object graph the grid and the sort comparators already use), or — better — project to a flat row type carrying only the seven columns the grid and `ApplySorting` actually read (`Timestamp`, `EventType`, and the device's `Type`/`DisplayName`/`IpAddress`/`MacAddress`/`Vendor`). The projection also removes the duplicate-string cost, not just the duplicate-object cost.
+- **Correction (2026-08-14, on implementing this).** The sentence above is wrong and the projection was **not** taken. A flat row type gives *every* event row its own copy of `DisplayName`/`IpAddress`/`MacAddress`/`Vendor`/`Model`, materialised fresh from the reader per row with no sharing — so it *reintroduces* the very duplicate-string cost the finding wants removed, and keeps thousands of them. Sharing one `Device` instance per key is what removes duplicate strings, because the duplicated strings hang off the duplicated objects. The column list is also short: the grid additionally binds `Device.Model`, `Device.IsHost`, `Device.IsRandomizedMac` and `Device.TypeIcon`, and `DisplayName` is `FriendlyName ?? MdnsName ?? Hostname ?? IpAddress`, so a projection would have to carry nine columns against the entity's thirteen and reimplement three computed members. It is more code, more duplication and a wider blast radius (XAML `x:DataType`, the sort-path map, the CSV exporter) for a narrower row. See the Phase 3 note for what was done instead.
 
 ---
 
@@ -179,8 +180,17 @@ Work order (my preferred sequencing). Tick **Done** as each is completed.
 
 | # | ID | Fix | Severity | Migration | Done |
 |---|----|-----|----------|-----------|------|
-| 9 | H3 | Project history events / identity-resolve the `Include` | High | No | ✕ |
+| 9 | H3 | Project history events / identity-resolve the `Include` | High | No | ✅ |
 | 10 | H2 | Observable `InternetTrafficAppRow` + in-place reconcile | High | No | ✕ |
+
+> **H3 done (2026-08-14).** Builds clean, 501/501 tests pass, live check passed.
+> - **Measured on the real database:** 1,124 device events referencing **56 distinct devices**. The old `AsNoTracking().Include(...)` materialised one `Device` per event row, so that load built 1,124 device objects — each with its own copy of `MacAddress`, `IpAddress`, `Hostname`, `FriendlyName`, `MdnsName`, `Vendor`, `Model` and `Notes` — where 56 exist. Twenty duplicates per device on average. The finding estimated "thousands of rows against ~50 distinct devices"; the shape was right.
+> - **Neither of the two fixes as written.** The `Include` is gone entirely. `LoadAsync` now runs two `AsNoTracking` queries against the one context — the referenced devices into a `Dictionary<int, Device>` (scoped by a server-side `Distinct()` subquery over the same filtered event query, so it fetches the devices the window actually references and no more), then the events — and hands the shared `Device` instance to every event that points at it.
+> - **Why not the projection**, which this document recommended: see the correction under the finding. In short, a flat per-event row type duplicates the strings rather than removing them, and the device columns are wider than the finding assumed.
+> - **Why not `AsNoTrackingWithIdentityResolution()`**, which would have been one line and correct: it removes the duplicate objects and strings, but EF still asks SQLite for every device column on every event row and discards the repeats after the key lookup. Dropping the `Include` removes that from the query as well — the event query now returns four columns per row instead of four plus thirteen.
+> - **The object graph is unchanged**, which is the point: `deviceEvent.Device` is still a real `Device`, so the grid bindings, `ApplySorting`, the search predicate, the sort-path map in the page and `DeviceEventCsvExporter` are all untouched. The change is confined to `LoadAsync`.
+> - **A device that no longer exists** leaves `Device` null, exactly as a missing `Include` row would have. The search and sort paths already use `?.` and the XAML bindings are null-safe, so this is the pre-existing behaviour rather than a new state.
+> - **No test added.** The change is an EF query shape plus a dictionary lookup; there is no pure logic to extract, and `DeviceHistoryViewModel` lives in the app project, which the test project does not reference. This one is carried by the live check.
 
 ### Phase 4 — opportunistic
 
@@ -200,7 +210,7 @@ The rendering and grid changes cannot be signed off from a build and a test run 
 
 - **H1 (widget charts).** ✅ Done 2026-08-14. Both orientations, both sections, at the minimum size and dragged large; confirm the trace shape, the peak label, the gridline values and the time row are unchanged, that spikes still show at the decimated resolution, and that scrolling still reads as smooth with `ChartSmoothScrolling` on and off. All thirteen checks passed — see the Phase 2 note for what was covered and for the CPU measurement, which did not resolve the saving.
 - **H2 (Internet grid).** Watch a live 5-minute range for several minutes: row values must update in place with no flicker, the selection must survive a flush, column sorting and the app drill-in must still work, and the All Apps row must stay pinned first.
-- **H3 (history).** Load a populated 30-day history, sort by every column, search, and deep-link from a device into History.
+- **H3 (history).** ✅ Done 2026-08-14. Load a populated 30-day history, sort by every column, search, and deep-link from a device into History. Thirteen checks against a 1,124-event history spanning three weeks and 56 devices: the grid loads with every device column populated, all seven columns sort and reverse, search matches on name / IP / MAC (mixed case) / vendor, the deep-link from a device arrives pre-filled and filtered, an in-place refresh keeps the sort, the CSV export carries the device fields — a separate code path from the grid — the Host and Private MAC chips still render, and devices reachable only through the oldest events still resolve to a name and vendor rather than blanks.
 - **M2.** ✅ Done 2026-08-13. Hide and re-show the widget, pause/resume both full-page charts, and toggle `ChartSmoothScrolling` off and on with the widget visible, confirming they resume drawing each time.
 
 ## Database impact
