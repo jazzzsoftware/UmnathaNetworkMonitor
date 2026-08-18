@@ -47,3 +47,10 @@ mislabelled as shipped, because nothing unreleased is in the dialog at all.
 - Note: the daily digest report keeps its own fixed colours and is not affected by any of this.
 - Note: if you have not changed anything, the default chart colours are very slightly lighter than
   before. That is the same readability adjustment being applied to the default scheme.
+- Changed: the app does noticeably less work while you are watching it. The mini graph widget no
+  longer redraws detail finer than the screen can show, and stops redrawing altogether while nothing
+  is moving; the Internet app list updates its figures in place instead of rebuilding every row each
+  time; device history loads without building a duplicate copy of a device for every event; and the
+  live charts now reuse their working memory between updates rather than allocating it afresh
+  several times a second. Nothing looks or behaves differently — it simply costs less to leave
+  running all day.

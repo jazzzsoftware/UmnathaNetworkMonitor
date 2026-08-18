@@ -186,7 +186,7 @@ Done - Add section to readme to mention following professional design practices,
 Done - Update all docs
 Done - Add Speed tests to start of digest csv
 Done - Code review
-Performance review
+Done - Performance review
 
 Clicking on notification takes you to the section in the app.
 
