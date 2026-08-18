@@ -131,7 +131,7 @@ What has changed is the **workload**. The mini graph widget, the Local tab and t
 
 1. **Cheap, self-contained, no behaviour change:** M1 (`JsonSerializerOptions`), M2 (unhook `Rendering`), M4 (ordinal `Contains`), M3 (typed sort keys), L4.
 2. **The headline:** H1 in the order (b) → (a) → (c) — reuse the path first because it halves the work with no visual change at all, then decimate, then throttle. Each step wants a live look at the widget in both orientations before the next.
-3. **Structural but contained:** H3 (projection or identity resolution), H2 (observable row type + in-place reconcile — the larger of the two, and the one that needs the Internet grid re-tested for selection, sorting and the drill-in).
+3. **Structural but contained:** H3 (projection or identity resolution), H2 (observable row type + in-place reconcile — the larger of the two, and the one that needs the Internet grid re-tested for selection, row order and the drill-in; the grid has no user column sorting).
 4. **Opportunistic:** M5, M6, L1, L3.
 
 ---
@@ -181,7 +181,7 @@ Work order (my preferred sequencing). Tick **Done** as each is completed.
 | # | ID | Fix | Severity | Migration | Done |
 |---|----|-----|----------|-----------|------|
 | 9 | H3 | Project history events / identity-resolve the `Include` | High | No | ✅ |
-| 10 | H2 | Observable `InternetTrafficAppRow` + in-place reconcile | High | No | ✕ |
+| 10 | H2 | Observable `InternetTrafficAppRow` + in-place reconcile | High | No | ✅ |
 
 > **H3 done (2026-08-14).** Builds clean, 501/501 tests pass, live check passed.
 > - **Measured on the real database:** 1,124 device events referencing **56 distinct devices**. The old `AsNoTracking().Include(...)` materialised one `Device` per event row, so that load built 1,124 device objects — each with its own copy of `MacAddress`, `IpAddress`, `Hostname`, `FriendlyName`, `MdnsName`, `Vendor`, `Model` and `Notes` — where 56 exist. Twenty duplicates per device on average. The finding estimated "thousands of rows against ~50 distinct devices"; the shape was right.
@@ -209,7 +209,10 @@ Work order (my preferred sequencing). Tick **Done** as each is completed.
 The rendering and grid changes cannot be signed off from a build and a test run alone:
 
 - **H1 (widget charts).** ✅ Done 2026-08-14. Both orientations, both sections, at the minimum size and dragged large; confirm the trace shape, the peak label, the gridline values and the time row are unchanged, that spikes still show at the decimated resolution, and that scrolling still reads as smooth with `ChartSmoothScrolling` on and off. All thirteen checks passed — see the Phase 2 note for what was covered and for the CPU measurement, which did not resolve the saving.
-- **H2 (Internet grid).** Watch a live 5-minute range for several minutes: row values must update in place with no flicker, the selection must survive a flush, column sorting and the app drill-in must still work, and the All Apps row must stay pinned first.
+- **H2 (Internet grid).** ✅ Done 2026-08-18, with two checks not established — see below. Watched live on the 5-minute range at a 1-second flush interval. Nine of eleven checks passed: values tick in place with no flicker and no loss of the hover highlight; the All Apps row stays pinned first; rows re-sort by total with their values staying attached to the right row; a selected row keeps its selection across flushes; the drill-in to a single app and back to All Apps still works; the rate chip appears **and disappears again** on a row already on screen as a download starts and stops — the check that actually proves the `OneWay` bindings fire, since as a record the row could only have been replaced; new rows insert in sorted position and rows leaving the window drop out without disturbing the selection; the 5m/1h/24h range switches repopulate correctly; and both pause paths (chart bucket and mode badge) resume live cleanly.
+  - **Not exercised:** a row whose `ProcessPath` arrives after the row is already on screen, so `DisplayName` and `CanOpen` updating in place is unverified. It cannot be forced on demand and no candidate app appeared during the session.
+  - **Not established:** the reconciler's clear-and-refill fallback (`SyncOrdered`, >8 rows with fewer than half still in place) was never observed, which is the expected result but is not evidence it cannot fire. Nothing to fix; noted so a future flicker report has a known suspect.
+  - **Correction to this checklist's original wording:** it asked that column sorting still work. The Internet grid has no user sorting — all four columns are `DataGridTemplateColumn` with no `SortMemberPath` and no `Sorting` handler, so a header click did nothing before H2 either. Row order comes from `RebuildAppRows`, which sorts by total bytes descending under the pinned All Apps row. There was no such check to run.
 - **H3 (history).** ✅ Done 2026-08-14. Load a populated 30-day history, sort by every column, search, and deep-link from a device into History. Thirteen checks against a 1,124-event history spanning three weeks and 56 devices: the grid loads with every device column populated, all seven columns sort and reverse, search matches on name / IP / MAC (mixed case) / vendor, the deep-link from a device arrives pre-filled and filtered, an in-place refresh keeps the sort, the CSV export carries the device fields — a separate code path from the grid — the Host and Private MAC chips still render, and devices reachable only through the oldest events still resolve to a name and vendor rather than blanks.
 - **M2.** ✅ Done 2026-08-13. Hide and re-show the widget, pause/resume both full-page charts, and toggle `ChartSmoothScrolling` off and on with the widget visible, confirming they resume drawing each time.
 
