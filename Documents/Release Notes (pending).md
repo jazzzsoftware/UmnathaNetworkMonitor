@@ -47,6 +47,11 @@ mislabelled as shipped, because nothing unreleased is in the dialog at all.
 - Note: the daily digest report keeps its own fixed colours and is not affected by any of this.
 - Note: if you have not changed anything, the default chart colours are very slightly lighter than
   before. That is the same readability adjustment being applied to the default scheme.
+- New: clicking a Windows notification now opens the app at the part it is about. An unrecognised
+  device takes you to the Unapproved list, a device you already know takes you to its history, a
+  finished scan or a network change to the device list, a speed test to the Speed test tab, and a
+  daily digest to Reports. The window is restored and brought to the front first, so it works from
+  the tray or minimised.
 - Changed: the app does noticeably less work while you are watching it. The mini graph widget no
   longer redraws detail finer than the screen can show, and stops redrawing altogether while nothing
   is moving; the Internet app list updates its figures in place instead of rebuilding every row each

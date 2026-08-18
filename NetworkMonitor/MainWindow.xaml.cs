@@ -5,9 +5,8 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using NetworkMonitor.Services.Data;
-using Windows.Data.Xml.Dom;
-using Windows.UI.Notifications;
 using NetworkMonitor.Models.Devices;
+using NetworkMonitor.Notifications;
 using NetworkMonitor.Models.Digest;
 using NetworkMonitor.Services.Scanning;
 using NetworkMonitor.Services.Digest;
@@ -29,6 +28,7 @@ namespace NetworkMonitor
         private readonly SpeedTestWorker _speedTestWorker;
         private readonly DispatcherTimer _toastTimer;
         private readonly DispatcherTimer _savePlacementTimer;
+        private readonly ToastPresenter _toasts;
         private readonly TrayIconService _trayIcon;
         private readonly MiniGraphState _miniGraphState;
         private readonly IntPtr _hwnd;
@@ -43,6 +43,7 @@ namespace NetworkMonitor
         {
             Current = this;
             _dispatcherQueue = DispatcherQueue.GetForCurrentThread();
+            _toasts = new ToastPresenter(App.Aumid, _dispatcherQueue);
             _settings = settings;
             _notificationService = notificationService;
             _speedTestWorker = speedTestWorker;
@@ -133,18 +134,7 @@ namespace NetworkMonitor
 
         public void NavigateToHistory(string mac)
         {
-
-            foreach (object item in NavView.MenuItems)
-            {
-
-                if (item is NavigationViewItem navigationItem && navigationItem.Tag?.ToString() == "devices")
-                {
-                    NavView.SelectedItem = navigationItem;
-
-                    break;
-                }
-
-            }
+            SelectNavItem("devices");
 
             if (ContentFrame.Content is not DevicesHostPage)
             {
@@ -157,18 +147,7 @@ namespace NetworkMonitor
 
         public void NavigateToTraffic(string tabTag)
         {
-
-            foreach (object item in NavView.MenuItems)
-            {
-
-                if (item is NavigationViewItem navigationItem && navigationItem.Tag?.ToString() == "traffic")
-                {
-                    NavView.SelectedItem = navigationItem;
-
-                    break;
-                }
-
-            }
+            SelectNavItem("traffic");
 
             if (ContentFrame.Content is not TrafficHostPage)
             {
@@ -181,18 +160,12 @@ namespace NetworkMonitor
 
         public void NavigateToUnapprovedDevices()
         {
+            NavigateToDevices("Unapproved");
+        }
 
-            foreach (object item in NavView.MenuItems)
-            {
-
-                if (item is NavigationViewItem navigationItem && navigationItem.Tag?.ToString() == "devices")
-                {
-                    NavView.SelectedItem = navigationItem;
-
-                    break;
-                }
-
-            }
+        public void NavigateToDevices(string tabTag)
+        {
+            SelectNavItem("devices");
 
             if (ContentFrame.Content is not DevicesHostPage)
             {
@@ -200,7 +173,18 @@ namespace NetworkMonitor
             }
 
             DevicesHostPage? host = ContentFrame.Content as DevicesHostPage;
-            host?.SelectTab("Unapproved");
+            host?.SelectTab(tabTag);
+        }
+
+        public void NavigateToReports()
+        {
+            SelectNavItem("reports");
+
+            if (ContentFrame.Content is not ReportsPage)
+            {
+                ContentFrame.Navigate(typeof(ReportsPage));
+            }
+
         }
 
         private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
@@ -423,14 +407,7 @@ namespace NetworkMonitor
 
                     if (_settings.ShowToasts)
                     {
-                        XmlDocument toastXml = new XmlDocument();
-                        toastXml.LoadXml("<toast><visual><binding template=\"ToastGeneric\"><text id=\"1\"/><text id=\"2\"/></binding></visual><audio silent=\"true\"/></toast>");
-                        XmlNodeList textNodes = toastXml.GetElementsByTagName("text");
-                        textNodes[0].InnerText = "Scan complete";
-                        textNodes[1].InnerText = message;
-                        ToastNotification toastNotification = new ToastNotification(toastXml);
-                        toastNotification.ExpirationTime = DateTimeOffset.Now.AddMinutes(10);
-                        ToastNotificationManager.CreateToastNotifier(App.Aumid).Show(toastNotification);
+                        _toasts.Show("Scan complete", message, null, TimeSpan.FromMinutes(10), () => OpenDevices("Devices"));
                     }
 
                 }
@@ -453,14 +430,7 @@ namespace NetworkMonitor
 
                 if (_settings.ShowToasts)
                 {
-                    XmlDocument toastXml = new XmlDocument();
-                    toastXml.LoadXml("<toast><visual><binding template=\"ToastGeneric\"><text id=\"1\"/><text id=\"2\"/></binding></visual><audio silent=\"true\"/></toast>");
-                    XmlNodeList textNodes = toastXml.GetElementsByTagName("text");
-                    textNodes[0].InnerText = "Network changed";
-                    textNodes[1].InnerText = message;
-                    ToastNotification toastNotification = new ToastNotification(toastXml);
-                    toastNotification.ExpirationTime = DateTimeOffset.Now.AddMinutes(10);
-                    ToastNotificationManager.CreateToastNotifier(App.Aumid).Show(toastNotification);
+                    _toasts.Show("Network changed", message, null, TimeSpan.FromMinutes(10), () => OpenDevices("Devices"));
                 }
 
             });
@@ -490,14 +460,7 @@ namespace NetworkMonitor
             {
                 _dispatcherQueue.TryEnqueue(() =>
                 {
-                    XmlDocument toastXml = new XmlDocument();
-                    toastXml.LoadXml("<toast><visual><binding template=\"ToastGeneric\"><text id=\"1\"/><text id=\"2\"/></binding></visual><audio silent=\"true\"/></toast>");
-                    XmlNodeList textNodes = toastXml.GetElementsByTagName("text");
-                    textNodes[0].InnerText = "Daily digest ready";
-                    textNodes[1].InnerText = report.PeriodEndDisplay;
-                    ToastNotification toastNotification = new ToastNotification(toastXml);
-                    toastNotification.ExpirationTime = DateTimeOffset.Now.AddMinutes(10);
-                    ToastNotificationManager.CreateToastNotifier(App.Aumid).Show(toastNotification);
+                    _toasts.Show("Daily digest ready", report.PeriodEndDisplay, null, TimeSpan.FromMinutes(10), OpenReports);
                 });
             }
 
@@ -513,14 +476,7 @@ namespace NetworkMonitor
 
                 if (_settings.ShowToasts)
                 {
-                    XmlDocument toastXml = new XmlDocument();
-                    toastXml.LoadXml("<toast><visual><binding template=\"ToastGeneric\"><text id=\"1\"/><text id=\"2\"/></binding></visual><audio silent=\"true\"/></toast>");
-                    XmlNodeList textNodes = toastXml.GetElementsByTagName("text");
-                    textNodes[0].InnerText = "Speed test complete";
-                    textNodes[1].InnerText = message;
-                    ToastNotification toastNotification = new ToastNotification(toastXml);
-                    toastNotification.ExpirationTime = DateTimeOffset.Now.AddMinutes(10);
-                    ToastNotificationManager.CreateToastNotifier(App.Aumid).Show(toastNotification);
+                    _toasts.Show("Speed test complete", message, null, TimeSpan.FromMinutes(10), () => OpenTraffic("SpeedTest"));
                 }
 
             });
@@ -560,20 +516,62 @@ namespace NetworkMonitor
                         ? $"{notification.IpAddress}  ·  {notification.MacAddress}"
                         : $"{notification.IpAddress}  ·  {notification.MacAddress}  ·  {notification.Vendor}";
 
-                    XmlDocument toastXml = new XmlDocument();
-                    toastXml.LoadXml("<toast><visual><binding template=\"ToastGeneric\"><text id=\"1\"/><text id=\"2\"/><text id=\"3\"/></binding></visual><audio silent=\"true\"/></toast>");
-                    XmlNodeList textNodes = toastXml.GetElementsByTagName("text");
-                    textNodes[0].InnerText = title;
-                    textNodes[1].InnerText = nameLine;
-                    textNodes[2].InnerText = addressLine;
-                    ToastNotification toastNotification = new ToastNotification(toastXml);
-                    toastNotification.ExpirationTime = DateTimeOffset.Now.AddSeconds(5);
-                    ToastNotificationManager.CreateToastNotifier(App.Aumid).Show(toastNotification);
+                    // An unrecognised device is a thing to act on, so the click lands where the
+                    // approve and delete buttons are. A device already known needs explaining
+                    // rather than acting on, and its history is where the answer is.
+                    string macAddress = notification.MacAddress;
+                    Action onClick = isUnapproved
+                        ? () => OpenDevices("Unapproved")
+                        : () => OpenDeviceHistory(macAddress);
 
+                    _toasts.Show(title, nameLine, addressLine, TimeSpan.FromSeconds(5), onClick);
                 }
 
             }
 
+        }
+
+        private void SelectNavItem(string tag)
+        {
+
+            foreach (object item in NavView.MenuItems)
+            {
+
+                if (item is NavigationViewItem navigationItem && navigationItem.Tag?.ToString() == tag)
+                {
+                    NavView.SelectedItem = navigationItem;
+
+                    break;
+                }
+
+            }
+
+        }
+
+        // A toast is usually clicked while the window is minimised or hidden to the tray, so every
+        // one of these brings it back the way the widget's double-click does before navigating.
+        private void OpenDevices(string tabTag)
+        {
+            App.ShowMainWindow();
+            NavigateToDevices(tabTag);
+        }
+
+        private void OpenDeviceHistory(string macAddress)
+        {
+            App.ShowMainWindow();
+            NavigateToHistory(macAddress);
+        }
+
+        private void OpenTraffic(string tabTag)
+        {
+            App.ShowMainWindow();
+            NavigateToTraffic(tabTag);
+        }
+
+        private void OpenReports()
+        {
+            App.ShowMainWindow();
+            NavigateToReports();
         }
     }
 
