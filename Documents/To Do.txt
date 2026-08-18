@@ -188,6 +188,8 @@ Done - Add Speed tests to start of digest csv
 Done - Code review
 Performance review
 
+Clicking on notification takes you to the section in the app.
+
 
 
 Github/Marketing:

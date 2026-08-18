@@ -9,6 +9,7 @@ using NetworkMonitor.Models.Charting;
 using NetworkMonitor.Models.Formatting;
 using NetworkMonitor.Models.Traffic;
 using NetworkMonitor.Core.Traffic;
+using NetworkMonitor.Core.Common;
 
 namespace NetworkMonitor.ViewModels
 {
@@ -17,6 +18,11 @@ namespace NetworkMonitor.ViewModels
         private const int MinimumSpinnerMs = 500;
         private const int RateSampleCount = 5;
         private const string AllRateKey = "__all";
+
+        // The All Apps row has a null ProcessName and the reconciler's key cannot be null, so it
+        // needs a sentinel — the same double-underscore idiom AllRateKey above already uses. A real
+        // process name is a file name and never looks like this.
+        private const string AllAppsRowKey = "__allapps";
 
         // Fixed query shapes selected by an if, rather than a command string assembled per call —
         // see the matching block in LocalViewModel. The optional bucket-range predicates are
@@ -184,7 +190,7 @@ namespace NetworkMonitor.ViewModels
 
                 if (refreshList)
                 {
-                    Apps = new ObservableCollection<InternetTrafficAppRow>(result.DisplayRows);
+                    SyncApps(result.DisplayRows);
                     StatusText = result.StatusText;
                 }
 
@@ -398,8 +404,22 @@ namespace NetworkMonitor.ViewModels
 
             string statusText = $"{perAppRows.Count} app{(perAppRows.Count == 1 ? string.Empty : "s")} · {ByteSizeFormatter.Format(allAppsRow.TotalBytes)} total";
 
-            Apps = new ObservableCollection<InternetTrafficAppRow>(displayRows);
+            SyncApps(displayRows);
             StatusText = statusText;
+        }
+
+        // Reconciled in place rather than assigned. Replacing the collection made the DataGrid drop
+        // its ItemsSource binding target and re-realize every row — templates and converters and all
+        // — once every flush, for as long as the tab stayed open, and dragged a selection round-trip
+        // through InternetPage.SyncGridSelection with it. Matching on the process name lets a row
+        // that is already on screen keep its identity and simply take new values.
+        private void SyncApps(IReadOnlyList<InternetTrafficAppRow> displayRows)
+        {
+            CollectionReconciler.SyncOrdered(
+                Apps,
+                displayRows,
+                static row => row.ProcessName ?? AllAppsRowKey,
+                static (existing, incoming) => existing.UpdateFrom(incoming));
         }
 
         private void AccumulateRateWindows(IReadOnlyList<TrafficEntry> entries)

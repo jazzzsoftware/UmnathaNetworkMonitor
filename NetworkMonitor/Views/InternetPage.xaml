@@ -319,7 +319,7 @@
                                         <TextBlock
                                             VerticalAlignment="Center"
                                             FontWeight="{x:Bind IsAllApps, Converter={StaticResource BoolToFontWeightConverter}}"
-                                            Text="{x:Bind DisplayName}" />
+                                            Text="{x:Bind DisplayName, Mode=OneWay}" />
 
                                         <Border
                                             Background="#332E7D32"
@@ -328,7 +328,7 @@
                                             CornerRadius="4"
                                             Padding="6,1"
                                             VerticalAlignment="Center"
-                                            Visibility="{x:Bind HasRate, Converter={StaticResource BoolToVisibilityConverter}}">
+                                            Visibility="{x:Bind HasRate, Converter={StaticResource BoolToVisibilityConverter}, Mode=OneWay}">
 
                                             <StackPanel
                                                 Orientation="Horizontal"
@@ -344,7 +344,7 @@
                                                 <TextBlock
                                                     FontSize="10"
                                                     Foreground="#7BC47F"
-                                                    Text="{x:Bind RateText}" />
+                                                    Text="{x:Bind RateText, Mode=OneWay}" />
 
                                             </StackPanel>
 
@@ -357,7 +357,7 @@
                                         Opacity="0.55"
                                         TextTrimming="CharacterEllipsis"
                                         Visibility="{x:Bind IsAllApps, Converter={StaticResource InverseBoolVisConverter}}"
-                                        Text="{x:Bind ProcessPath}" />
+                                        Text="{x:Bind ProcessPath, Mode=OneWay}" />
 
                                 </StackPanel>
 
@@ -368,8 +368,8 @@
                                     Margin="4,2"
                                     FontSize="11"
                                     Click="OpenAppFolderClick"
-                                    Tag="{x:Bind ProcessPath}"
-                                    IsEnabled="{x:Bind CanOpen}"
+                                    Tag="{x:Bind ProcessPath, Mode=OneWay}"
+                                    IsEnabled="{x:Bind CanOpen, Mode=OneWay}"
                                     Visibility="{x:Bind IsAllApps, Converter={StaticResource InverseBoolVisConverter}}" />
 
                             </Grid>
@@ -394,7 +394,7 @@
                                 VerticalAlignment="Center"
                                 HorizontalAlignment="Right"
                                 Padding="0,0,8,0"
-                                Text="{x:Bind BytesDownloaded, Converter={StaticResource BytesConverter}}" />
+                                Text="{x:Bind BytesDownloaded, Converter={StaticResource BytesConverter}, Mode=OneWay}" />
 
                         </DataTemplate>
 
@@ -416,7 +416,7 @@
                                 VerticalAlignment="Center"
                                 HorizontalAlignment="Right"
                                 Padding="0,0,8,0"
-                                Text="{x:Bind BytesUploaded, Converter={StaticResource BytesConverter}}" />
+                                Text="{x:Bind BytesUploaded, Converter={StaticResource BytesConverter}, Mode=OneWay}" />
 
                         </DataTemplate>
 
@@ -438,7 +438,7 @@
                                 HorizontalAlignment="Right"
                                 Padding="0,0,8,0"
                                 FontWeight="{x:Bind IsAllApps, Converter={StaticResource BoolToFontWeightConverter}}"
-                                Text="{x:Bind TotalBytes, Converter={StaticResource BytesConverter}}" />
+                                Text="{x:Bind TotalBytes, Converter={StaticResource BytesConverter}, Mode=OneWay}" />
 
                         </DataTemplate>
 
