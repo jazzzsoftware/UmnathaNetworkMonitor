@@ -52,6 +52,9 @@ namespace NetworkMonitor.Views.Controls
         private double[]? _upload;
         private double[]? _displayedDownload;
         private double[]? _displayedUpload;
+        private double[]? _spareTimeEpoch;
+        private double[]? _spareDisplayedDownload;
+        private double[]? _spareDisplayedUpload;
         private int _count;
         private double _bucketSeconds = 5.0;
         private double _targetMax = 1.0;
@@ -341,6 +344,25 @@ namespace NetworkMonitor.Views.Controls
             (double LeftEdge, double Span) result = (leftEdge, span);
 
             return result;
+        }
+
+        // Exactly the right length, not merely long enough: MigrateDisplayed takes the previous
+        // pass's point count from the array's own Length, so an over-long buffer would misalign the
+        // carried-over values against the new window.
+        private static double[] ExactBuffer(double[]? buffer, int count)
+        {
+            double[] values;
+
+            if (buffer != null && buffer.Length == count)
+            {
+                values = buffer;
+            }
+            else
+            {
+                values = new double[count];
+            }
+
+            return values;
         }
 
         private static Vector2[] EnsureBuffer(Vector2[]? buffer, int capacity)
@@ -827,9 +849,15 @@ namespace NetworkMonitor.Views.Controls
 
             if (count >= 2)
             {
-                double[] timeEpoch = new double[count];
-                double[] download = new double[count];
-                double[] upload = new double[count];
+                // The window is the same length on almost every update, so the five arrays behind it
+                // are the same shape every time. Reusing them keeps a live chart from allocating
+                // 5 × count doubles per flush for the whole time it is on screen. The two the
+                // animation reads back — the times and the displayed values — double-buffer through
+                // the spares, because MigrateDisplayed needs the previous pass's values still intact
+                // while it fills this pass's. The measured values are safe to overwrite in place.
+                double[] timeEpoch = ExactBuffer(_spareTimeEpoch, count);
+                double[] download = ExactBuffer(_download, count);
+                double[] upload = ExactBuffer(_upload, count);
                 long maxValue = 1L;
 
                 for (int index = 0; index < count; index++)
@@ -851,8 +879,8 @@ namespace NetworkMonitor.Views.Controls
                     && _count == count
                     && Math.Abs(newBucketSeconds - _bucketSeconds) < 0.001;
 
-                double[] displayedDownload = new double[count];
-                double[] displayedUpload = new double[count];
+                double[] displayedDownload = ExactBuffer(_spareDisplayedDownload, count);
+                double[] displayedUpload = ExactBuffer(_spareDisplayedUpload, count);
 
                 if (animate)
                 {
@@ -863,6 +891,10 @@ namespace NetworkMonitor.Views.Controls
                     Array.Copy(download, displayedDownload, count);
                     Array.Copy(upload, displayedUpload, count);
                 }
+
+                _spareTimeEpoch = _timeEpoch;
+                _spareDisplayedDownload = _displayedDownload;
+                _spareDisplayedUpload = _displayedUpload;
 
                 _timeEpoch = timeEpoch;
                 _download = download;

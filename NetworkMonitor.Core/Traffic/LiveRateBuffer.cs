@@ -92,7 +92,8 @@ namespace NetworkMonitor.Core.Traffic
 
                 }
 
-                List<DateTime> bucketStarts = new List<DateTime>();
+                int bucketCount = (int)Math.Max(0L, endEpoch - firstEpoch + 1L);
+                List<DateTime> bucketStarts = new List<DateTime>(bucketCount);
 
                 for (long epoch = firstEpoch; epoch <= endEpoch; epoch++)
                 {
@@ -111,9 +112,16 @@ namespace NetworkMonitor.Core.Traffic
 
         }
 
+        // The list is sized up front rather than grown: a snapshot always fills the whole ring, so an
+        // unsized list reallocates its way up to capacity — nine intermediate arrays thrown away —
+        // every time, twice per flush across the two buffers.
+        //
+        // A caller-supplied buffer would remove even this one, but the returned list outlives the
+        // call: the widget holds the previous snapshot while the chart is still drawing from it, so a
+        // shared buffer would be rewritten underneath a live trace.
         public IReadOnlyList<ChartPoint> Snapshot(DateTime nowUtc)
         {
-            List<ChartPoint> points = new List<ChartPoint>();
+            List<ChartPoint> points = new List<ChartPoint>(_capacity);
 
             if (_lastEpoch >= 0)
             {

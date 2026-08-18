@@ -196,11 +196,45 @@ Work order (my preferred sequencing). Tick **Done** as each is completed.
 
 | # | ID | Fix | Severity | Migration | Done |
 |---|----|-----|----------|-----------|------|
-| 11 | M5 | Reuse snapshot and chart buffers across flushes | Med | No | ✕ |
-| 12 | M6 | Struct group identity + no `IndexOf` in the placement loop | Med | No | ✕ |
-| 13 | L1 | Trim `CreateDefaultBuilder` to the config actually used | Low | No | ✕ |
-| 14 | L3 | Project the name map instead of loading whole devices | Low | No | ✕ |
-| 15 | L2 | `ChartPoint` as a `readonly record struct` | Low | No | ✕ |
+| 11 | M5 | Reuse snapshot and chart buffers across flushes | Med | No | ✅ |
+| 12 | M6 | Struct group identity + no `IndexOf` in the placement loop | Med | No | ✅ |
+| 13 | L1 | Trim `CreateDefaultBuilder` to the config actually used | Low | No | ✅ |
+| 14 | L3 | Project the name map instead of loading whole devices | Low | No | ✅ |
+| 15 | L2 | `ChartPoint` as a `readonly record struct` | Low | No | ✅ |
+
+> **Phase 4 done (2026-08-18).** Builds clean, 501/501 tests pass. **Live testing of the charts is
+> still outstanding** — see the Phase 4 entry under *Live testing required*.
+> - **L2 was done first, and it is most of M5.** `ChartPoint` became a `readonly record struct`, so a
+>   300-point snapshot is one array of values instead of 300 heap objects plus the list. Nothing in
+>   the codebase relied on its reference identity — no nullable `ChartPoint`, no reference equality,
+>   never a dictionary key — and `with` works unchanged on a record struct. The review deferred this
+>   as a "when something else touches it" change; M5 was that something.
+> - **M5 not as written, for the snapshot half.** The finding suggested `Snapshot` fill a
+>   caller-supplied buffer. It must not: the returned list outlives the call — the widget holds the
+>   previous snapshot while the chart is still drawing from it — so a shared buffer would be rewritten
+>   under a live trace. What was wrong there was subtler and is fixed: the list was unsized, so
+>   filling 300 points reallocated its way up through nine intermediate arrays, twice per flush.
+>   `AddInterval`'s `bucketStarts` list had the same shape and is sized too.
+> - **M5 chart buffers, as written.** `ApplyPoints` reuses its five `double[]` when the point count is
+>   unchanged, which it is on almost every update. The times and the displayed values double-buffer
+>   through three new spare fields, because `MigrateDisplayed` reads the previous pass's values while
+>   filling this pass's; the measured values are overwritten in place, since nothing reads them back.
+>   `ExactBuffer` matches the length exactly rather than "at least" as `EnsureBuffer` does — an
+>   over-long buffer would give `MigrateDisplayed` the wrong previous count and misalign the carry-over.
+> - **M6 keyed, but the shape kept.** `GroupIdentity`'s interpolated string became a
+>   `readonly record struct GroupRowKey(GroupKind, string)`, and the placement loop scans forward from
+>   the current index instead of calling `_groups.IndexOf` from zero — everything below the index is
+>   already placed, so the row cannot be behind it. `CollectionReconciler.SyncOrdered` was considered
+>   and rejected here: it has a clear-and-refill fallback that would drop the Local grid's open
+>   drill-down, and `ApplyGroups` has a second path (live refresh, no re-sort) that it does not model.
+> - **L3 columns corrected.** The finding named `(IpAddress, FriendlyName, Hostname, MacAddress)`.
+>   `Device.DisplayName` is `FriendlyName ?? MdnsName ?? Hostname ?? IpAddress` — MAC is not in it and
+>   mDNS is, so the projection takes those four.
+> - **L1 also fixed a latent config bug.** `CreateDefaultBuilder` resolves `appsettings.json` against
+>   the working directory. Launched from the Startup task or a shortcut that is not the install
+>   folder, the optional file silently failed to load and a first run fell back to `new Settings()`
+>   rather than the shipped `Scanner` defaults. The replacement sets the base path to
+>   `AppContext.BaseDirectory`.
 
 ---
 
@@ -215,6 +249,7 @@ The rendering and grid changes cannot be signed off from a build and a test run 
   - **Correction to this checklist's original wording:** it asked that column sorting still work. The Internet grid has no user sorting — all four columns are `DataGridTemplateColumn` with no `SortMemberPath` and no `Sorting` handler, so a header click did nothing before H2 either. Row order comes from `RebuildAppRows`, which sorts by total bytes descending under the pinned All Apps row. There was no such check to run.
 - **H3 (history).** ✅ Done 2026-08-14. Load a populated 30-day history, sort by every column, search, and deep-link from a device into History. Thirteen checks against a 1,124-event history spanning three weeks and 56 devices: the grid loads with every device column populated, all seven columns sort and reverse, search matches on name / IP / MAC (mixed case) / vendor, the deep-link from a device arrives pre-filled and filtered, an in-place refresh keeps the sort, the CSV export carries the device fields — a separate code path from the grid — the Host and Private MAC chips still render, and devices reachable only through the oldest events still resolve to a name and vendor rather than blanks.
 - **M2.** ✅ Done 2026-08-13. Hide and re-show the widget, pause/resume both full-page charts, and toggle `ChartSmoothScrolling` off and on with the widget visible, confirming they resume drawing each time.
+- **Phase 4 (chart buffers).** ⏳ Outstanding. M5's buffer reuse changes what the animation reads between frames, so it needs a live look with `ChartSmoothScrolling` on: the trace must scroll smoothly with no stutter, no ghost of the previous window, and no misaligned carry-over after a range switch changes the point count. Cover both full-page charts and both widget orientations, switch ranges in both directions, and leave a chart at fewer than two points (an empty window) and let it refill. L1 wants one cold start from the Windows Startup task, where the working directory is not the install folder, confirming the app still starts and scans.
 
 ## Database impact
 

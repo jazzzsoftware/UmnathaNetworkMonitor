@@ -579,44 +579,52 @@ namespace NetworkMonitor.ViewModels
 
         private void ApplyGroups(IReadOnlyList<LocalTrafficGroupRow> incoming, bool reorder)
         {
-            HashSet<string> incomingIdentities = new HashSet<string>();
+            HashSet<GroupRowKey> incomingKeys = new HashSet<GroupRowKey>();
 
             foreach (LocalTrafficGroupRow row in incoming)
             {
-                incomingIdentities.Add(GroupIdentity(row));
+                incomingKeys.Add(KeyFor(row));
             }
 
             for (int index = _groups.Count - 1; index >= 0; index--)
             {
 
-                if (!incomingIdentities.Contains(GroupIdentity(_groups[index])))
+                if (!incomingKeys.Contains(KeyFor(_groups[index])))
                 {
                     _groups.RemoveAt(index);
                 }
 
             }
 
-            Dictionary<string, LocalTrafficGroupRow> existingByIdentity = new Dictionary<string, LocalTrafficGroupRow>();
+            Dictionary<GroupRowKey, LocalTrafficGroupRow> existingByKey = new Dictionary<GroupRowKey, LocalTrafficGroupRow>();
 
             foreach (LocalTrafficGroupRow row in _groups)
             {
-                existingByIdentity[GroupIdentity(row)] = row;
+                existingByKey[KeyFor(row)] = row;
             }
 
             for (int index = 0; index < incoming.Count; index++)
             {
                 LocalTrafficGroupRow incomingRow = incoming[index];
-                string identity = GroupIdentity(incomingRow);
+                GroupRowKey key = KeyFor(incomingRow);
 
-                if (existingByIdentity.TryGetValue(identity, out LocalTrafficGroupRow? current))
+                if (existingByKey.TryGetValue(key, out LocalTrafficGroupRow? current))
                 {
                     current.UpdateFrom(incomingRow);
 
                     if (reorder)
                     {
-                        int currentIndex = _groups.IndexOf(current);
+                        // Everything below `index` was placed by an earlier turn of this loop, so the
+                        // row being placed can only be at or after it. Scanning forward from there
+                        // beats IndexOf, which restarts at zero for every row.
+                        int currentIndex = index;
 
-                        if (currentIndex != index)
+                        while (currentIndex < _groups.Count && !ReferenceEquals(_groups[currentIndex], current))
+                        {
+                            currentIndex++;
+                        }
+
+                        if (currentIndex < _groups.Count && currentIndex != index)
                         {
                             _groups.Move(currentIndex, index);
                         }
@@ -665,11 +673,11 @@ namespace NetworkMonitor.ViewModels
             return position;
         }
 
-        private static string GroupIdentity(LocalTrafficGroupRow row)
+        private static GroupRowKey KeyFor(LocalTrafficGroupRow row)
         {
-            string identity = $"{(int)row.Kind}|{row.Key ?? string.Empty}";
+            GroupRowKey key = new GroupRowKey(row.Kind, row.Key ?? string.Empty);
 
-            return identity;
+            return key;
         }
 
         private async Task<LocalLoadResult> BuildDataAsync(double timeRangeHours, string? selectedGroupKey, DateTime? selectedBucketStart)
@@ -773,9 +781,14 @@ namespace NetworkMonitor.ViewModels
             {
                 namesByIp = new Dictionary<string, string>();
 
-                List<Device> devices = await db.Devices.AsNoTracking().ToListAsync();
+                // Four columns rather than every column of every device: the map needs an address
+                // and a name, and Device carries MAC, vendor, model, notes and timestamps besides.
+                List<DeviceNameRow> devices = await db.Devices
+                    .AsNoTracking()
+                    .Select(device => new DeviceNameRow(device.IpAddress, device.FriendlyName, device.MdnsName, device.Hostname))
+                    .ToListAsync();
 
-                foreach (Device device in devices)
+                foreach (DeviceNameRow device in devices)
                 {
 
                     if (!string.IsNullOrWhiteSpace(device.IpAddress))
@@ -939,5 +952,17 @@ namespace NetworkMonitor.ViewModels
 
             command.Parameters.Add(parameter);
         }
+
+        // The four columns behind Device.DisplayName, and the same fallback order. Kept in step with
+        // that property by hand — a projection cannot call it, because it has to translate to SQL.
+        private sealed record DeviceNameRow(string IpAddress, string? FriendlyName, string? MdnsName, string? Hostname)
+        {
+            public string DisplayName => FriendlyName ?? MdnsName ?? Hostname ?? IpAddress;
+        }
+
+        // The identity of a grid row, and the key ApplyGroups matches on. A struct of the two fields
+        // that make it up rather than a string built from them: this is formatted once per row per
+        // pass and compared against every other, and the string existed only to be a dictionary key.
+        private readonly record struct GroupRowKey(GroupKind Kind, string Key);
     }
 }

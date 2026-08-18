@@ -85,7 +85,22 @@ namespace NetworkMonitor
 
                 QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 
-                AppHost = Host.CreateDefaultBuilder()
+                // Not Host.CreateDefaultBuilder: it registers console, debug and event-source logging
+                // providers this app never writes to — it logs through AppLog — and watches
+                // appsettings.json and the environment for changes with two FileSystemWatchers held
+                // for the life of the process, for a file read exactly once below. HostBuilder still
+                // brings the options, logging and lifetime plumbing the hosted services need.
+                //
+                // The base path is the executable's folder rather than the working directory, which
+                // CreateDefaultBuilder used. Launched from the Startup task or a shortcut, the working
+                // directory is not the install folder, so the optional appsettings.json quietly failed
+                // to load and first-run defaults came from `new Settings()` instead of the file.
+                AppHost = new HostBuilder()
+                    .ConfigureAppConfiguration(config =>
+                    {
+                        config.SetBasePath(AppContext.BaseDirectory);
+                        config.AddJsonFile("appsettings.json", optional: true, reloadOnChange: false);
+                    })
                     .ConfigureServices((ctx, services) =>
                     {
                         Settings? scannerSettings = null;
