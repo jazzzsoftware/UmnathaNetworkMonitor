@@ -1073,17 +1073,23 @@
                         <StackPanel
                             Spacing="4">
 
-                            <ToggleSwitch
-                                Header="Horizontal strip"
-                                OffContent="Vertical"
-                                OnContent="Horizontal"
-                                IsOn="{x:Bind ViewModel.MiniGraphHorizontal, Mode=TwoWay}" />
+                            <RadioButtons
+                                Header="Orientation"
+                                SelectedIndex="{x:Bind ViewModel.MiniGraphOrientationIndex, Mode=TwoWay}">
+
+                                <RadioButton
+                                    Content="Vertical" />
+
+                                <RadioButton
+                                    Content="Horizontal" />
+
+                            </RadioButtons>
 
                             <TextBlock
-                                Text="Lays the sections out side by side in a short, wide strip — short enough to sit over the taskbar if you drag it there. Its width follows whichever sections you have switched on; drag its top or bottom edge to set the height."
                                 FontSize="12"
                                 Opacity="0.65"
-                                TextWrapping="Wrap" />
+                                TextWrapping="Wrap"
+                                Text="{x:Bind ViewModel.MiniGraphOrientationHelp, Mode=OneWay}" />
 
                         </StackPanel>
 

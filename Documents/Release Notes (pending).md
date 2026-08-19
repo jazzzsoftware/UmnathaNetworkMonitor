@@ -59,3 +59,8 @@ mislabelled as shipped, because nothing unreleased is in the dialog at all.
   live charts now reuse their working memory between updates rather than allocating it afresh
   several times a second. Nothing looks or behaves differently — it simply costs less to leave
   running all day.
+- Changed: the mini graph widget's shape is now set by an **Orientation** setting offering
+  **Vertical** and **Horizontal**, in place of the old "Horizontal strip" on/off switch. The two
+  shapes are equal choices rather than one being the absence of the other, the wording matches the
+  widget's own right-click menu, and the description underneath now describes whichever one you
+  have picked.

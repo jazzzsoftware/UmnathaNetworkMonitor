@@ -69,7 +69,7 @@ namespace NetworkMonitor.ViewModels
             // All eight, not six. Seeding only part of them left the view model correct solely when
             // driven by SettingsPage.OnPageLoaded, which calls SyncMiniGraphFromState before anything
             // reads them — an asymmetry that is a trap for the next editor rather than a live defect.
-            _miniGraphHorizontal = miniGraphState.IsHorizontal;
+            _miniGraphOrientationIndex = (int)miniGraphState.Orientation;
             _miniGraphShowBorder = miniGraphState.ShowBorder;
 
             PropertyChanged += OnSettingChanged;
@@ -433,19 +433,32 @@ namespace NetworkMonitor.ViewModels
             }
         }
 
-        private bool _miniGraphHorizontal;
+        private int _miniGraphOrientationIndex;
 
-        public bool MiniGraphHorizontal
+        public int MiniGraphOrientationIndex
         {
-            get => _miniGraphHorizontal;
+            get => _miniGraphOrientationIndex;
             set
             {
 
-                if (SetProperty(ref _miniGraphHorizontal, value))
+                if (SetProperty(ref _miniGraphOrientationIndex, value))
                 {
-                    _miniGraphState.Orientation = value ? MiniGraphOrientation.Horizontal : MiniGraphOrientation.Vertical;
+                    _miniGraphState.Orientation = (MiniGraphOrientation)value;
+                    OnPropertyChanged(nameof(MiniGraphOrientationHelp));
                 }
 
+            }
+        }
+
+        public string MiniGraphOrientationHelp
+        {
+            get
+            {
+                string help = _miniGraphOrientationIndex == (int)MiniGraphOrientation.Horizontal
+                    ? "Lays the sections out side by side in a short, wide strip — short enough to sit over the taskbar if you drag it there. Its width follows whichever sections you have switched on; drag its top or bottom edge to set the height."
+                    : "Stacks the sections one above the other in a tall, narrow panel. Drag any edge to set both its width and its height.";
+
+                return help;
             }
         }
 
@@ -582,7 +595,7 @@ namespace NetworkMonitor.ViewModels
             _miniGraphShowSpeedTest = _miniGraphState.ShowSpeedTest;
             _miniGraphShowUnknownDevices = _miniGraphState.ShowUnknownDevices;
             _miniGraphOpacity = _miniGraphState.Opacity;
-            _miniGraphHorizontal = _miniGraphState.IsHorizontal;
+            _miniGraphOrientationIndex = (int)_miniGraphState.Orientation;
             _miniGraphShowBorder = _miniGraphState.ShowBorder;
 
             OnPropertyChanged(nameof(ShowMiniGraph));
@@ -591,7 +604,8 @@ namespace NetworkMonitor.ViewModels
             OnPropertyChanged(nameof(MiniGraphShowSpeedTest));
             OnPropertyChanged(nameof(MiniGraphShowUnknownDevices));
             OnPropertyChanged(nameof(MiniGraphOpacity));
-            OnPropertyChanged(nameof(MiniGraphHorizontal));
+            OnPropertyChanged(nameof(MiniGraphOrientationIndex));
+            OnPropertyChanged(nameof(MiniGraphOrientationHelp));
             OnPropertyChanged(nameof(MiniGraphShowBorder));
         }
 
@@ -671,7 +685,8 @@ namespace NetworkMonitor.ViewModels
                 && args.PropertyName != nameof(MiniGraphShowSpeedTest)
                 && args.PropertyName != nameof(MiniGraphShowUnknownDevices)
                 && args.PropertyName != nameof(MiniGraphOpacity)
-                && args.PropertyName != nameof(MiniGraphHorizontal)
+                && args.PropertyName != nameof(MiniGraphOrientationIndex)
+                && args.PropertyName != nameof(MiniGraphOrientationHelp)
                 && args.PropertyName != nameof(MiniGraphShowBorder)
                 && args.PropertyName != nameof(ChartSchemeIndex)
                 && args.PropertyName != nameof(IsCustomScheme)
