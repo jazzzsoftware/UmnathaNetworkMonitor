@@ -64,7 +64,7 @@ It shows up to four sections, each of which can be switched off individually:
 
 The widget opens with the last five minutes already drawn rather than an empty chart, because the data behind it is collected from the moment the app starts whether the widget is open or not.
 
-**Two layouts.** The default is a small floating panel. Switching to **Horizontal strip** lays the same sections out side by side in a short, wide strip — short enough to sit over the taskbar if you drag it there, beside Start and Search. Its width follows whichever sections you have switched on, and you set its height by dragging its top or bottom edge. Each layout remembers its own position on screen, so switching back and forth returns each one to where you left it. Switch layouts from the widget's right-click menu or from Settings.
+**Two layouts.** The default is a small floating panel — the **Vertical** orientation. Switching to **Horizontal** lays the same sections out side by side in a short, wide strip — short enough to sit over the taskbar if you drag it there, beside Start and Search. Its width follows whichever sections you have switched on, and you set its height by dragging its top or bottom edge. Each layout remembers its own position on screen, so switching back and forth returns each one to where you left it. Switch layouts from the widget's right-click menu or from Settings.
 
 **Using it:**
 
@@ -113,6 +113,17 @@ Alerts appear both as Windows toast notifications and as an in-app banner. You c
 - Disable toasts entirely.
 - Limit them to unknown devices only (useful once your network is fully mapped).
 
+**Clicking a Windows toast opens the app at the part it is about**, restoring and fronting the window
+first so it works from the tray or minimised:
+
+| Toast | Opens |
+|---|---|
+| An unrecognised device joined | Devices → Unapproved, where the approve and delete buttons are |
+| A device you already know | that device's History |
+| Scan complete, or the network changed | Devices → Devices |
+| Speed test complete | Traffic → Speed Test |
+| Daily digest ready | Reports |
+
 ## System tray & startup
 
 Closing the window doesn't quit the app — it hides to the system tray and keeps scanning. Double-click the tray icon (or use its right-click menu) to bring the window back, or choose **Exit** to quit fully.
@@ -121,7 +132,7 @@ Enable **Start with Windows** in Settings to launch the app automatically at log
 
 ## Settings
 
-Settings are split across three tabs.
+Settings are split across four tabs.
 
 ### Traffic
 
@@ -179,7 +190,7 @@ report stays readable regardless of the scheme you pick.
 | Automatically check for updates | Check GitHub for a newer release 10 s after startup, then every 24 hours. **Check for updates** runs one immediately.                                | On      |
 | Show floating mini graph      | Show the always-on-top widget.                                                                                                                        | Off     |
 | Mini graph sections           | Which of Internet chart / Local chart / Last speed test / Unknown devices the widget shows.                                                            | All on  |
-| Horizontal strip              | Lay the widget out as a short, wide strip instead of a panel. Each layout keeps its own position.                                                      | Vertical |
+| Orientation                   | **Vertical** lays the widget out as a tall, narrow panel; **Horizontal** as a short, wide strip. Each keeps its own position on screen.                | Vertical |
 | Show window border            | Show or hide the widget's window border (hiding it needs Windows 11).                                                                                 | On      |
 | Resting opacity (%)           | Widget opacity when you are not hovering it (50–100).                                                                                                 | 100     |
 | Daily digest generation time  | Hour of day (0–23) the daily digest is generated.                                                                                                     | 6       |

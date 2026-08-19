@@ -1479,9 +1479,83 @@
                     Spacing="8">
 
                     <TextBlock
-                        Text="v0.0.11"
+                        Text="v0.0.12"
                         FontWeight="SemiBold"
                         FontSize="16" />
+
+                    <TextBlock
+                        Text="• New: Chart colour schemes. Settings has a new Theme tab with five schemes — Classic, Horizon, Aurora, Ember and Ocean — plus Custom, where you set each colour yourself by clicking its swatch. The choice applies straight away across the Internet, Local and Speed test charts, the mini graph, the coloured Download and Upload figures in the grids, and the chart legends. Each colour is adjusted automatically to stay readable on both the dark and light card backgrounds."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• New: A preview on the Theme tab draws sample charts in the scheme you have picked, so you can see every colour in context — including the hover line, which on a real chart only appears while you are pointing at it."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• New: Clicking a Windows notification now opens the app at the part it is about. An unrecognised device takes you to the Unapproved list, a device you already know to its history, a finished scan or network change to the device list, a speed test to the Speed test tab, and a daily digest to Reports. The window is restored and brought to the front first, so it works from the tray or minimised."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• Changed: The mini graph's shape is now an Orientation setting offering Vertical and Horizontal, in place of the old 'Horizontal strip' on/off switch — the two shapes are equal choices, and the wording now matches the widget's right-click menu."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• Changed: The chart hover line uses your scheme's colour. Previously it was grey while you hovered and only picked up the colour once you clicked a point."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• Changed: The app does noticeably less work while running. The mini graph no longer redraws detail finer than the screen can show and stops redrawing while nothing is moving; the Internet app list updates figures in place instead of rebuilding every row; device history loads without duplicating a device per event; and the live charts reuse their working memory instead of reallocating several times a second."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• Changed: The mini graph now obeys the smooth-scrolling setting. It carries five times the geometry of the full-page charts and runs all day, and it was the one chart you could not turn down."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• Changed: A very slow link now reads '&lt;0.1' instead of '0' in the mini graph. A link limping along used to display exactly like one that was down. A genuinely idle link still reads '0'."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• Fixed: A typed retention value could be silently discarded. Typing a new number and then clicking blank space left the box showing a value that had never reached your settings, with no 'Settings saved' confirmation. Typed values now commit when focus leaves the box."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• Fixed: Purge Now at 0 days would have deleted your entire history. 0 means 'retention disabled' everywhere else in the app; the purge computed a cutoff of now instead. It now refuses."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• Fixed: The horizontal strip grew about 7 pixels taller on every orientation switch, climbing until it hit its ceiling."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• Fixed: Exiting from the tray icon could raise a 'CancellationTokenSource has been disposed' error and abandon the rest of shutdown."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• Fixed: A corrupted settings file could leave the app unable to start, fixable only by finding and deleting the file by hand. Concurrent writes can no longer truncate it, and a malformed file no longer stops startup."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• Fixed: The live mini chart's rightmost slice read about half the true rate during a sustained transfer — a permanent dip at the point the eye goes to."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• Note: The daily digest report keeps its own fixed colours and is not affected by the schemes."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• Note: If you have not changed anything, the default chart colours are very slightly lighter than before — the same readability adjustment applied to the default scheme."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• Note: The database now upgrades itself through versioned migrations, so future updates can change its structure without losing your device and traffic history."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="v0.0.11"
+                        FontWeight="SemiBold"
+                        FontSize="16"
+                        Margin="0,12,0,0" />
 
                     <TextBlock
                         Text="• New: Horizontal mini graph. The mini graph can now be laid out as a short, wide strip instead of a panel — short enough to sit over the taskbar if you drag it there. Its width follows whichever sections you have switched on, and you set its height by dragging its top or bottom edge. Switch between the two layouts from the widget's right-click menu or Settings; each remembers its own position on screen."

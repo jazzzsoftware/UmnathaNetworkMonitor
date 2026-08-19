@@ -118,10 +118,18 @@ NetworkMonitor.Services/ (class library, net10.0-windows — background/platform
 NetworkMonitor/           (the WinUI app — pure UI shell)
 ├── App.xaml.cs               Elevation + single-instance, IHost build, DI, DB init, startup window handling,
 │                             mini graph window lifetime (ShowMiniGraph / CloseMiniGraph)
-├── MainWindow.xaml.cs        NavigationView shell, tray icon, toast/digest dispatch, update banner,
-│                             window-placement persistence, ShutdownForUpdate
+├── MainWindow.xaml.cs        NavigationView shell, tray icon, toast/digest dispatch and the navigation
+│                             each toast click routes to, update banner, window-placement persistence,
+│                             ShutdownForUpdate
 ├── MiniGraphWindow.xaml(.cs) Always-on-top widget window, both orientations (see Floating mini graph)
 ├── SplashWindow.xaml.cs      Startup splash (suppressed when launched minimized)
+│
+├── Notifications/
+│   └── ToastPresenter.cs     The one place every Windows toast is built and shown. Each
+│                             ToastNotification is held until the platform reports it activated,
+│                             dismissed or failed — left in a local it can be collected while still
+│                             on screen, and the click then does nothing. The click callback arrives
+│                             on a platform thread and is marshalled back to the UI thread.
 │
 ├── ViewModels/
 │   ├── AllDevicesViewModel.cs      Devices grid (last 24h), Online-only filter, scan command, mark-known logic
@@ -206,7 +214,8 @@ ScanWorker (PeriodicTimer)
             └─ Return notifications for changed devices
     └─► ScanWorker raises ScanCompleted + DeviceStatusChanged events
             ├─ MainWindow updates Last Device Scan / Next Device Scan labels
-            ├─ MainWindow dispatches Windows toasts; InAppNotificationService shows the in-app banner
+            ├─ MainWindow dispatches Windows toasts through ToastPresenter, each carrying the
+            │  navigation its click performs; InAppNotificationService shows the in-app banner
             └─ Device view models reload
 ```
 

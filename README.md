@@ -52,7 +52,7 @@ This app is a Windows desktop app that watches your local network: it scans cont
 - **Floats a mini graph on the desktop** — an optional always-on-top widget showing live Internet and Local throughput, the last speed test and any unknown devices, without keeping the main window open. It sits at whatever opacity you choose and rises to full when you hover it; double-click any section to jump straight to that page. It can also be laid out as a short, wide horizontal strip that is short enough to sit over the taskbar if you drag it there, with a width that follows whichever sections you enable and a height you set by dragging its edge.
 - **Measures internet speed** — an hourly download/upload/latency/jitter test against Cloudflare, no account needed.
 - **Generates a daily digest** summarising device activity and traffic, exportable to PDF or CSV.
-- **Alerts via Windows toast + in-app banner** when a device appears or disappears, optionally limited to unknown devices only.
+- **Alerts via Windows toast + in-app banner** when a device appears or disappears, optionally limited to unknown devices only. Clicking a toast opens the app at the part it is about — an unknown device at the Unapproved list, a known one at its history.
 - **Keeps a history** of every appearance and disappearance, browsable per device, with automatic purging of old events.
 - **Backs itself up** — a timestamped database snapshot every 24 hours, pruned automatically.
 - **Lives in the system tray**, with an optional start-with-Windows setting.
@@ -110,7 +110,7 @@ Everything lives locally in `%LOCALAPPDATA%\UmnathaNetworkMonitor\` — there's 
 Ideas being explored, in no particular order and with no committed timeline:
 
 - ~~**Automatic updates** — in-app update checks and one-click upgrades.~~ Shipped in v0.0.9.
-- **Chart colour schemes** — selectable palettes for the traffic and speed charts.
+- ~~**Chart colour schemes** — selectable palettes for the traffic and speed charts.~~ Shipped in v0.0.12.
 - ~~**Floating mini-graph** — a small always-on-top live throughput window.~~ Shipped in v0.0.10.
 - ~~**Horizontal mini-graph** — a horizontal version of the mini graph that can be placed on top of the taskbar.~~ Shipped in v0.0.11.
 

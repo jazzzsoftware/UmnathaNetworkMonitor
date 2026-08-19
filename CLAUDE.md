@@ -39,7 +39,7 @@ New root-level files (docs, config) must be added to `NetworkMonitor.slnx` so th
 
 Solution-folder layout: the five projects are grouped under `/App/` (NetworkMonitor, Models, Core, Services) and `/Tests/` (NetworkMonitor.Tests). Solution folders are virtual — they group the project entries in Solution Explorer and change nothing on disk.
 
-`/Tools/` holds standalone tooling — things you run, not things that ship. It is a real on-disk folder registered in the slnx as folders of files, deliberately **not** as buildable projects, so `dotnet build NetworkMonitor.slnx` stays clean. It currently holds `Tools/Installer/` (the Inno Setup script + `build-installer.ps1`), `Tools/RetentionProbe/` (a command-line diagnostic for the traffic-retention design) and `Tools/MigrationVerify/` (generates EF migrations and proves they ship safely to existing user databases). New tooling goes here; anything with a `.csproj` under `/Tools/` should pin its packages the way the app does and must not be added as a solution project.
+`/Tools/` holds standalone tooling — things you run, not things that ship. It is a real on-disk folder registered in the slnx as folders of files, deliberately **not** as buildable projects, so `dotnet build NetworkMonitor.slnx` stays clean. It currently holds `Tools/Installer/` (the Inno Setup script + `build-installer.ps1`), `Tools/RetentionProbe/` (a command-line diagnostic for the traffic-retention design), `Tools/MigrationVerify/` (generates EF migrations and proves they ship safely to existing user databases) and `Tools/HistoryRestore/` (merges purged device history back into the live database from a timestamped backup). New tooling goes here; anything with a `.csproj` under `/Tools/` should pin its packages the way the app does and must not be added as a solution project.
 
 ## Coding Conventions
 
@@ -119,6 +119,7 @@ Solution-folder layout: the five projects are grouped under `/App/` (NetworkMoni
 | `NetworkMonitor/MiniGraphWindow.xaml` | Always-on-top widget: Internet + Local charts, speed and unknown-device strips, hover-to-opaque; one window in two orientations (panel / horizontal strip) |
 | `NetworkMonitor.Core/Widget/HorizontalStripMetrics.cs` | Pure derived width (sum of enabled cells), font scale, height clamp and peak-visibility threshold for the strip |
 | `NetworkMonitor.Services/Platform/MiniGraphState.cs` | Shared widget state — visibility, sections, opacity, orientation, per-orientation placement; written by the tray, the toolbar and Settings alike |
+| `NetworkMonitor/Notifications/ToastPresenter.cs` | Builds and shows every Windows toast; holds each `ToastNotification` until the platform reports it finished, or its click handler never fires, and marshals the click back to the UI thread |
 | `NetworkMonitor.Services/Update/UpdateService.cs` | Update check / download / SHA-256 verify / silent install; 20s check deadline |
 
 ## Git Workflow
