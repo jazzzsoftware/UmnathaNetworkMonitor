@@ -188,7 +188,8 @@ Done - Add Speed tests to start of digest csv
 Done - Code review
 Done - Performance review
 
-Clicking on notification takes you to the section in the app.
+Done - Clicking on notification takes you to the section in the app.
+Rename Horizontal Strip to orientation and make a drop down.
 
 
 
