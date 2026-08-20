@@ -4,6 +4,7 @@ using System.Text;
 using System.Threading;
 using Microsoft.Win32;
 using NetworkMonitor.Core.Common;
+using NetworkMonitor.UITests.Driving;
 using NetworkMonitor.UITests.Fixtures;
 
 namespace NetworkMonitor.UITests.Runner
@@ -221,6 +222,27 @@ namespace NetworkMonitor.UITests.Runner
             return blocker;
         }
 
+        // Fix round 3 (2026-08-20): Waits.cs claims every wait in this suite routes through it;
+        // TrafficSessionExists's Process.WaitForExit(int) below was one of three places across
+        // the suite that did not. Same Waits.Until(() => process.HasExited, ...) shape
+        // AppUnderTest.WaitForExit(Application, TimeSpan) already used for the app process itself.
+        private static bool WaitForProcessExit(Process process, TimeSpan timeout)
+        {
+            bool exited;
+
+            try
+            {
+                Waits.Until(() => process.HasExited, timeout, "the process to exit");
+                exited = true;
+            }
+            catch (TimeoutException)
+            {
+                exited = false;
+            }
+
+            return exited;
+        }
+
         private static bool TrafficSessionExists()
         {
             bool exists;
@@ -239,9 +261,10 @@ namespace NetworkMonitor.UITests.Runner
                     };
 
                     query.Start();
-                    query.WaitForExit((int)LogmanQueryTimeout.TotalMilliseconds);
 
-                    exists = query.ExitCode == 0;
+                    bool exited = WaitForProcessExit(query, LogmanQueryTimeout);
+
+                    exists = exited && query.ExitCode == 0;
                 }
 
             }

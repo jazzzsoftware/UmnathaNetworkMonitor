@@ -322,6 +322,28 @@ namespace NetworkMonitor.UITests.Fixtures
             return exited;
         }
 
+        // Fix round 3 (2026-08-20): the same Waits.Until(() => X.HasExited, ...) shape as
+        // WaitForExit(Application, TimeSpan) above, for a raw Process (logman) rather than a
+        // FlaUI Application — Waits.cs claims every wait in this suite routes through it, and
+        // TryRunLogman's Process.WaitForExit(int) below was the one place in this file that did
+        // not.
+        private static bool WaitForProcessExit(Process process, TimeSpan timeout)
+        {
+            bool exited;
+
+            try
+            {
+                Waits.Until(() => process.HasExited, timeout, "the process to exit");
+                exited = true;
+            }
+            catch (TimeoutException)
+            {
+                exited = false;
+            }
+
+            return exited;
+        }
+
         private static void CloseThenKill(Application application)
         {
 
@@ -407,9 +429,10 @@ namespace NetworkMonitor.UITests.Fixtures
                     };
 
                     logman.Start();
-                    logman.WaitForExit((int)LogmanTimeout.TotalMilliseconds);
 
-                    succeeded = logman.ExitCode == 0;
+                    bool exited = WaitForProcessExit(logman, LogmanTimeout);
+
+                    succeeded = exited && logman.ExitCode == 0;
                 }
 
             }

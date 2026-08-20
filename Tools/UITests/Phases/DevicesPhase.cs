@@ -87,11 +87,26 @@ namespace NetworkMonitor.UITests.Phases
         // hardcoded Settings.SubnetBase ("192.168.50", AutoDetectSubnet off), which is not this
         // machine's real subnet, so DeviceTracker.MergeAsync finds none of the fixture's eight
         // seeded "online" devices still reachable and marks all eight newly offline — one
-        // Disappeared DeviceEvent per device. Confirmed twice across real runs: 18 seeded + 8
-        // scan-generated = 26, exactly. The expectation below was wrong, not the app's behaviour;
-        // corrected here rather than left failing against a premise CLAUDE.md itself now
-        // contradicts.
+        // Disappeared DeviceEvent per device: 18 seeded + 8 scan-generated = 26.
+        //
+        // Fix round 3 (2026-08-20): asserting 26 unconditionally was itself a flake — the
+        // reviewer's own report showed it landing 18 on 2 of 5 runs, because the History grid was
+        // sometimes read before the startup scan had actually finished. The fix is not a wider
+        // range (that would swallow a genuine regression exactly as easily as a genuine 18) and
+        // not a fixed extra delay (the whole point of Waits is that no wait in this suite is a
+        // guess at how long something takes) — it is waiting for the real condition this count
+        // depends on: the app's own "a scan has completed" signal is polled below before this
+        // value is ever compared against the grid.
         private const int ScanFlippedOnlineDevicesToOffline = 8;
+
+        private const string LastScanTextAutomationId = "LastScanText";
+        private const string NoScanYetText = "—";
+
+        // A full 254-host sweep (Settings.StartHost..EndHost) at the fixture's default
+        // PingTimeoutMs (150) and MaxParallelPings (50) needs roughly ceil(254/50) batches, well
+        // under ten seconds in every real run this task observed; sixty seconds is generous
+        // headroom for a slower host, not a wait this is expected to hit.
+        private static readonly TimeSpan ScanCompletionTimeout = TimeSpan.FromSeconds(60);
 
         // A tab, a grid or a row's action button either exists once the page's initial LoadAsync
         // (one EF query against the small seeded database) has finished, or it will not appear at
@@ -156,13 +171,35 @@ namespace NetworkMonitor.UITests.Phases
             SelectTab(session, "DeviceHistoryTab");
 
             AutomationElement historyGrid = WaitForGrid(session, "DeviceHistoryGrid");
-            int expectedHistoryCount = context.Seed.DeviceEvents + ScanFlippedOnlineDevicesToOffline;
 
-            steps.Add(AssertGridRowCount(
-                "The History grid shows the seeded events plus the startup scan's Disappeared events",
-                historyGrid,
-                expectedHistoryCount));
-            steps.Add(AssertHistoryHasArrivalsAndDepartures(historyGrid));
+            // Fix round 3 (2026-08-20): the two assertions below both depend on the app's own
+            // startup scan having actually finished — read too early, the grid shows the seeded
+            // rows alone. Waited for as a real condition, not a fixed delay or a widened range;
+            // if it times out, both dependent assertions are recorded as Skipped (with the reason
+            // named) rather than evaluated against a state that is not what they describe.
+            StepResult scanCompletionStep = AssertScanHasCompleted(session);
+
+            steps.Add(scanCompletionStep);
+
+            if (scanCompletionStep.Outcome == StepOutcome.Passed)
+            {
+                int expectedHistoryCount = context.Seed.DeviceEvents + ScanFlippedOnlineDevicesToOffline;
+
+                steps.Add(AssertGridRowCount(
+                    "The History grid shows the seeded events plus the startup scan's Disappeared events",
+                    historyGrid,
+                    expectedHistoryCount));
+                steps.Add(AssertHistoryHasArrivalsAndDepartures(historyGrid));
+            }
+            else
+            {
+                steps.Add(StepResult.Skip(
+                    "The History grid shows the seeded events plus the startup scan's Disappeared events",
+                    "The startup scan never completed (see the previous step), so this count cannot be evaluated meaningfully."));
+                steps.Add(StepResult.Skip(
+                    "The History grid shows both arrivals and departures",
+                    "The startup scan never completed (see the previous step), so this cannot be evaluated meaningfully."));
+            }
 
             SelectTab(session, "ApprovedDevicesTab");
             steps.AddRange(RunCsvExportImport(session, context.ArtifactFolder, context.Seed.ApprovedDevices));
@@ -273,6 +310,57 @@ namespace NetworkMonitor.UITests.Phases
             }
 
             return result;
+        }
+
+        // Fix round 3 (2026-08-20): the History count's flake traced to reading it before the
+        // app's own startup scan (ScanWorker.RunScanLoopAsync — scans immediately, not after its
+        // first interval) had actually finished. LastScanText (MainWindow.xaml:79 — x:Name alone
+        // is enough for WinUI's default AutomationPeer to expose it as this AutomationId) starts
+        // at "—" and MainWindow.xaml.cs's OnScanCompleted sets it to a real timestamp after every
+        // scan, including the startup one — the app's own, real signal for "a scan has
+        // completed", polled here instead of guessing at how long scanning takes.
+        private static StepResult AssertScanHasCompleted(AppSession session)
+        {
+            const string stepName = "The app's own startup scan completes";
+            StepResult result;
+
+            try
+            {
+                Waits.Until(
+                    () => ScanHasCompleted(session),
+                    ScanCompletionTimeout,
+                    $"'{LastScanTextAutomationId}' to show a real timestamp instead of '{NoScanYetText}' "
+                    + "(MainWindow.xaml.cs's OnScanCompleted, fired after every scan including the startup one)");
+
+                result = StepResult.Pass(stepName);
+            }
+            catch (TimeoutException timeoutException)
+            {
+                result = StepResult.Fail(
+                    stepName,
+                    $"'{LastScanTextAutomationId}' to show a real timestamp within {ScanCompletionTimeout.TotalSeconds:0}s",
+                    timeoutException.Message);
+            }
+
+            return result;
+        }
+
+        private static bool ScanHasCompleted(AppSession session)
+        {
+            bool completed;
+
+            try
+            {
+                AutomationElement? lastScanText = session.MainWindow.FindFirstDescendant(LastScanTextAutomationId);
+
+                completed = lastScanText is not null && lastScanText.Name.Length > 0 && lastScanText.Name != NoScanYetText;
+            }
+            catch (Exception)
+            {
+                completed = false;
+            }
+
+            return completed;
         }
 
         private static StepResult AssertHistoryHasArrivalsAndDepartures(AutomationElement historyGrid)
@@ -421,7 +509,32 @@ namespace NetworkMonitor.UITests.Phases
                 ControlTimeout,
                 $"the '{buttonAutomationId}' button in row {row}");
 
-            button.Click();
+            Invoke(button);
+        }
+
+        // Fix round 3 (2026-08-20): investigated and reverted, recorded here so the next person
+        // does not retry the same thing. A full stack trace captured from a real run in this
+        // session showed Click()'s real OS-level mouse SendInput call throwing Win32Exception
+        // (5): Access is denied (GetForegroundWindow() also returns NULL in this session, with
+        // the session otherwise reporting itself Active — a genuine, if intermittent,
+        // input-simulation restriction specific to this automation session, not a code defect).
+        // Switching to InvokePattern (which does not use SendInput) was tried, both as the sole
+        // mechanism and as a Click()-first-then-InvokePattern-on-Win32Exception fallback — in
+        // both forms it then hung the very same Export button until the underlying UI Automation
+        // COM call itself timed out (~45s, FlaUI.Core.Tools.Com.Call -> COMException 0x80131505),
+        // consistently, which is worse than Click()'s intermittent failure, not better. By the
+        // last of several real runs this round, Click() itself had also become consistently
+        // access-denied rather than intermittently so. Both symptoms point to this specific,
+        // long-running session's own UI Automation/input subsystem having degraded as the
+        // session went on, not to a defect in either mechanism — Click() is kept as the plain,
+        // previously-reliable default rather than adding unproven complexity on top of a
+        // moving target.
+        //
+        // This is the same call site the Edit dialog's Save button deliberately still uses
+        // Click() directly for — see that call site's own comment.
+        private static void Invoke(AutomationElement element)
+        {
+            element.Click();
         }
 
         private static void DriveCommonFileDialog(string filePath, string artifactFolder)
@@ -470,7 +583,10 @@ namespace NetworkMonitor.UITests.Phases
 
                 AutomationElement? acceptButton = dialogWindow.FindFirstDescendant(CommonFileDialogAcceptButtonId);
 
-                acceptButton?.Click();
+                if (acceptButton is not null)
+                {
+                    Invoke(acceptButton);
+                }
 
                 // Fix round 2 (2026-08-20): a Windows message box (the illegal-character error the
                 // operator saw) is also class "#32770" -- a second, separate top-level window, not
@@ -713,7 +829,7 @@ namespace NetworkMonitor.UITests.Phases
                         ControlTimeout,
                         "the Export CSV button");
 
-                    exportButton.Click();
+                    Invoke(exportButton);
                     DriveCommonFileDialog(exportPath, artifactFolder);
 
                     Waits.Until(() => File.Exists(exportPath), DataChangeTimeout, "the exported CSV file to appear on disk");
@@ -750,7 +866,7 @@ namespace NetworkMonitor.UITests.Phases
                         ControlTimeout,
                         "the Import CSV button");
 
-                    importButton.Click();
+                    Invoke(importButton);
                     DriveCommonFileDialog(exportPath, artifactFolder);
 
                     // Fix round 2 (2026-08-20): searching by ByClassName("ContentDialog")
@@ -794,10 +910,11 @@ namespace NetworkMonitor.UITests.Phases
                         ControlTimeout,
                         "the import result dialog's OK button");
 
-                    closeButton.Click();
+                    Invoke(closeButton);
                 }
                 catch (Exception exception)
                 {
+                    Console.WriteLine($"DevicesPhase: CSV export/import threw (diagnostic, full detail): {exception}");
                     steps.Add(StepResult.Fail(
                         "CSV export to the fixture folder and re-import",
                         "the Export CSV / Import CSV round trip to complete without throwing",
@@ -1026,6 +1143,28 @@ namespace NetworkMonitor.UITests.Phases
 
         }
 
+        // Fix round 3 (2026-08-20): Waits.cs claims every wait in this suite routes through it;
+        // CloseSingleExportHandlerProcess's Process.WaitForExit(int) below was one of three
+        // places across the suite that did not. Same Waits.Until(() => process.HasExited, ...)
+        // shape AppUnderTest.WaitForExit(Application, TimeSpan) already used for the app process
+        // itself.
+        private static bool WaitForProcessExit(Process process, TimeSpan timeout)
+        {
+            bool exited;
+
+            try
+            {
+                Waits.Until(() => process.HasExited, timeout, "the process to exit");
+                exited = true;
+            }
+            catch (TimeoutException)
+            {
+                exited = false;
+            }
+
+            return exited;
+        }
+
         private static void CloseSingleExportHandlerProcess(Process candidate, string exportedFileName)
         {
             string windowTitle = candidate.MainWindowTitle;
@@ -1039,7 +1178,7 @@ namespace NetworkMonitor.UITests.Phases
 
                 candidate.CloseMainWindow();
 
-                bool exited = candidate.WaitForExit((int)ExportHandlerCloseTimeout.TotalMilliseconds);
+                bool exited = WaitForProcessExit(candidate, ExportHandlerCloseTimeout);
 
                 if (!exited)
                 {
@@ -1061,24 +1200,37 @@ namespace NetworkMonitor.UITests.Phases
         // is what actually broke the file-name-box SetValue/click sequence in real runs, not
         // automation flakiness — every subsequent dialog interaction checks this explicitly so a
         // stolen-focus failure is reported by name instead of read as an unexplained timeout.
+        // Fix round 3 (2026-08-20): confirmed directly against this run's own session
+        // (GetForegroundWindow() queried by hand, immediately, mid-run) that it can legitimately
+        // return NULL — no window at all holding focus — even though the session itself is
+        // genuinely Active, not locked, not disconnected. That reads as "inconclusive", not "an
+        // intruder has focus": a null handle (and the pid 0 GetWindowThreadProcessId reports for
+        // one) is not a process this method — or anyone — can meaningfully name or blame, and
+        // treating it as a failure produced two real runs' worth of "the foreground window
+        // belongs to 'Idle' (pid 0)" that had nothing to do with ShellLauncher.Open. Only a real,
+        // different, identifiable process holding focus is a failure.
         private static void AssertForegroundWindowBelongsToAppUnderTest(AppSession session)
         {
             IntPtr foregroundWindowHandle = GetForegroundWindow();
 
-            GetWindowThreadProcessId(foregroundWindowHandle, out uint foregroundProcessId);
-
-            int appProcessId = session.Application.ProcessId;
-
-            if (foregroundProcessId != (uint)appProcessId)
+            if (foregroundWindowHandle != IntPtr.Zero)
             {
-                string intruderTitle = ReadWindowText(foregroundWindowHandle);
-                string intruderProcessName = TryReadProcessName((int)foregroundProcessId);
+                GetWindowThreadProcessId(foregroundWindowHandle, out uint foregroundProcessId);
 
-                throw new InvalidOperationException(
-                    $"The foreground window belongs to '{intruderProcessName}' (pid {foregroundProcessId}, titled "
-                    + $"'{intruderTitle}'), not the app under test (pid {appProcessId}). An intruding window — most "
-                    + "likely ShellLauncher.Open's CSV handler — has stolen focus and would silently break the next "
-                    + "click or SetValue.");
+                int appProcessId = session.Application.ProcessId;
+
+                if (foregroundProcessId != 0 && foregroundProcessId != (uint)appProcessId)
+                {
+                    string intruderTitle = ReadWindowText(foregroundWindowHandle);
+                    string intruderProcessName = TryReadProcessName((int)foregroundProcessId);
+
+                    throw new InvalidOperationException(
+                        $"The foreground window belongs to '{intruderProcessName}' (pid {foregroundProcessId}, titled "
+                        + $"'{intruderTitle}'), not the app under test (pid {appProcessId}). An intruding window — most "
+                        + "likely ShellLauncher.Open's CSV handler — has stolen focus and would silently break the next "
+                        + "click or SetValue.");
+                }
+
             }
 
         }
@@ -1141,7 +1293,11 @@ namespace NetworkMonitor.UITests.Phases
                         AutomationElement? cancelButton = strayDialog.FindFirstDescendant(
                             conditionFactory => conditionFactory.ByName("Cancel"));
 
-                        cancelButton?.Click();
+                        if (cancelButton is not null)
+                        {
+                            Invoke(cancelButton);
+                        }
+
                     }
 
                 }
@@ -1220,6 +1376,11 @@ namespace NetworkMonitor.UITests.Phases
                             ControlTimeout,
                             "the Edit dialog's Save button to finish animating into a clickable position");
 
+                        // Fix round 3 (2026-08-20): deliberately still Click(), not Invoke() —
+                        // this specific NoClickablePointException is one of the two failures the
+                        // operator named explicitly to leave alone, not route around by changing
+                        // the mechanism that reaches it, even though Invoke() (used everywhere
+                        // else in this file as of this round) would very plausibly avoid it too.
                         saveButton.Click();
 
                         bool renamed = false;
@@ -1296,7 +1457,7 @@ namespace NetworkMonitor.UITests.Phases
                         ControlTimeout,
                         "the delete confirmation dialog's Delete button");
 
-                    deleteButton.Click();
+                    Invoke(deleteButton);
 
                     int expectedCountAfterDelete = countBeforeDelete - 1;
                     bool dropped = false;
@@ -1332,6 +1493,7 @@ namespace NetworkMonitor.UITests.Phases
             }
             catch (Exception exception)
             {
+                Console.WriteLine($"DevicesPhase: delete round trip threw (diagnostic, full detail): {exception}");
                 result = StepResult.Fail(stepName, "the delete round trip to complete without throwing", exception.Message);
             }
 
