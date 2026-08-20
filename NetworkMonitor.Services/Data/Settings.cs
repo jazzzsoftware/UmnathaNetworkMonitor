@@ -358,16 +358,18 @@ namespace NetworkMonitor.Services.Data
             set;
         } = true;
 
-        public void Save()
+        public bool Save()
         {
+            bool saved;
 
             lock (_saveLock)
             {
                 string json = JsonSerializer.Serialize(this, SaveOptions);
 
-                AtomicFile.WriteAllText(SettingsFilePath, json);
+                saved = AtomicFile.WriteAllText(SettingsFilePath, json);
             }
 
+            return saved;
         }
 
         public static string DetectSubnetBase()

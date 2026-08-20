@@ -190,7 +190,15 @@ Done - Performance review
 Done - Clicking on notification takes you to the section in the app.
 Done - Rename Horizontal Strip to orientation and make a drop down.
 
+Done - Investigated the two logged errors (2026-08-20). ScanWorker double-dispose ObjectDisposedException was already fixed on 2026-08-12 by the _disposed guard; AtomicFile UnauthorizedAccessException was an antivirus scanner briefly refusing the temp-file rename, now retried and reported instead of silently swallowed.
+
+
+Add % markers to opacity slider.
 UI automated testing
+
+
+
+
 
 Github/Marketing:
 Done - Topics

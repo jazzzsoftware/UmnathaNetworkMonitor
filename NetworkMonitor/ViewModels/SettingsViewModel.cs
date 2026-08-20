@@ -554,7 +554,7 @@ namespace NetworkMonitor.ViewModels
             }
         }
 
-        private void PersistAll()
+        private bool PersistAll()
         {
             _settings.SubnetBase = SubnetBase;
             _settings.AutoDetectSubnet = AutoDetectSubnet;
@@ -584,7 +584,9 @@ namespace NetworkMonitor.ViewModels
             AppLog.IsEnabled = EnableLogging;
 #endif
 
-            _settings.Save();
+            bool saved = _settings.Save();
+
+            return saved;
         }
 
         public void SyncMiniGraphFromState()
@@ -698,8 +700,13 @@ namespace NetworkMonitor.ViewModels
 
             if (isPersistable)
             {
-                PersistAll();
-                _notificationService.Show("Settings saved");
+                bool saved = PersistAll();
+
+                if (saved)
+                {
+                    _notificationService.Show("Settings saved");
+                }
+
             }
 
         }
