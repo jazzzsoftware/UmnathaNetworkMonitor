@@ -1,7 +1,9 @@
 using System.Diagnostics;
 using System.Security.Principal;
+using System.Text;
 using System.Threading;
 using Microsoft.Win32;
+using NetworkMonitor.Core.Common;
 using NetworkMonitor.UITests.Fixtures;
 
 namespace NetworkMonitor.UITests.Runner
@@ -95,6 +97,13 @@ namespace NetworkMonitor.UITests.Runner
                         + "release itself — see Tools/UITests/README.md.");
                 }
 
+            }
+
+            string localBuildBlocker = FindLocalBuildBlocker();
+
+            if (localBuildBlocker.Length > 0)
+            {
+                blockers.Add(localBuildBlocker);
             }
 
             string strandedBackup = FindStrandedBackup();
@@ -192,8 +201,8 @@ namespace NetworkMonitor.UITests.Runner
         }
 
         // Only reached when no NetworkMonitor process is running — amendment B's second half. A
-        // session surviving with nothing behind it is almost always InstalledApp.ShutDown's own
-        // Kill() fallback failing to clean up, or an earlier run of this suite being killed itself
+        // session surviving with nothing behind it is almost always AppUnderTest.ShutDown's own
+        // Close()/Kill() fallback failing to clean up, or an earlier run of this suite being killed itself
         // (Ctrl+C, a crashed host); either way TrafficCollector.StopOrphanedSession's own
         // attach-and-Stop() on the app's next launch is the code that reproducibly does not
         // succeed after a kill, so the runner has to clear it before that launch is attempted.
@@ -243,6 +252,75 @@ namespace NetworkMonitor.UITests.Runner
             }
 
             return exists;
+        }
+
+        // Fix round 1 (2026-08-20): a real run drove the installed release — which predates
+        // UMNATHA_DATA_FOLDER — because every phase through Task 11 launches AppUnderTest.
+        // LaunchLocalBuild, and the local build that happened to exist on disk was stale. The
+        // shell was never found (a 45s timeout) and, silently, the fixture was bypassed entirely:
+        // the app fell back to the operator's real data folder and wrote to it for the run's
+        // whole duration. This check exists so that failure is a Preflight refusal, not a
+        // teardown-time discovery. AppDataFolderResolver.OverrideVariableName is a const, so its
+        // literal value is baked into every assembly that references it — including
+        // NetworkMonitor.Core.dll itself, which declares it — as UTF-16, the encoding every .NET
+        // string literal is stored in; confirmed present in a real build's Core.dll before this
+        // check was written.
+        private static string FindLocalBuildBlocker()
+        {
+            string blocker = string.Empty;
+            string executablePath = AppUnderTest.FindLocalBuildExecutablePath();
+
+            if (executablePath.Length == 0)
+            {
+                blocker =
+                    "No locally built NetworkMonitor.exe was found under NetworkMonitor/bin/x64/Debug. The phases "
+                    + "drive a local build, not the installed release — build one first: dotnet build "
+                    + "NetworkMonitor.slnx -c Debug -p:Platform=x64.";
+            }
+            else
+            {
+                string overrideMarkerBlocker = FindMissingOverrideMarkerBlocker(executablePath);
+
+                if (overrideMarkerBlocker.Length > 0)
+                {
+                    blocker = overrideMarkerBlocker;
+                }
+
+            }
+
+            return blocker;
+        }
+
+        private static string FindMissingOverrideMarkerBlocker(string executablePath)
+        {
+            string blocker = string.Empty;
+            string? buildFolder = Path.GetDirectoryName(executablePath);
+            string coreDllPath = buildFolder is null ? string.Empty : Path.Combine(buildFolder, "NetworkMonitor.Core.dll");
+
+            if (coreDllPath.Length == 0 || !File.Exists(coreDllPath))
+            {
+                blocker =
+                    $"Could not find NetworkMonitor.Core.dll next to {executablePath} to confirm the build carries "
+                    + "the UMNATHA_DATA_FOLDER override. Rebuild: dotnet build NetworkMonitor.slnx -c Debug -p:Platform=x64.";
+            }
+            else if (!BinaryContainsOverrideMarker(coreDllPath))
+            {
+                blocker =
+                    $"{executablePath} predates the UMNATHA_DATA_FOLDER override (NetworkMonitor.Core.dll next to "
+                    + "it does not carry the marker) and would silently drive the operator's real data folder "
+                    + "instead of the fixture. Rebuild: dotnet build NetworkMonitor.slnx -c Debug -p:Platform=x64.";
+            }
+
+            return blocker;
+        }
+
+        private static bool BinaryContainsOverrideMarker(string assemblyPath)
+        {
+            byte[] assemblyBytes = File.ReadAllBytes(assemblyPath);
+            byte[] markerBytes = Encoding.Unicode.GetBytes(AppDataFolderResolver.OverrideVariableName);
+            bool found = assemblyBytes.AsSpan().IndexOf(markerBytes.AsSpan()) >= 0;
+
+            return found;
         }
     }
 }

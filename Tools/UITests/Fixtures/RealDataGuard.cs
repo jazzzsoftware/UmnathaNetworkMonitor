@@ -175,7 +175,7 @@ namespace NetworkMonitor.UITests.Fixtures
                     $"{NetworkMonitorProcessName}.exe is still running. Its data folder cannot be safely copied or "
                     + "restored while the app could still be writing to networkmonitor.db — a checkpoint landing "
                     + "mid-copy can tear the .db/-wal pair and silently lose recent history. Shut it down first "
-                    + "(InstalledApp.ShutDown) and confirm it has exited before calling this.");
+                    + "(AppUnderTest.ShutDown) and confirm it has exited before calling this.");
             }
 
         }

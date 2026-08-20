@@ -111,12 +111,18 @@ namespace NetworkMonitor.UITests.Phases
             steps.Add(AssertHistoryHasArrivalsAndDepartures(historyGrid));
 
             SelectTab(session, "ApprovedDevicesTab");
-
-            AutomationElement approvedGridForEditing = WaitForGrid(session, "ApprovedDevicesGrid");
-
             steps.AddRange(RunCsvExportImport(session, context.ArtifactFolder, context.Seed.ApprovedDevices));
-            steps.AddRange(RunEditDevice(session, approvedGridForEditing));
-            steps.Add(RunDeleteDevice(session, approvedGridForEditing));
+
+            // Fix round 1 (2026-08-20): Edit and Delete each re-fetch the grid themselves, inside
+            // their own try/catch, rather than sharing one reference resolved out here. A real run
+            // had CSV's native file dialog hit "UIA Timeout", then a grid re-fetch made out here
+            // (unwrapped) hit its own COM timeout and escaped this method entirely — PhaseRunner's
+            // catch then discarded every step already recorded above, down to a single generic
+            // "phase completed without throwing" failure. Fetching inside each function's own
+            // try/catch means a COM hiccup after CSV costs only that one step's result, not every
+            // result gathered before it.
+            steps.AddRange(RunEditDevice(session));
+            steps.Add(RunDeleteDevice(session));
 
             IReadOnlyList<StepResult> result = steps;
             Task<IReadOnlyList<StepResult>> completed = Task.FromResult(result);
@@ -279,6 +285,11 @@ namespace NetworkMonitor.UITests.Phases
         // TextBlock is one descendant among several (title bar, buttons), so this scans rather than
         // assumes a fixed position. Returns the first descendant whose Name contains the marker, or
         // an empty string if none does.
+        // Fix round 1 (2026-08-20): GridReader.CellText's live-confirmed finding — some UIA
+        // elements throw "not supported" reading .Name rather than returning empty — applies
+        // here too, since this walks an arbitrary, unknown dialog subtree rather than a single
+        // known cell shape. Each read is defensive for exactly that reason; one unreadable
+        // element must not abort the whole scan.
         private static string DescendantTextContaining(AutomationElement root, string marker)
         {
             AutomationElement[] descendants = root.FindAllDescendants();
@@ -286,7 +297,7 @@ namespace NetworkMonitor.UITests.Phases
 
             for (int descendantIndex = 0; descendantIndex < descendants.Length && matchedText.Length == 0; descendantIndex++)
             {
-                string candidateText = descendants[descendantIndex].Name;
+                string candidateText = TryReadName(descendants[descendantIndex]);
 
                 if (candidateText.Contains(marker, StringComparison.Ordinal))
                 {
@@ -298,9 +309,36 @@ namespace NetworkMonitor.UITests.Phases
             return matchedText;
         }
 
+        private static string TryReadName(AutomationElement element)
+        {
+            string name;
+
+            try
+            {
+                name = element.Name;
+            }
+            catch (Exception)
+            {
+                name = string.Empty;
+            }
+
+            return name;
+        }
+
+        // Fix round 1 (2026-08-20): a real run's Edit/Delete steps both failed waiting for their
+        // ContentDialog — "the Edit dialog for 02:00:00:00:00:07" and "the delete confirmation
+        // dialog" both timed out even though the row was correctly located (FindRowIndexByNameText
+        // succeeded, so the failure was strictly after that) and the button itself was found (its
+        // own distinct Waits.UntilFound message never appeared in the failure). The likeliest cause:
+        // this method never scrolled the row into view before clicking, unlike GridReader.CellText —
+        // GetItem still returns an element for an unrealised row, but Click() on it lands on a
+        // stale or degenerate on-screen position, not the real button, so nothing ever opened.
         private static void ClickRowButton(AutomationElement grid, int row, int actionsColumn, string buttonAutomationId)
         {
             IGridPattern gridPattern = grid.Patterns.Grid.Pattern;
+
+            GridReader.ScrollRowIntoView(grid, row);
+
             AutomationElement actionsCell = gridPattern.GetItem(row, actionsColumn);
             AutomationElement button = Waits.UntilFound(
                 () => actionsCell.FindFirstDescendant(buttonAutomationId),
@@ -310,10 +348,6 @@ namespace NetworkMonitor.UITests.Phases
             button.Click();
         }
 
-        // UNVERIFIED — same caveat as GridReader.CellText: never run against the real app. Setting
-        // the file name box's value and clicking the accept button by these well-known ids is the
-        // standard way to script this system dialog; confirming it against the real one is exactly
-        // what running this suite for real would do.
         private static void DriveCommonFileDialog(string filePath)
         {
 
@@ -325,11 +359,7 @@ namespace NetworkMonitor.UITests.Phases
                     ControlTimeout,
                     "the native file dialog to appear");
 
-                AutomationElement fileNameBox = Waits.UntilFound(
-                    () => dialogWindow.FindFirstDescendant(CommonFileDialogNameBoxId),
-                    ControlTimeout,
-                    "the file dialog's file name box to appear");
-
+                AutomationElement fileNameBox = FindFileNameBox(dialogWindow);
                 IValuePattern fileNameValuePattern = fileNameBox.Patterns.Value.Pattern;
 
                 fileNameValuePattern.SetValue(filePath);
@@ -342,6 +372,32 @@ namespace NetworkMonitor.UITests.Phases
                 acceptButton.Click();
             }
 
+        }
+
+        // Fix round 1 (2026-08-20): a real run's CSV export step got past finding the dialog
+        // window itself (by class name — confirmed correct, since the failure was specifically
+        // "the file dialog's file name box to appear", not the dialog window) but never found
+        // AutomationId "1148" for the file name box. Falls back to the first Edit-type descendant
+        // — whatever id the combo container carries, its editable text entry is a plain Edit
+        // control — rather than depending on one specific, unconfirmed id.
+        private static AutomationElement FindFileNameBox(AutomationElement dialogWindow)
+        {
+            AutomationElement? byKnownId = dialogWindow.FindFirstDescendant(CommonFileDialogNameBoxId);
+            AutomationElement resolved;
+
+            if (byKnownId is not null)
+            {
+                resolved = byKnownId;
+            }
+            else
+            {
+                resolved = Waits.UntilFound(
+                    () => dialogWindow.FindFirstDescendant(conditionFactory => conditionFactory.ByControlType(ControlType.Edit)),
+                    ControlTimeout,
+                    "the file dialog's file name box (by control type — AutomationId '1148' was not present)");
+            }
+
+            return resolved;
         }
 
         // Wrapped in one try/catch rather than letting a dialog-automation failure throw out of
@@ -433,18 +489,57 @@ namespace NetworkMonitor.UITests.Phases
                     "CSV export to the fixture folder and re-import",
                     "the Export CSV / Import CSV round trip to complete without throwing",
                     exception.Message));
+
+                // Fix round 1 (2026-08-20): a real run's Edit and Delete steps both failed
+                // immediately after a failed CSV round trip, with UIA-level errors unrelated to
+                // either step's own logic ("The requested pattern 'Grid [#10006]' is not
+                // supported") — consistent with a native Save/Open dialog left open and modal to
+                // the main window, blocking every step that runs after this one. Best-effort
+                // recovery so this step's failure stays this step's failure.
+                TryDismissStrayFileDialog();
             }
 
             return steps;
         }
 
-        private static List<StepResult> RunEditDevice(AppSession session, AutomationElement approvedGrid)
+        private static void TryDismissStrayFileDialog()
+        {
+
+            try
+            {
+
+                using (UIA3Automation automation = new UIA3Automation())
+                {
+                    AutomationElement desktop = automation.GetDesktop();
+                    AutomationElement? strayDialog = desktop.FindFirstDescendant(
+                        conditionFactory => conditionFactory.ByClassName(CommonFileDialogClassName));
+
+                    if (strayDialog is not null)
+                    {
+                        AutomationElement? cancelButton = strayDialog.FindFirstDescendant(
+                            conditionFactory => conditionFactory.ByName("Cancel"));
+
+                        cancelButton?.Click();
+                    }
+
+                }
+
+            }
+            catch (Exception exception)
+            {
+                Console.WriteLine($"DevicesPhase: could not dismiss a stray file dialog: {exception.Message}");
+            }
+
+        }
+
+        private static List<StepResult> RunEditDevice(AppSession session)
         {
             const string stepName = "Editing a device's friendly name updates the grid";
             List<StepResult> steps = new List<StepResult>();
 
             try
             {
+                AutomationElement approvedGrid = WaitForGrid(session, "ApprovedDevicesGrid");
                 int rowIndex = FindRowIndexByNameText(approvedGrid, ApprovedNameColumn, EditTargetHostname);
 
                 if (rowIndex < 0)
@@ -525,13 +620,14 @@ namespace NetworkMonitor.UITests.Phases
             return steps;
         }
 
-        private static StepResult RunDeleteDevice(AppSession session, AutomationElement approvedGrid)
+        private static StepResult RunDeleteDevice(AppSession session)
         {
             const string stepName = "Deleting a device drops the Approved count by one";
             StepResult result;
 
             try
             {
+                AutomationElement approvedGrid = WaitForGrid(session, "ApprovedDevicesGrid");
                 int countBeforeDelete = GridReader.RowCount(approvedGrid);
                 int rowIndex = FindRowIndexByNameText(approvedGrid, ApprovedNameColumn, DeleteTargetHostname);
 

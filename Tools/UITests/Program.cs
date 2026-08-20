@@ -58,8 +58,9 @@ int runExitCode = await RunSuiteAsync();
 
 return runExitCode;
 
-// The real run: seeds a throwaway fixture, launches the installed release against it (never the
-// operator's real data folder — see DataFolderFixture/InstalledApp), drives every registered
+// The real run: seeds a throwaway fixture, launches a local build against it (never the
+// operator's real data folder — see DataFolderFixture/AppUnderTest.LaunchLocalBuild, and
+// LaunchPhase's own fixture-write guard) via whichever phase runs first, drives every registered
 // phase and writes the HTML report. Only two phases are registered so far (LaunchPhase,
 // DevicesPhase); later tasks append to the list below as their phases are written.
 static async Task<int> RunSuiteAsync()
@@ -113,7 +114,7 @@ static async Task<int> RunSuiteAsync()
 
             if (context.Session is not null)
             {
-                InstalledApp.ShutDown(context.Session.Application);
+                AppUnderTest.ShutDown(context.Session.Application);
                 context.Session.Dispose();
             }
 
@@ -236,20 +237,19 @@ static string DescribeTimestamp(DateTime? timestamp)
     return description;
 }
 
-// Task 7's standing diagnostic: launches a locally built x64 Debug NetworkMonitor.exe — never
-// the installed release, which InstalledApp.Launch is reserved for and which predates whatever
-// AutomationIds are being wired up right now — and dumps one page's automation tree to a file
-// under %TEMP%. This is the tool for adding and checking AutomationIds; it is meant to be run by
-// hand, repeatedly, while a page is being tagged, so it seeds and points at a throwaway
-// DataFolderFixture (same UMNATHA_DATA_FOLDER override InstalledApp.Launch uses) and never
-// touches the operator's real database. Preflight.Check() is deliberately not called for this
-// path: it demands an installed release and elevation, neither of which a dev-build tree dump
-// needs.
+// Task 7's standing diagnostic: launches a locally built x64 Debug NetworkMonitor.exe — same
+// build AppUnderTest.LaunchLocalBuild now drives every phase against (fix round 1) — and dumps
+// one page's automation tree to a file under %TEMP%. This is the tool for adding and checking
+// AutomationIds; it is meant to be run by hand, repeatedly, while a page is being tagged, so it
+// seeds and points at a throwaway DataFolderFixture (same UMNATHA_DATA_FOLDER override
+// AppUnderTest.LaunchLocalBuild uses) and never touches the operator's real database.
+// Preflight.CheckAsync is deliberately not called for this path: it demands elevation, which a
+// dev-build tree dump does not need.
 static async Task<int> RunDumpTree(string[] commandLineArguments)
 {
     string? pageArgument = ReadOptionValue(commandLineArguments, "--dump-tree");
     string? executableOverride = ReadOptionValue(commandLineArguments, "--exe");
-    string executablePath = executableOverride ?? FindLocalDebugExecutable();
+    string executablePath = executableOverride ?? AppUnderTest.FindLocalBuildExecutablePath();
     int exitCode;
 
     if (executablePath.Length == 0 || !File.Exists(executablePath))
@@ -331,7 +331,7 @@ static async Task<int> DumpTreeFromExecutable(string executablePath, string? pag
     }
     finally
     {
-        ShutDownDevBuild(application);
+        AppUnderTest.ShutDown(application);
     }
 
     return exitCode;
@@ -436,103 +436,6 @@ static string? ReadOptionValue(string[] commandLineArguments, string optionName)
     }
 
     return optionValue;
-}
-
-// Searches NetworkMonitor/bin/x64/Debug rather than assuming one fixed TFM-shaped path, so a
-// future TargetFramework bump does not silently break this diagnostic; picks the most recently
-// built exe if more than one configuration is present.
-static string FindLocalDebugExecutable()
-{
-    string executablePath = string.Empty;
-    string? repositoryRoot = FindRepositoryRoot(AppContext.BaseDirectory);
-
-    if (repositoryRoot is not null)
-    {
-        string searchRoot = Path.Combine(repositoryRoot, "NetworkMonitor", "bin", "x64", "Debug");
-
-        if (Directory.Exists(searchRoot))
-        {
-            string[] candidates = Directory.GetFiles(searchRoot, "NetworkMonitor.exe", SearchOption.AllDirectories);
-
-            if (candidates.Length > 0)
-            {
-                executablePath = candidates.OrderByDescending(File.GetLastWriteTimeUtc).First();
-            }
-
-        }
-
-    }
-
-    return executablePath;
-}
-
-static string? FindRepositoryRoot(string startDirectory)
-{
-    DirectoryInfo? currentDirectory = new DirectoryInfo(startDirectory);
-    string? repositoryRoot = null;
-
-    while (currentDirectory is not null && repositoryRoot is null)
-    {
-
-        if (File.Exists(Path.Combine(currentDirectory.FullName, "NetworkMonitor.slnx")))
-        {
-            repositoryRoot = currentDirectory.FullName;
-        }
-
-        currentDirectory = currentDirectory.Parent;
-    }
-
-    return repositoryRoot;
-}
-
-// Deliberately duplicates InstalledApp's Close()-then-Kill() fallback rather than calling into
-// it: that type's contract (its own file-header comment) is explicitly the registry-installed
-// release, including a tray-Exit path keyed to registry lookups that do not apply to a dev build
-// launched straight from a bin folder. The data folder here is a throwaway fixture, so an
-// unclean Kill() losing an uncheckpointed WAL costs nothing.
-static void ShutDownDevBuild(Application application)
-{
-
-    try
-    {
-
-        if (!application.HasExited)
-        {
-            application.Close();
-        }
-
-    }
-    catch (Exception exception)
-    {
-        Console.WriteLine($"--dump-tree: Close() threw and was ignored: {exception.Message}");
-    }
-
-    bool exited;
-
-    try
-    {
-        Waits.Until(() => application.HasExited, TimeSpan.FromSeconds(15), "the dev build process to exit");
-        exited = true;
-    }
-    catch (TimeoutException)
-    {
-        exited = false;
-    }
-
-    if (!exited)
-    {
-
-        try
-        {
-            application.Kill();
-        }
-        catch (Exception exception)
-        {
-            Console.WriteLine($"--dump-tree: Kill() threw and was ignored: {exception.Message}");
-        }
-
-    }
-
 }
 
 // Exercises RealDataGuard.CopyAside/Restore end to end — the highest-consequence code in the

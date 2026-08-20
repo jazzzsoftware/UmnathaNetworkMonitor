@@ -4,8 +4,9 @@ using NetworkMonitor.Core.Charting;
 namespace NetworkMonitor.UITests.Fixtures
 {
     // A throwaway %TEMP%\umnatha-uitests\<timestamp>\ folder holding a seeded networkmonitor.db
-    // and a known settings.json. FolderPath is what InstalledApp.Launch passes as
-    // UMNATHA_DATA_FOLDER, so the driven app never sees the operator's real data.
+    // and a known settings.json. FolderPath is what AppUnderTest.LaunchLocalBuild/
+    // LaunchInstalledBuild passes as UMNATHA_DATA_FOLDER, so the driven app never sees the
+    // operator's real data.
     public sealed class DataFolderFixture
     {
         private const string RootFolderName = "umnatha-uitests";

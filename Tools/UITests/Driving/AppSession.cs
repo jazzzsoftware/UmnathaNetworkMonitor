@@ -4,16 +4,13 @@ using FlaUI.UIA3;
 
 namespace NetworkMonitor.UITests.Driving
 {
-    // Wraps the FlaUI Application (from InstalledApp.Launch) and owns the UIA3Automation used to
-    // read it, so every phase shares one automation session instead of opening its own.
+    // Wraps the FlaUI Application (from AppUnderTest.LaunchLocalBuild/LaunchInstalledBuild) and
+    // owns the UIA3Automation used to read it, so every phase shares one automation session
+    // instead of opening its own.
     public sealed class AppSession : IDisposable
     {
+        private const string MainWindowTitle = "Umnatha Network Monitor";
         private const string MiniGraphWindowTitle = "Umnatha mini graph";
-
-        // Covers a cold WinUI 3 launch that also runs DatabaseInitializer.InitializeAsync
-        // (baseline-then-migrate) before the window appears; generous because a false timeout
-        // here fails every phase that follows it.
-        private static readonly TimeSpan MainWindowTimeout = TimeSpan.FromSeconds(30);
 
         private readonly UIA3Automation _automation;
 
@@ -28,19 +25,32 @@ namespace NetworkMonitor.UITests.Driving
             get;
         }
 
+        // Fix round 1 (2026-08-20): a real run's abort evidence caught Application.GetMainWindow
+        // resolving to the mini graph widget — titled "Umnatha mini graph", captured mid-run in
+        // its tree dump — instead of the real shell, because GetMainWindow's Win32
+        // MainWindowHandle heuristic returns whichever top-level window is topmost at query time,
+        // and the widget is always-on-top by design. The same heuristic previously (Task 7) was
+        // already known to resolve to the Splash window early in a cold start. Both failure modes
+        // share one cause: MainWindowHandle answers "what's on top right now", not "which window
+        // is actually the app's shell". Resolved by title instead — MainWindow.xaml:7 sets it
+        // literally and it never changes — which also means this getter no longer polls
+        // internally; a window either exists with this exact title right now or it does not, and
+        // every caller that needs to wait for it already does so through Waits (ShellIsReady in
+        // LaunchPhase.cs catches the not-found case and returns false so Waits.Until keeps
+        // polling, rather than the exception aborting the wait on its first try).
         public Window MainWindow
         {
             get
             {
-                Window? mainWindow = Application.GetMainWindow(_automation, MainWindowTimeout);
+                Window[] topLevelWindows = Application.GetAllTopLevelWindows(_automation);
+                Window? shellWindow = topLevelWindows.FirstOrDefault(window => window.Title == MainWindowTitle);
 
-                if (mainWindow is null)
+                if (shellWindow is null)
                 {
-                    throw new TimeoutException(
-                        $"Waited {MainWindowTimeout.TotalSeconds:0.#}s for the app's main window to appear and it never did.");
+                    throw new TimeoutException($"No top-level window titled '{MainWindowTitle}' exists right now.");
                 }
 
-                return mainWindow;
+                return shellWindow;
             }
         }
 
