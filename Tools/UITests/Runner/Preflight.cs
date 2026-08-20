@@ -57,14 +57,18 @@ namespace NetworkMonitor.UITests.Runner
 
             foreach (RegistryView view in new RegistryView[] { RegistryView.Registry64, RegistryView.Registry32 })
             {
+
                 using (RegistryKey baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, view))
                 using (RegistryKey? key = baseKey.OpenSubKey(UninstallKeyPath))
                 {
+
                     if (key is not null && version.Length == 0)
                     {
                         version = key.GetValue("DisplayVersion") as string ?? string.Empty;
                     }
+
                 }
+
             }
 
             return version;
@@ -72,6 +76,7 @@ namespace NetworkMonitor.UITests.Runner
 
         private static bool IsElevated()
         {
+
             using (WindowsIdentity identity = WindowsIdentity.GetCurrent())
             {
                 WindowsPrincipal principal = new WindowsPrincipal(identity);
@@ -80,6 +85,7 @@ namespace NetworkMonitor.UITests.Runner
 
                 return elevated;
             }
+
         }
 
         private static string FindStrandedBackup()
