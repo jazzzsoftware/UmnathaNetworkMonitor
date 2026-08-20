@@ -225,11 +225,103 @@ static async Task<bool> RunGuardSelfTest()
         "Restore(<non-existent path>) did not touch the target",
         DictionariesEqual(countsBeforeMissingPathRestore, countsAfterMissingPathRestore)) && allPassed;
 
+    // Coverage gap 1: a backup whose manifest is present and parses, but whose recorded counts
+    // disagree with what is actually in it — the exact case the manifest exists to catch. This
+    // never happened above: every earlier refusal was a missing/empty/non-existent path, not a
+    // tampered one.
+    string tamperedBackupPath = RealDataGuard.CopyAside(fakeRealFolder);
+    string tamperedManifestPath = Path.Combine(tamperedBackupPath, "uitest-row-counts.txt");
+    List<string> tamperedManifestLines = File.ReadAllLines(tamperedManifestPath).ToList();
+
+    for (int lineIndex = 0; lineIndex < tamperedManifestLines.Count; lineIndex++)
+    {
+
+        if (tamperedManifestLines[lineIndex].StartsWith("Devices=", StringComparison.Ordinal))
+        {
+            tamperedManifestLines[lineIndex] = "Devices=999999";
+        }
+
+    }
+
+    File.WriteAllLines(tamperedManifestPath, tamperedManifestLines);
+
+    Dictionary<string, long> countsBeforeTamperedRestore = CountRowsIndependently(fakeRealDatabasePath);
+    bool tamperedRestoreResult = RealDataGuard.Restore(tamperedBackupPath, fakeRealFolder);
+    Dictionary<string, long> countsAfterTamperedRestore = CountRowsIndependently(fakeRealDatabasePath);
+
+    allPassed = Check(
+        "Restore refuses when the manifest disagrees with the backup's actual contents",
+        !tamperedRestoreResult) && allPassed;
+    allPassed = Check(
+        "A count-mismatch refusal left the target's row counts unchanged",
+        DictionariesEqual(countsBeforeTamperedRestore, countsAfterTamperedRestore)) && allPassed;
+    allPassed = Check("A count-mismatch refusal left the target folder in place", Directory.Exists(fakeRealFolder)) && allPassed;
+
+    // Coverage gap 2: force the second Directory.Move inside SwapInStagedFolder to fail after the
+    // first one (real -> displaced) has already happened, and confirm the rollback puts the
+    // original back intact. Calls SwapInStagedFolder directly — a seam that exists for exactly
+    // this — rather than the full Restore pipeline, which is already covered above.
+    string swapTestFolder = Path.Combine(rootFolder, "swap-test");
+    string swapTestDatabasePath = Path.Combine(swapTestFolder, "networkmonitor.db");
+
+    Directory.CreateDirectory(swapTestFolder);
+    await SeedDatabase.BuildAsync(swapTestDatabasePath, DateTime.UtcNow);
+
+    Dictionary<string, long> swapOriginalCounts = CountRowsIndependently(swapTestDatabasePath);
+    string swapStagingFolder = swapTestFolder + ".uitest-restore-staging-selftest";
+
+    Directory.CreateDirectory(swapStagingFolder);
+    File.WriteAllText(Path.Combine(swapStagingFolder, "marker.txt"), "this staged copy must never end up in place");
+
+    bool swapThrew = false;
+
+    try
+    {
+        RealDataGuard.SwapInStagedFolder(swapTestFolder, swapStagingFolder, () => Directory.Delete(swapStagingFolder, true));
+    }
+    catch (Exception)
+    {
+        swapThrew = true;
+    }
+
+    Dictionary<string, long> swapCountsAfterRollback = CountRowsIndependently(swapTestDatabasePath);
+
+    allPassed = Check("SwapInStagedFolder throws when the second move fails partway through", swapThrew) && allPassed;
+    allPassed = Check(
+        "Rollback restored the original folder's contents after the swap failed",
+        DictionariesEqual(swapOriginalCounts, swapCountsAfterRollback)) && allPassed;
+    allPassed = Check(
+        "Rollback left no marker file from the staged copy that never got swapped in",
+        !File.Exists(Path.Combine(swapTestFolder, "marker.txt"))) && allPassed;
+
     Console.WriteLine();
     Console.WriteLine(allPassed ? "guard-selftest: ALL CHECKS PASSED" : "guard-selftest: SOME CHECKS FAILED");
     Console.WriteLine();
 
+    TryCleanUpGuardSelfTestRoot(rootFolder);
+
     return allPassed;
+}
+
+static void TryCleanUpGuardSelfTestRoot(string rootFolder)
+{
+
+    try
+    {
+
+        if (Directory.Exists(rootFolder))
+        {
+            Directory.Delete(rootFolder, true);
+        }
+
+    }
+    catch (Exception exception)
+    {
+        Console.WriteLine(
+            $"guard-selftest: could not clean up its own throwaway folder at {rootFolder} ({exception.Message}). "
+            + "It is safe to delete by hand — none of it is real data.");
+    }
+
 }
 
 static bool Check(string label, bool condition)

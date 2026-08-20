@@ -10,6 +10,18 @@ namespace NetworkMonitor.UITests.Runner
 
         private const long RequiredFreeBytes = 3L * 1024L * 1024L * 1024L;
 
+        // Matches all three suffixes RealDataGuard can leave behind: a copy of the operator's
+        // real data (backup), a validated copy waiting to be swapped in (restore-staging), or
+        // the pre-swap original waiting to be discarded (displaced). None of them are data-losing
+        // by themselves, but each is a full copy of the operator's history and none should be
+        // left lying around silently.
+        private static readonly string[] StrandedFolderPatterns =
+        {
+            "UmnathaNetworkMonitor.uitest-backup-*",
+            "UmnathaNetworkMonitor.uitest-restore-staging-*",
+            "UmnathaNetworkMonitor.uitest-displaced-*"
+        };
+
         public static PreflightResult Check()
         {
             List<string> blockers = new List<string>();
@@ -33,8 +45,9 @@ namespace NetworkMonitor.UITests.Runner
             if (strandedBackup.Length > 0)
             {
                 blockers.Add(
-                    $"A previous run left a data-folder backup at {strandedBackup}. "
-                    + "Restore or delete it before running again — this suite will not run while your history is parked.");
+                    "A previous run left a data-folder backup, restore-staging or displaced-original folder at "
+                    + $"{strandedBackup}. Restore or delete it before running again — this suite will not run while "
+                    + "your history is parked.");
             }
 
             DriveInfo systemDrive = new DriveInfo(Path.GetPathRoot(Environment.SystemDirectory) ?? "C:\\");
@@ -91,10 +104,18 @@ namespace NetworkMonitor.UITests.Runner
         private static string FindStrandedBackup()
         {
             string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            string stranded = string.Empty;
 
-            string[] candidates = Directory.GetDirectories(localAppData, "UmnathaNetworkMonitor.uitest-backup-*");
+            foreach (string pattern in StrandedFolderPatterns)
+            {
+                string[] candidates = Directory.GetDirectories(localAppData, pattern);
 
-            string stranded = candidates.Length > 0 ? candidates[0] : string.Empty;
+                if (candidates.Length > 0 && stranded.Length == 0)
+                {
+                    stranded = candidates[0];
+                }
+
+            }
 
             return stranded;
         }

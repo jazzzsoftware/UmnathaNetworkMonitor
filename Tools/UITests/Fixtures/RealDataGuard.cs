@@ -104,18 +104,29 @@ namespace NetworkMonitor.UITests.Fixtures
                 Dictionary<string, long> expectedRowCounts = ReadManifest(Path.Combine(backupPath, ManifestFileName));
                 string stagingFolder = BuildUniqueSiblingFolderPath(realFolder, RestoreStagingSuffix);
 
-                CopyDirectoryRecursive(backupPath, stagingFolder, ManifestFileName);
-
-                Dictionary<string, long> restoredRowCounts = CountRows(Path.Combine(stagingFolder, DatabaseFileName));
-                bool countsMatch = RowCountsMatch(expectedRowCounts, restoredRowCounts);
-
-                if (!countsMatch)
+                // Anything that goes wrong between here and a successful swap — CopyDirectoryRecursive
+                // throwing partway, or CountRows throwing on the staged copy — must not leave a full
+                // copy of the operator's data sitting in a throwaway staging folder.
+                try
                 {
-                    Directory.Delete(stagingFolder, true);
+                    CopyDirectoryRecursive(backupPath, stagingFolder, ManifestFileName);
 
-                    throw new InvalidOperationException(
-                        "Restored row counts did not match the manifest captured before the original was copied aside. "
-                        + $"The staged copy was discarded and the backup is left untouched at {backupPath}.");
+                    Dictionary<string, long> restoredRowCounts = CountRows(Path.Combine(stagingFolder, DatabaseFileName));
+                    bool countsMatch = RowCountsMatch(expectedRowCounts, restoredRowCounts);
+
+                    if (!countsMatch)
+                    {
+                        throw new InvalidOperationException(
+                            "Restored row counts did not match the manifest captured before the original was copied aside. "
+                            + $"The staged copy was discarded and the backup is left untouched at {backupPath}.");
+                    }
+
+                }
+                catch (Exception)
+                {
+                    TryDeleteStagingFolder(stagingFolder);
+
+                    throw;
                 }
 
                 SwapInStagedFolder(realFolder, stagingFolder);
@@ -151,8 +162,14 @@ namespace NetworkMonitor.UITests.Fixtures
         private static void EnsureAppIsNotRunning()
         {
             Process[] runningProcesses = Process.GetProcessesByName(NetworkMonitorProcessName);
+            bool isRunning = runningProcesses.Length > 0;
 
-            if (runningProcesses.Length > 0)
+            foreach (Process process in runningProcesses)
+            {
+                process.Dispose();
+            }
+
+            if (isRunning)
             {
                 throw new InvalidOperationException(
                     $"{NetworkMonitorProcessName}.exe is still running. Its data folder cannot be safely copied or "
@@ -187,8 +204,12 @@ namespace NetworkMonitor.UITests.Fixtures
                 }
 
             }
-            catch (Exception)
+            catch (Exception exception)
             {
+                Console.WriteLine(
+                    $"Could not checkpoint the WAL for {databasePath} before copying it aside ({exception.Message}). "
+                    + "The backup may carry an un-checkpointed WAL. EnsureAppIsNotRunning is still the safety "
+                    + "guarantee against a torn copy; this only reduces the risk further when a checkpoint succeeds.");
             }
 
         }
@@ -238,8 +259,17 @@ namespace NetworkMonitor.UITests.Fixtures
 
         // Moves the current real folder aside (rename, not delete), moves the staged, validated
         // copy into place, then discards the displaced original. If the second move fails, the
-        // displaced original is moved straight back — realFolder is never left absent.
-        private static void SwapInStagedFolder(string realFolder, string stagingFolder)
+        // displaced original is moved straight back — realFolder is never left absent. Neither
+        // cleanup step (rollback, final delete) is allowed to throw: a failure there must never
+        // be reported as a failed restore when the swap itself already succeeded (or, on the
+        // rollback path, must never replace the exception that explains why it failed).
+        //
+        // beforeSecondMoveForTesting is a seam for --guard-selftest only: it runs after the first
+        // move (real -> displaced) and before the second (staging -> real), so the self-test can
+        // force the second move to fail — e.g. by deleting stagingFolder — and assert the
+        // rollback puts the original folder back intact. Always null in production; Restore never
+        // passes it.
+        internal static void SwapInStagedFolder(string realFolder, string stagingFolder, Action? beforeSecondMoveForTesting = null)
         {
             string displacedFolder = BuildUniqueSiblingFolderPath(realFolder, DisplacedSuffix);
 
@@ -248,24 +278,61 @@ namespace NetworkMonitor.UITests.Fixtures
                 Directory.Move(realFolder, displacedFolder);
             }
 
+            beforeSecondMoveForTesting?.Invoke();
+
             try
             {
                 Directory.Move(stagingFolder, realFolder);
             }
-            catch (Exception)
+            catch (Exception moveFailure)
             {
-
-                if (Directory.Exists(displacedFolder))
-                {
-                    Directory.Move(displacedFolder, realFolder);
-                }
+                RollBackDisplacedFolder(realFolder, displacedFolder, moveFailure);
 
                 throw;
             }
 
-            if (Directory.Exists(displacedFolder))
+            TryDeleteDisplacedFolder(displacedFolder);
+        }
+
+        private static void RollBackDisplacedFolder(string realFolder, string displacedFolder, Exception originalFailure)
+        {
+
+            try
             {
-                Directory.Delete(displacedFolder, true);
+
+                if (Directory.Exists(displacedFolder) && !Directory.Exists(realFolder))
+                {
+                    Directory.Move(displacedFolder, realFolder);
+                }
+
+            }
+            catch (Exception rollbackFailure)
+            {
+                Console.WriteLine(
+                    $"Swap failed ({originalFailure.Message}) and moving the original folder back also failed "
+                    + $"({rollbackFailure.Message}). The original data should still be intact at {displacedFolder} — "
+                    + "recover it by hand before doing anything else. See Tools/UITests/README.md.");
+            }
+
+        }
+
+        private static void TryDeleteDisplacedFolder(string displacedFolder)
+        {
+
+            try
+            {
+
+                if (Directory.Exists(displacedFolder))
+                {
+                    Directory.Delete(displacedFolder, true);
+                }
+
+            }
+            catch (Exception exception)
+            {
+                Console.WriteLine(
+                    $"Restore succeeded, but the displaced original at {displacedFolder} could not be deleted "
+                    + $"automatically ({exception.Message}). Delete it by hand once you've confirmed the app's data is correct.");
             }
 
         }
@@ -282,6 +349,27 @@ namespace NetworkMonitor.UITests.Fixtures
                 Console.WriteLine(
                     $"Restore succeeded, but the backup at {backupPath} could not be deleted automatically "
                     + $"({exception.Message}). Delete it by hand once you've confirmed the app's data is correct.");
+            }
+
+        }
+
+        private static void TryDeleteStagingFolder(string stagingFolder)
+        {
+
+            try
+            {
+
+                if (Directory.Exists(stagingFolder))
+                {
+                    Directory.Delete(stagingFolder, true);
+                }
+
+            }
+            catch (Exception exception)
+            {
+                Console.WriteLine(
+                    $"Restore was refused, and the staged copy at {stagingFolder} could not be cleaned up automatically "
+                    + $"({exception.Message}). It is safe to delete by hand — the backup at its original path is untouched.");
             }
 
         }

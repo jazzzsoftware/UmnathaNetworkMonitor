@@ -57,21 +57,27 @@ screenshots and UI Automation tree dumps captured on step failure.
 Before touching the real database, the suite copies `%LOCALAPPDATA%\UmnathaNetworkMonitor`
 aside to `%LOCALAPPDATA%\UmnathaNetworkMonitor.uitest-backup-<timestamp>` and leaves the
 original in place, so a hard kill mid-run leaves the app's real data exactly where it expects to
-find it. At the end of a normal run the backup is restored and deleted automatically.
+find it. Restoring it goes through a staging folder,
+`%LOCALAPPDATA%\UmnathaNetworkMonitor.uitest-restore-staging-<timestamp>` — a validated copy that
+gets swapped in only after its row counts are confirmed to match — and the swap itself briefly
+renames the current folder to `%LOCALAPPDATA%\UmnathaNetworkMonitor.uitest-displaced-<timestamp>`
+before discarding it. At the end of a normal run all three are gone: the backup and the displaced
+original are deleted, and the staging folder no longer exists once it has been swapped into place.
 
-If a run is killed or crashes before that cleanup happens, the backup folder is left behind and
-preflight will refuse to run again — it will not run while your history is parked in two places
-at once. To recover by hand:
+If a run is killed or crashes before that cleanup happens, one of the three folders above can be
+left behind and preflight will refuse to run again — it will not run while your history is parked
+in more than one place at once. To recover by hand:
 
 1. Make sure Umnatha Network Monitor is closed.
-2. Compare `%LOCALAPPDATA%\UmnathaNetworkMonitor` against the backup folder
-   `%LOCALAPPDATA%\UmnathaNetworkMonitor.uitest-backup-<timestamp>` — the backup holds your real
-   history; the folder without the suffix may hold whatever the suite left behind.
-3. Delete `%LOCALAPPDATA%\UmnathaNetworkMonitor`, then rename the backup folder to
-   `UmnathaNetworkMonitor` (i.e. drop the `.uitest-backup-<timestamp>` suffix).
-4. Inside it, delete `uitest-row-counts.txt` — that file is the suite's own manifest, not part of
-   your data, and the automated restore path always excludes it; a manual rename does not, so
-   remove it by hand.
+2. Find whichever suffix is present — `.uitest-backup-<timestamp>`,
+   `.uitest-restore-staging-<timestamp>` or `.uitest-displaced-<timestamp>` — next to
+   `%LOCALAPPDATA%\UmnathaNetworkMonitor`. Any of the three holds a full copy of your real data;
+   the folder without a suffix may hold whatever the suite left behind instead.
+3. Delete `%LOCALAPPDATA%\UmnathaNetworkMonitor`, then rename the suffixed folder to
+   `UmnathaNetworkMonitor` (i.e. drop its suffix).
+4. Inside it, delete `uitest-row-counts.txt` if present — that file is the suite's own manifest,
+   not part of your data, and the automated restore path always excludes it; a manual rename does
+   not, so remove it by hand.
 5. Start the app once to confirm your devices and history are back, then re-run the suite.
 
 ## FlaUI version
