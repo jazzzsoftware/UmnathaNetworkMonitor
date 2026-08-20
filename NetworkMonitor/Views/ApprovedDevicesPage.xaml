@@ -299,7 +299,7 @@
                                 Padding="4,0,0,0">
 
                                 <Button
-                                    AutomationProperties.AutomationId="EditDeviceButton"
+                                    AutomationProperties.AutomationId="ApprovedEditDeviceButton"
                                     Content="Edit"
                                     Padding="8,4"
                                     Click="EditButtonClick"
@@ -312,7 +312,7 @@
                                     Tag="{x:Bind MacAddress, Mode=OneWay}" />
 
                                 <Button
-                                    AutomationProperties.AutomationId="DeleteDeviceButton"
+                                    AutomationProperties.AutomationId="ApprovedDeleteDeviceButton"
                                     Content="Delete"
                                     Padding="8,4"
                                     Click="DeleteButtonClick"
