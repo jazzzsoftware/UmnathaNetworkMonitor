@@ -173,7 +173,8 @@ Done - Rate numbers for Lan not correct
 Done - Test for ex when do manual update for new ver stoppedin logs. Should just be a msg.
 Done - Floating mini graph.
 Done - Online devices only toggle
-Done - Pass - Smoke items 46-48 still need a release newer than 0.0.9 (update download / cancel mid-download / install + relaunch visible). Test these at the next installer build - see Documents/Code Review/2026-07-27/smoke-checklist.md
+Done - Pass - Smoke items 46-48 still need a release newer than 0.0.9 (update download / cancel mid-download / install + relaunch visible). Test these at the next installer
+    build - see Documents/Code Review/2026-07-27/smoke-checklist.md
 Done - On a 4k TV connected to my laptop (TV is main monitor at 200% scaling and laptop screen off):
 Done - Mini graph way too small on first show.
 Done - Dragging the mini graph causes it to fly all over the place.
@@ -189,11 +190,10 @@ Done - Code review
 Done - Performance review
 Done - Clicking on notification takes you to the section in the app.
 Done - Rename Horizontal Strip to orientation and make a drop down.
+Done - Investigated the two logged errors (2026-08-20). ScanWorker double-dispose ObjectDisposedException was already fixed on 2026-08-12 by the _disposed guard; AtomicFile
+    UnauthorizedAccessException was an antivirus scanner briefly refusing the temp-file rename, now retried and reported instead of silently swallowed.
+Done - Add % markers to opacity slider.
 
-Done - Investigated the two logged errors (2026-08-20). ScanWorker double-dispose ObjectDisposedException was already fixed on 2026-08-12 by the _disposed guard; AtomicFile UnauthorizedAccessException was an antivirus scanner briefly refusing the temp-file rename, now retried and reported instead of silently swallowed.
-
-
-Add % markers to opacity slider.
 UI automated testing
 
 

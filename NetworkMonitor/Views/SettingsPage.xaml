@@ -1112,7 +1112,7 @@
                             Spacing="4">
 
                             <TextBlock
-                                Text="Resting opacity (%)" />
+                                Text="Resting opacity" />
 
                             <Slider
                                 Minimum="50"
@@ -1120,7 +1120,77 @@
                                 StepFrequency="5"
                                 TickFrequency="10"
                                 TickPlacement="Outside"
+                                ThumbToolTipValueConverter="{StaticResource PercentSuffixConverter}"
                                 Value="{x:Bind ViewModel.MiniGraphOpacity, Mode=TwoWay}" />
+
+                            <Grid
+                                Margin="0,-4,0,0">
+
+                                <Grid.ColumnDefinitions>
+
+                                    <ColumnDefinition
+                                        Width="1*" />
+
+                                    <ColumnDefinition
+                                        Width="2*" />
+
+                                    <ColumnDefinition
+                                        Width="2*" />
+
+                                    <ColumnDefinition
+                                        Width="2*" />
+
+                                    <ColumnDefinition
+                                        Width="2*" />
+
+                                    <ColumnDefinition
+                                        Width="1*" />
+
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock
+                                    Grid.Column="0"
+                                    HorizontalAlignment="Left"
+                                    Style="{ThemeResource CaptionTextBlockStyle}"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Text="50%" />
+
+                                <TextBlock
+                                    Grid.Column="1"
+                                    HorizontalAlignment="Center"
+                                    Style="{ThemeResource CaptionTextBlockStyle}"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Text="60%" />
+
+                                <TextBlock
+                                    Grid.Column="2"
+                                    HorizontalAlignment="Center"
+                                    Style="{ThemeResource CaptionTextBlockStyle}"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Text="70%" />
+
+                                <TextBlock
+                                    Grid.Column="3"
+                                    HorizontalAlignment="Center"
+                                    Style="{ThemeResource CaptionTextBlockStyle}"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Text="80%" />
+
+                                <TextBlock
+                                    Grid.Column="4"
+                                    HorizontalAlignment="Center"
+                                    Style="{ThemeResource CaptionTextBlockStyle}"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Text="90%" />
+
+                                <TextBlock
+                                    Grid.Column="5"
+                                    HorizontalAlignment="Right"
+                                    Style="{ThemeResource CaptionTextBlockStyle}"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Text="100%" />
+
+                            </Grid>
 
                         </StackPanel>
 

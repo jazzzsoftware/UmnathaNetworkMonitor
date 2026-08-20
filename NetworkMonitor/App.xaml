@@ -126,6 +126,9 @@
             <converters:NotesToolTipConverter
                 x:Key="NotesToolTipConverter" />
 
+            <converters:PercentSuffixConverter
+                x:Key="PercentSuffixConverter" />
+
         </ResourceDictionary>
 
     </Application.Resources>
