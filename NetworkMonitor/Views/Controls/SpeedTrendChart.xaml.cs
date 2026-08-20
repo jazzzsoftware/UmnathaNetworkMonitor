@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using NetworkMonitor.Core.Charting;
 using NetworkMonitor.Models.Charting;
 using Windows.Foundation;
 using Windows.UI;
@@ -107,7 +108,7 @@ namespace NetworkMonitor.Views.Controls
             {
                 DrawGraticule(width, height);
 
-                double maxValue = 1.0;
+                double peakValue = 1.0;
                 double minEpoch = double.MaxValue;
                 double maxEpoch = double.MinValue;
 
@@ -117,14 +118,14 @@ namespace NetworkMonitor.Views.Controls
                     foreach (ChartValue point in chartSeries.Points)
                     {
                         double epoch = (point.Timestamp - DateTime.UnixEpoch).TotalSeconds;
-                        maxValue = Math.Max(maxValue, point.Value);
+                        peakValue = Math.Max(peakValue, point.Value);
                         minEpoch = Math.Min(minEpoch, epoch);
                         maxEpoch = Math.Max(maxEpoch, epoch);
                     }
 
                 }
 
-                maxValue = Math.Ceiling(maxValue / 10.0) * 10.0;
+                double axisMax = Math.Ceiling(peakValue / 10.0) * 10.0;
 
                 double span = maxEpoch - minEpoch;
 
@@ -138,14 +139,27 @@ namespace NetworkMonitor.Views.Controls
 
                     if (chartSeries.Points.Count >= 2)
                     {
-                        DrawSeries(chartSeries, maxValue, minEpoch, span, width, height);
+                        DrawSeries(chartSeries, axisMax, minEpoch, span, width, height);
                     }
 
                 }
 
-                AddAxisLabels(maxValue, height);
+                AddAxisLabels(axisMax, height);
+                PublishDrawSummary(series[0].Points.Count, (long)peakValue, (long)axisMax);
             }
 
+        }
+
+        private void PublishDrawSummary(int pointCount, long peakBitsPerSecond, long axisMax)
+        {
+            string summary = ChartDrawSummary.Format(
+                pointCount,
+                "download,upload",
+                peakBitsPerSecond,
+                axisMax,
+                "speed");
+
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(ChartRoot, summary);
         }
 
         private static IReadOnlyList<ChartSeries>? NormalizeForRender(IReadOnlyList<ChartSeries>? series)

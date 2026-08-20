@@ -7,6 +7,7 @@
     xmlns:win2d="using:Microsoft.Graphics.Canvas.UI.Xaml">
 
     <Grid
+        x:Name="ChartRoot"
         Background="Transparent">
 
         <win2d:CanvasControl

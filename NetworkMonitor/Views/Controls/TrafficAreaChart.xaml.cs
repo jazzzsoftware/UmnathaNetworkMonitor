@@ -913,6 +913,7 @@ namespace NetworkMonitor.Views.Controls
                 }
 
                 UpdatePeakLabels(maxValue, newBucketSeconds);
+                PublishDrawSummary(maxValue);
             }
             else
             {
@@ -1013,6 +1014,26 @@ namespace NetworkMonitor.Views.Controls
             MaxScaleMBpsLabel.Visibility = bytesVisibility;
             MaxScaleMBpsCaption.Visibility = bytesVisibility;
             MaxScaleMBpsLabel.Margin = mode == RateUnitMode.Bytes ? new Thickness(0) : new Thickness(0, 15, 0, 0);
+        }
+
+        // Published from ApplyPoints rather than ChartCanvasDraw: the peak this method reports is the
+        // measured value UpdatePeakLabels was just given above, and ChartCanvasDraw runs once per
+        // rendered frame with no equivalent local of its own. Publishing here means the report changes
+        // only when new data lands, not on every ease frame, which is what keeps it stable enough for
+        // the test suite to read. _targetMax is the axis maximum this data was scaled to; _displayMax
+        // is the eased value mid-animation and is deliberately not used here.
+        private void PublishDrawSummary(long peakValue)
+        {
+            string range = ChartDrawRange.FromBucketSeconds(_bucketSeconds);
+
+            string summary = ChartDrawSummary.Format(
+                _count,
+                "down,up",
+                peakValue,
+                (long)_targetMax,
+                range);
+
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(ChartRoot, summary);
         }
 
         private int NearestIndex(double pointerX, double width)
