@@ -69,7 +69,10 @@ at once. To recover by hand:
    history; the folder without the suffix may hold whatever the suite left behind.
 3. Delete `%LOCALAPPDATA%\UmnathaNetworkMonitor`, then rename the backup folder to
    `UmnathaNetworkMonitor` (i.e. drop the `.uitest-backup-<timestamp>` suffix).
-4. Start the app once to confirm your devices and history are back, then re-run the suite.
+4. Inside it, delete `uitest-row-counts.txt` — that file is the suite's own manifest, not part of
+   your data, and the automated restore path always excludes it; a manual rename does not, so
+   remove it by hand.
+5. Start the app once to confirm your devices and history are back, then re-run the suite.
 
 ## FlaUI version
 

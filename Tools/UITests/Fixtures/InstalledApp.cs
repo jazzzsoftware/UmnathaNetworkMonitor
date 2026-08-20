@@ -13,7 +13,8 @@ namespace NetworkMonitor.UITests.Fixtures
     // Exit path because that is the only route that reaches OnExitApp and checkpoints the WAL
     // (MainWindow.xaml.cs: closing the main window alone leaves the app running from the tray);
     // Close()-then-Kill() is a deliberately blunter fallback for when the tray path cannot be
-    // found or driven.
+    // found or driven, and does not checkpoint the WAL — every branch below logs which path was
+    // actually taken so a graceful exit is never indistinguishable from a forced one.
     public static class InstalledApp
     {
         private const string ExecutableFileName = "NetworkMonitor.exe";
@@ -27,6 +28,21 @@ namespace NetworkMonitor.UITests.Fixtures
 
         public static Application Launch(string dataFolder)
         {
+
+            if (string.IsNullOrWhiteSpace(dataFolder))
+            {
+                throw new ArgumentException(
+                    "Launch requires an explicit, existing data folder. AppDataFolderResolver treats a null, empty or "
+                    + "whitespace override as \"no override\" and falls back to the operator's real folder, so a blank "
+                    + "value here would silently point the driven app at the operator's live database.",
+                    nameof(dataFolder));
+            }
+
+            if (!Directory.Exists(dataFolder))
+            {
+                throw new ArgumentException($"Launch was given a data folder that does not exist: {dataFolder}", nameof(dataFolder));
+            }
+
             string installLocation = ReadInstallLocation();
 
             if (installLocation.Length == 0)
@@ -54,8 +70,13 @@ namespace NetworkMonitor.UITests.Fixtures
         {
             bool exitedGracefully = TryExitViaTray(application);
 
-            if (!exitedGracefully)
+            if (exitedGracefully)
             {
+                Console.WriteLine("InstalledApp.ShutDown: exited via the tray Exit menu item (WAL checkpointed).");
+            }
+            else
+            {
+                Console.WriteLine("InstalledApp.ShutDown: tray Exit path unavailable or failed; falling back to Close()/Kill().");
                 CloseThenKill(application);
             }
 
@@ -106,15 +127,30 @@ namespace NetworkMonitor.UITests.Fixtures
                             exitMenuItem.Click();
 
                             exited = WaitForExit(application, GracefulExitTimeout);
+
+                            if (!exited)
+                            {
+                                Console.WriteLine("InstalledApp: clicked the tray Exit menu item, but the process did not exit within the timeout.");
+                            }
+
+                        }
+                        else
+                        {
+                            Console.WriteLine("InstalledApp: found the tray icon but not the Exit menu item within the timeout.");
                         }
 
+                    }
+                    else
+                    {
+                        Console.WriteLine("InstalledApp: could not find the tray icon (directly or via 'Show hidden icons').");
                     }
 
                 }
 
             }
-            catch (Exception)
+            catch (Exception exception)
             {
+                Console.WriteLine($"InstalledApp: tray Exit path threw and was abandoned: {exception.Message}");
                 exited = false;
             }
 
@@ -191,21 +227,28 @@ namespace NetworkMonitor.UITests.Fixtures
                 }
 
             }
-            catch (Exception)
+            catch (Exception exception)
             {
+                Console.WriteLine($"InstalledApp: Close() threw and was ignored: {exception.Message}");
             }
 
             bool exited = WaitForExit(application, GracefulExitTimeout);
 
-            if (!exited)
+            if (exited)
             {
+                Console.WriteLine("InstalledApp: exited after Close() (WAL not necessarily checkpointed — Close() is not the graceful tray path).");
+            }
+            else
+            {
+                Console.WriteLine("InstalledApp: did not exit after Close(); force-killing the process. The WAL was NOT checkpointed.");
 
                 try
                 {
                     application.Kill();
                 }
-                catch (Exception)
+                catch (Exception exception)
                 {
+                    Console.WriteLine($"InstalledApp: Kill() threw and was ignored: {exception.Message}");
                 }
 
             }

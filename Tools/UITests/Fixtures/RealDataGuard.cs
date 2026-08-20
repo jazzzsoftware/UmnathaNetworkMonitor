@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.Data.Sqlite;
 using NetworkMonitor.Core.Common;
 
@@ -6,14 +7,25 @@ namespace NetworkMonitor.UITests.Fixtures
     // The one place the suite is allowed to touch the operator's real data folder. CopyAside
     // always copies — never moves — so a hard kill mid-phase leaves the original exactly where
     // the app expects to find it (README's "Recovering a stranded backup" section documents the
-    // manual recovery for exactly that case). Restore only ever deletes the backup once the
-    // restored database has been opened and its row counts checked against the manifest CopyAside
-    // wrote alongside it.
+    // manual recovery for exactly that case). Row counts are captured from the LIVE database
+    // BEFORE it is copied, never from the copy afterwards — a torn copy must not be able to
+    // bless itself as the expected truth. Restore validates the backup fully before touching the
+    // real folder at all, restores into a sibling staging folder, and only swaps it into place
+    // (rename, not delete-then-copy) once the staged copy's row counts have been checked against
+    // that pre-copy manifest — there is never a window where neither copy exists.
+    //
+    // The internal (string realFolder) overloads exist so --guard-selftest can exercise this
+    // whole class against a throwaway folder it builds itself. The public, parameterless
+    // CopyAside()/Restore(string) — the only entry points real phases call — always resolve the
+    // operator's true real folder and cannot be redirected.
     public static class RealDataGuard
     {
         private const string DatabaseFileName = "networkmonitor.db";
         private const string ManifestFileName = "uitest-row-counts.txt";
         private const string BackupSuffix = ".uitest-backup-";
+        private const string RestoreStagingSuffix = ".uitest-restore-staging-";
+        private const string DisplacedSuffix = ".uitest-displaced-";
+        private const string NetworkMonitorProcessName = "NetworkMonitor";
         private const long NoDatabaseSentinel = -1L;
 
         private static readonly string[] TrackedTables =
@@ -32,7 +44,38 @@ namespace NetworkMonitor.UITests.Fixtures
         public static string CopyAside()
         {
             string realFolder = ResolveRealDataFolder();
-            string backupFolder = realFolder + BackupSuffix + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
+            string backupFolder = CopyAside(realFolder);
+
+            return backupFolder;
+        }
+
+        public static bool Restore(string backupPath)
+        {
+            string realFolder = ResolveRealDataFolder();
+            bool restored = Restore(backupPath, realFolder);
+
+            return restored;
+        }
+
+        // realFolder is an explicit parameter (rather than always calling ResolveRealDataFolder
+        // internally) purely so --guard-selftest can drive this method against a throwaway
+        // folder. Internal, not public: real callers must go through the parameterless overload
+        // above so the operator's real folder can never be substituted by a caller's mistake.
+        internal static string CopyAside(string realFolder)
+        {
+            EnsureAppIsNotRunning();
+
+            string liveDatabasePath = Path.Combine(realFolder, DatabaseFileName);
+
+            if (File.Exists(liveDatabasePath))
+            {
+                TryCheckpointWal(liveDatabasePath);
+            }
+
+            // Counted here, on the live database, before a single byte is copied. Counting the
+            // backup afterwards would let a torn copy record itself as correct.
+            Dictionary<string, long> rowCounts = CountRows(liveDatabasePath);
+            string backupFolder = BuildUniqueSiblingFolderPath(realFolder, BackupSuffix);
 
             if (Directory.Exists(realFolder))
             {
@@ -43,40 +86,43 @@ namespace NetworkMonitor.UITests.Fixtures
                 Directory.CreateDirectory(backupFolder);
             }
 
-            Dictionary<string, long> rowCounts = CountRows(Path.Combine(backupFolder, DatabaseFileName));
-
             WriteManifest(Path.Combine(backupFolder, ManifestFileName), rowCounts);
 
             return backupFolder;
         }
 
-        public static bool Restore(string backupPath)
+        internal static bool Restore(string backupPath, string realFolder)
         {
             bool restored = false;
             Exception? failure = null;
 
             try
             {
+                EnsureAppIsNotRunning();
+                ValidateBackupOrThrow(backupPath);
+
                 Dictionary<string, long> expectedRowCounts = ReadManifest(Path.Combine(backupPath, ManifestFileName));
-                string realFolder = ResolveRealDataFolder();
+                string stagingFolder = BuildUniqueSiblingFolderPath(realFolder, RestoreStagingSuffix);
 
-                if (Directory.Exists(realFolder))
-                {
-                    Directory.Delete(realFolder, true);
-                }
+                CopyDirectoryRecursive(backupPath, stagingFolder, ManifestFileName);
 
-                Directory.CreateDirectory(realFolder);
-                CopyDirectoryRecursive(backupPath, realFolder, ManifestFileName);
-
-                Dictionary<string, long> restoredRowCounts = CountRows(Path.Combine(realFolder, DatabaseFileName));
+                Dictionary<string, long> restoredRowCounts = CountRows(Path.Combine(stagingFolder, DatabaseFileName));
                 bool countsMatch = RowCountsMatch(expectedRowCounts, restoredRowCounts);
 
-                if (countsMatch)
+                if (!countsMatch)
                 {
-                    Directory.Delete(backupPath, true);
+                    Directory.Delete(stagingFolder, true);
+
+                    throw new InvalidOperationException(
+                        "Restored row counts did not match the manifest captured before the original was copied aside. "
+                        + $"The staged copy was discarded and the backup is left untouched at {backupPath}.");
                 }
 
-                restored = countsMatch;
+                SwapInStagedFolder(realFolder, stagingFolder);
+
+                restored = true;
+
+                TryDeleteBackup(backupPath);
             }
             catch (Exception exception)
             {
@@ -102,6 +148,158 @@ namespace NetworkMonitor.UITests.Fixtures
             return realFolder;
         }
 
+        private static void EnsureAppIsNotRunning()
+        {
+            Process[] runningProcesses = Process.GetProcessesByName(NetworkMonitorProcessName);
+
+            if (runningProcesses.Length > 0)
+            {
+                throw new InvalidOperationException(
+                    $"{NetworkMonitorProcessName}.exe is still running. Its data folder cannot be safely copied or "
+                    + "restored while the app could still be writing to networkmonitor.db — a checkpoint landing "
+                    + "mid-copy can tear the .db/-wal pair and silently lose recent history. Shut it down first "
+                    + "(InstalledApp.ShutDown) and confirm it has exited before calling this.");
+            }
+
+        }
+
+        // Best-effort: merges the WAL into the main file and truncates it, so the file copy that
+        // follows sees a consistent, checkpoint-free .db rather than a .db/-wal pair that could
+        // be torn between the two File.Copy calls. Swallows failures — EnsureAppIsNotRunning is
+        // the hard guarantee; this only reduces the risk further when it can.
+        private static void TryCheckpointWal(string databasePath)
+        {
+
+            try
+            {
+
+                using (SqliteConnection connection = new SqliteConnection($"Data Source={databasePath};Pooling=False"))
+                {
+                    connection.Open();
+
+                    using (SqliteCommand command = connection.CreateCommand())
+                    {
+                        command.CommandText = "PRAGMA wal_checkpoint(TRUNCATE);";
+
+                        command.ExecuteNonQuery();
+                    }
+
+                }
+
+            }
+            catch (Exception)
+            {
+            }
+
+        }
+
+        // Everything Restore must be sure of before it deletes or moves anything real: a real
+        // path, a folder that exists, a manifest that parses to a full set of tracked tables, and
+        // — only when that manifest says a database existed — the database file itself.
+        private static void ValidateBackupOrThrow(string backupPath)
+        {
+
+            if (string.IsNullOrWhiteSpace(backupPath))
+            {
+                throw new ArgumentException("Restore was given an empty or missing backup path.", nameof(backupPath));
+            }
+
+            if (!Directory.Exists(backupPath))
+            {
+                throw new InvalidOperationException($"Restore was given a backup path that does not exist: {backupPath}");
+            }
+
+            string manifestPath = Path.Combine(backupPath, ManifestFileName);
+
+            if (!File.Exists(manifestPath))
+            {
+                throw new InvalidOperationException(
+                    $"Backup at {backupPath} has no {ManifestFileName} manifest — refusing to restore an unverifiable backup.");
+            }
+
+            Dictionary<string, long> manifestCounts = ReadManifest(manifestPath);
+
+            if (manifestCounts.Count != TrackedTables.Length)
+            {
+                throw new InvalidOperationException(
+                    $"Backup at {backupPath}'s manifest is missing or unparsable entries — refusing to restore an unverifiable backup.");
+            }
+
+            bool manifestExpectsDatabase = manifestCounts.Values.Any(count => count != NoDatabaseSentinel);
+            string databasePath = Path.Combine(backupPath, DatabaseFileName);
+
+            if (manifestExpectsDatabase && !File.Exists(databasePath))
+            {
+                throw new InvalidOperationException(
+                    $"Backup at {backupPath} is missing {DatabaseFileName} even though its manifest expects one — refusing to restore.");
+            }
+
+        }
+
+        // Moves the current real folder aside (rename, not delete), moves the staged, validated
+        // copy into place, then discards the displaced original. If the second move fails, the
+        // displaced original is moved straight back — realFolder is never left absent.
+        private static void SwapInStagedFolder(string realFolder, string stagingFolder)
+        {
+            string displacedFolder = BuildUniqueSiblingFolderPath(realFolder, DisplacedSuffix);
+
+            if (Directory.Exists(realFolder))
+            {
+                Directory.Move(realFolder, displacedFolder);
+            }
+
+            try
+            {
+                Directory.Move(stagingFolder, realFolder);
+            }
+            catch (Exception)
+            {
+
+                if (Directory.Exists(displacedFolder))
+                {
+                    Directory.Move(displacedFolder, realFolder);
+                }
+
+                throw;
+            }
+
+            if (Directory.Exists(displacedFolder))
+            {
+                Directory.Delete(displacedFolder, true);
+            }
+
+        }
+
+        private static void TryDeleteBackup(string backupPath)
+        {
+
+            try
+            {
+                Directory.Delete(backupPath, true);
+            }
+            catch (Exception exception)
+            {
+                Console.WriteLine(
+                    $"Restore succeeded, but the backup at {backupPath} could not be deleted automatically "
+                    + $"({exception.Message}). Delete it by hand once you've confirmed the app's data is correct.");
+            }
+
+        }
+
+        private static string BuildUniqueSiblingFolderPath(string baseFolder, string suffix)
+        {
+            string candidate = baseFolder + suffix + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fffffff");
+            int attempt = 1;
+
+            while (Directory.Exists(candidate))
+            {
+                candidate = baseFolder + suffix + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fffffff") + "-" + attempt.ToString();
+                attempt++;
+            }
+
+            return candidate;
+        }
+
         private static void CopyDirectoryRecursive(string sourceFolder, string destinationFolder, string? excludeFileName)
         {
             Directory.CreateDirectory(destinationFolder);
@@ -114,7 +312,11 @@ namespace NetworkMonitor.UITests.Fixtures
                 if (!skip)
                 {
                     string destinationFile = Path.Combine(destinationFolder, fileName);
-                    File.Copy(filePath, destinationFile, true);
+
+                    // overwrite:false — a collision here means something unexpected is already at
+                    // the destination (e.g. a stranded backup reused by name); merging into it
+                    // silently is exactly the failure mode finding 6 called out, so this must throw.
+                    File.Copy(filePath, destinationFile, false);
                 }
 
             }
@@ -136,7 +338,7 @@ namespace NetworkMonitor.UITests.Fixtures
             if (File.Exists(databasePath))
             {
 
-                using (SqliteConnection connection = new SqliteConnection($"Data Source={databasePath};Mode=ReadOnly"))
+                using (SqliteConnection connection = new SqliteConnection($"Data Source={databasePath};Mode=ReadOnly;Pooling=False"))
                 {
                     connection.Open();
 
@@ -258,8 +460,8 @@ namespace NetworkMonitor.UITests.Fixtures
         {
             Console.WriteLine();
             Console.WriteLine("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-            Console.WriteLine("!!  RESTORE FAILED. YOUR REAL DATA IS SAFE, BUT NOT WHERE THE APP EXPECTS IT.  !!");
-            Console.WriteLine($"!!  IT IS BACKED UP AT: {backupPath}");
+            Console.WriteLine("!!  RESTORE REFUSED OR FAILED. YOUR REAL DATA IS SAFE, BUT CHECK ITS LOCATION.  !!");
+            Console.WriteLine($"!!  BACKUP (IF ANY IS STILL VALID) IS AT: {backupPath}");
             Console.WriteLine("!!  DO NOT DELETE THAT FOLDER. See Tools/UITests/README.md to restore it by hand.");
             Console.WriteLine("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
 

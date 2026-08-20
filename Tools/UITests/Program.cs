@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using FlaUI.Core.AutomationElements;
 using FlaUI.UIA3;
+using Microsoft.Data.Sqlite;
 using NetworkMonitor.Core.Common;
 using NetworkMonitor.UITests.Evidence;
 using NetworkMonitor.UITests.Fixtures;
@@ -11,6 +12,14 @@ if (args.Contains("--selftest"))
     int selfTestExitCode = await RunSelfTest();
 
     return selfTestExitCode;
+}
+
+if (args.Contains("--guard-selftest"))
+{
+    bool guardSelfTestPassed = await RunGuardSelfTest();
+    int guardSelfTestExitCode = guardSelfTestPassed ? 0 : 1;
+
+    return guardSelfTestExitCode;
 }
 
 PreflightResult preflight = Preflight.Check();
@@ -139,6 +148,199 @@ static string DescribeTimestamp(DateTime? timestamp)
         : "(file does not exist — expected if the app has never run on this machine)";
 
     return description;
+}
+
+// Exercises RealDataGuard.CopyAside/Restore end to end — the highest-consequence code in the
+// whole suite — against a throwaway folder this function builds and seeds itself. Never the
+// real %LOCALAPPDATA%\UmnathaNetworkMonitor: it uses the internal (string realFolder) overloads
+// for exactly that reason. Every row count used for comparison is read independently of
+// RealDataGuard's own counting code, so a shared bug in that code can't hide from this test.
+static async Task<bool> RunGuardSelfTest()
+{
+    string rootFolder = Path.Combine(
+        Path.GetTempPath(),
+        "umnatha-uitests-guard-selftest",
+        DateTime.Now.ToString("yyyyMMdd-HHmmss-fff"));
+
+    string fakeRealFolder = Path.Combine(rootFolder, "fake-real");
+    string fakeRealDatabasePath = Path.Combine(fakeRealFolder, "networkmonitor.db");
+
+    Directory.CreateDirectory(fakeRealFolder);
+
+    await SeedDatabase.BuildAsync(fakeRealDatabasePath, DateTime.UtcNow);
+
+    Console.WriteLine();
+    Console.WriteLine("=== --guard-selftest: RealDataGuard against a throwaway folder (never the real one) ===");
+    Console.WriteLine($"Throwaway 'real' folder: {fakeRealFolder}");
+    Console.WriteLine();
+
+    Dictionary<string, long> originalCounts = CountRowsIndependently(fakeRealDatabasePath);
+    bool allPassed = true;
+
+    string firstBackupPath = RealDataGuard.CopyAside(fakeRealFolder);
+    Dictionary<string, long> manifestCounts = ReadManifestIndependently(Path.Combine(firstBackupPath, "uitest-row-counts.txt"));
+
+    allPassed = Check(
+        "CopyAside's manifest matches the live database's row counts, captured before copying",
+        DictionariesEqual(originalCounts, manifestCounts)) && allPassed;
+
+    File.Delete(Path.Combine(firstBackupPath, "uitest-row-counts.txt"));
+
+    bool corruptRestoreResult = RealDataGuard.Restore(firstBackupPath, fakeRealFolder);
+    Dictionary<string, long> countsAfterCorruptRestore = CountRowsIndependently(fakeRealDatabasePath);
+
+    allPassed = Check("Restore refuses a backup with a missing manifest", !corruptRestoreResult) && allPassed;
+    allPassed = Check(
+        "A refused restore left the target's row counts unchanged",
+        DictionariesEqual(originalCounts, countsAfterCorruptRestore)) && allPassed;
+    allPassed = Check("A refused restore left the target folder in place", Directory.Exists(fakeRealFolder)) && allPassed;
+
+    string secondBackupPath = RealDataGuard.CopyAside(fakeRealFolder);
+
+    Directory.Delete(fakeRealFolder, true);
+
+    bool cleanRestoreResult = RealDataGuard.Restore(secondBackupPath, fakeRealFolder);
+    Dictionary<string, long> countsAfterCleanRestore = CountRowsIndependently(fakeRealDatabasePath);
+
+    allPassed = Check("Restore succeeds against a valid backup after the target was lost entirely", cleanRestoreResult) && allPassed;
+    allPassed = Check("Restored row counts match the original", DictionariesEqual(originalCounts, countsAfterCleanRestore)) && allPassed;
+    allPassed = Check("Restore deleted the backup only after a successful, verified restore", !Directory.Exists(secondBackupPath)) && allPassed;
+
+    Dictionary<string, long> countsBeforeEmptyPathRestore = CountRowsIndependently(fakeRealDatabasePath);
+    bool emptyPathRestoreResult = RealDataGuard.Restore(string.Empty, fakeRealFolder);
+    Dictionary<string, long> countsAfterEmptyPathRestore = CountRowsIndependently(fakeRealDatabasePath);
+
+    allPassed = Check("Restore(string.Empty) refuses", !emptyPathRestoreResult) && allPassed;
+    allPassed = Check(
+        "Restore(string.Empty) did not touch the target",
+        DictionariesEqual(countsBeforeEmptyPathRestore, countsAfterEmptyPathRestore)) && allPassed;
+
+    string nonExistentBackupPath = Path.Combine(rootFolder, "does-not-exist");
+    Dictionary<string, long> countsBeforeMissingPathRestore = CountRowsIndependently(fakeRealDatabasePath);
+    bool missingPathRestoreResult = RealDataGuard.Restore(nonExistentBackupPath, fakeRealFolder);
+    Dictionary<string, long> countsAfterMissingPathRestore = CountRowsIndependently(fakeRealDatabasePath);
+
+    allPassed = Check("Restore(<non-existent path>) refuses", !missingPathRestoreResult) && allPassed;
+    allPassed = Check(
+        "Restore(<non-existent path>) did not touch the target",
+        DictionariesEqual(countsBeforeMissingPathRestore, countsAfterMissingPathRestore)) && allPassed;
+
+    Console.WriteLine();
+    Console.WriteLine(allPassed ? "guard-selftest: ALL CHECKS PASSED" : "guard-selftest: SOME CHECKS FAILED");
+    Console.WriteLine();
+
+    return allPassed;
+}
+
+static bool Check(string label, bool condition)
+{
+    string status = condition ? "PASS" : "FAIL";
+
+    Console.WriteLine($"  [{status}] {label}");
+
+    return condition;
+}
+
+// Deliberately duplicates RealDataGuard's table list and counting shape rather than calling
+// back into it, so this test doesn't just confirm RealDataGuard agrees with itself.
+static Dictionary<string, long> CountRowsIndependently(string databasePath)
+{
+    string[] tables =
+    {
+        "Devices",
+        "ScanSessions",
+        "DeviceEvents",
+        "TrafficEntries",
+        "TrafficRollups",
+        "LocalTrafficEntries",
+        "LocalTrafficRollups",
+        "DigestReports",
+        "SpeedTestResults"
+    };
+
+    Dictionary<string, long> counts = new Dictionary<string, long>();
+
+    if (File.Exists(databasePath))
+    {
+
+        using (SqliteConnection connection = new SqliteConnection($"Data Source={databasePath};Mode=ReadOnly;Pooling=False"))
+        {
+            connection.Open();
+
+            foreach (string table in tables)
+            {
+
+                using (SqliteCommand command = connection.CreateCommand())
+                {
+                    command.CommandText = $"SELECT COUNT(*) FROM \"{table}\";";
+
+                    object? result = command.ExecuteScalar();
+
+                    counts[table] = result is null ? 0 : Convert.ToInt64(result);
+                }
+
+            }
+
+        }
+
+    }
+    else
+    {
+
+        foreach (string table in tables)
+        {
+            counts[table] = -1;
+        }
+
+    }
+
+    return counts;
+}
+
+static Dictionary<string, long> ReadManifestIndependently(string manifestPath)
+{
+    Dictionary<string, long> counts = new Dictionary<string, long>();
+
+    if (File.Exists(manifestPath))
+    {
+
+        foreach (string line in File.ReadAllLines(manifestPath))
+        {
+            string[] parts = line.Split('=');
+
+            if (parts.Length == 2 && long.TryParse(parts[1], out long count))
+            {
+                counts[parts[0]] = count;
+            }
+
+        }
+
+    }
+
+    return counts;
+}
+
+static bool DictionariesEqual(Dictionary<string, long> first, Dictionary<string, long> second)
+{
+    bool equal = first.Count == second.Count;
+
+    if (equal)
+    {
+
+        foreach (KeyValuePair<string, long> entry in first)
+        {
+            bool matches = second.TryGetValue(entry.Key, out long otherValue) && otherValue == entry.Value;
+
+            if (!matches)
+            {
+                equal = false;
+            }
+
+        }
+
+    }
+
+    return equal;
 }
 
 static StepResult BuildFailedSelfTestStep(string artifactFolder)

@@ -24,7 +24,7 @@ namespace NetworkMonitor.UITests.Fixtures
         public static async Task<SeedCounts> BuildAsync(string dbPath, DateTime nowUtc)
         {
             DbContextOptionsBuilder<AppDbContext> optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
-            optionsBuilder.UseSqlite($"Data Source={dbPath}");
+            optionsBuilder.UseSqlite($"Data Source={dbPath};Pooling=False");
 
             SeedCounts counts;
 
@@ -237,8 +237,8 @@ namespace NetworkMonitor.UITests.Fixtures
                     IsApproved = false,
                     IsHost = false,
                     IsOnline = false,
-                    FirstSeen = nowUtc.AddHours(-30),
-                    LastSeen = nowUtc.AddHours(-48)
+                    FirstSeen = nowUtc.AddHours(-48),
+                    LastSeen = nowUtc.AddHours(-30)
                 }
             };
 
@@ -481,13 +481,21 @@ namespace NetworkMonitor.UITests.Fixtures
             {
                 DateTime periodEnd = nowUtc.AddDays(-digestIndex);
                 DateTime periodStart = periodEnd.AddDays(-1);
+                DateTime generatedAt = periodEnd.AddMinutes(5);
                 DigestSummary summary = BuildDigestSummary(devices, trafficEntries, localTrafficEntries, speedTestResults, digestIndex);
+
+                // The most recent digest's period ends at nowUtc itself, so "5 minutes after
+                // period end" would land in the future — clamp to nowUtc, never later than now.
+                if (generatedAt > nowUtc)
+                {
+                    generatedAt = nowUtc;
+                }
 
                 digestReports.Add(new DigestReport
                 {
                     PeriodStart = periodStart,
                     PeriodEnd = periodEnd,
-                    GeneratedAt = periodEnd.AddMinutes(5),
+                    GeneratedAt = generatedAt,
                     Headline = summary.Headline,
                     SummaryJson = JsonSerializer.Serialize(summary),
                     IsScheduled = digestIndex < 2
