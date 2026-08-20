@@ -23,6 +23,7 @@
                 Spacing="2">
 
                 <AutoSuggestBox
+                    AutomationProperties.AutomationId="UnapprovedDevicesSearchBox"
                     PlaceholderText="Search Type, Name, IP, MAC…"
                     MaxWidth="380"
                     HorizontalAlignment="Left"
@@ -44,6 +45,7 @@
                 IsActive="{x:Bind ViewModel.IsScanning, Mode=OneWay}" />
 
             <Button
+                AutomationProperties.AutomationId="UnapprovedDevicesScanNowButton"
                 Grid.Column="2"
                 Content="Scan Network"
                 Style="{StaticResource AccentButtonStyle}"
@@ -52,6 +54,7 @@
         </Grid>
 
         <controls:DataGrid
+            AutomationProperties.AutomationId="UnapprovedDevicesGrid"
             Grid.Row="1"
             x:Name="DeviceGrid"
             AutoGenerateColumns="False"
@@ -293,6 +296,7 @@
                                 Padding="4,0,0,0">
 
                                 <Button
+                                    AutomationProperties.AutomationId="ApproveDeviceButton"
                                     Content="Approve"
                                     Padding="8,4"
                                     Click="ApproveButtonClick"
@@ -305,6 +309,7 @@
                                     Tag="{x:Bind MacAddress, Mode=OneWay}" />
 
                                 <Button
+                                    AutomationProperties.AutomationId="DeleteDeviceButton"
                                     Content="Delete"
                                     Padding="8,4"
                                     Click="DeleteButtonClick"

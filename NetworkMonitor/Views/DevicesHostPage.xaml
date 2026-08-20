@@ -17,18 +17,22 @@
             SelectionChanged="TabBarSelectionChanged">
 
             <SelectorBarItem
+                AutomationProperties.AutomationId="AllDevicesTab"
                 Tag="Devices"
                 Text="All" />
 
             <SelectorBarItem
+                AutomationProperties.AutomationId="ApprovedDevicesTab"
                 Tag="Approved"
                 Text="Approved" />
 
             <SelectorBarItem
+                AutomationProperties.AutomationId="UnapprovedDevicesTab"
                 Tag="Unapproved"
                 Text="Unapproved" />
 
             <SelectorBarItem
+                AutomationProperties.AutomationId="DeviceHistoryTab"
                 Tag="History"
                 Text="History" />
 

@@ -20,6 +20,7 @@
         <NavigationView.MenuItems>
 
             <NavigationViewItem
+                AutomationProperties.AutomationId="TrafficNavItem"
                 Content="Traffic"
                 Tag="traffic">
 
@@ -33,6 +34,7 @@
             </NavigationViewItem>
 
             <NavigationViewItem
+                AutomationProperties.AutomationId="DevicesNavItem"
                 Content="Devices"
                 Tag="devices">
 
@@ -46,6 +48,7 @@
             </NavigationViewItem>
 
             <NavigationViewItem
+                AutomationProperties.AutomationId="ReportsNavItem"
                 Content="Reports"
                 Tag="reports">
 
@@ -137,6 +140,7 @@
                                 Text="{x:Bind UpdateViewModel.DownloadProgressText, Mode=OneWay}" />
 
                             <Button
+                                AutomationProperties.AutomationId="UpdateCancelDownloadButton"
                                 Content="Cancel"
                                 Command="{x:Bind UpdateViewModel.CancelDownloadCommand}" />
 
@@ -148,12 +152,14 @@
                             Visibility="{x:Bind UpdateViewModel.HasPendingUpdate, Mode=OneWay}">
 
                             <Button
+                                AutomationProperties.AutomationId="UpdateNowButton"
                                 Content="Update now"
                                 Style="{StaticResource AccentButtonStyle}"
                                 Command="{x:Bind UpdateViewModel.UpdateNowCommand}"
                                 IsEnabled="{x:Bind UpdateViewModel.IsNotBusy, Mode=OneWay}" />
 
                             <Button
+                                AutomationProperties.AutomationId="UpdateLaterButton"
                                 Content="Later"
                                 Command="{x:Bind UpdateViewModel.DismissCommand}"
                                 IsEnabled="{x:Bind UpdateViewModel.IsNotBusy, Mode=OneWay}" />
@@ -161,6 +167,7 @@
                         </StackPanel>
 
                         <Button
+                            AutomationProperties.AutomationId="UpdateDismissButton"
                             Content="Dismiss"
                             HorizontalAlignment="Left"
                             Command="{x:Bind UpdateViewModel.DismissCommand}"

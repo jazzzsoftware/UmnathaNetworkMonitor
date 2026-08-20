@@ -7,6 +7,7 @@
     xmlns:controls="using:NetworkMonitor.Views.Controls">
 
     <Grid
+        AutomationProperties.AutomationId="MiniGraphRoot"
         x:Name="RootLayer"
         Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
         PointerPressed="RootPointerPressed"
@@ -46,6 +47,7 @@
             </Grid.RowDefinitions>
 
             <controls:MiniTrafficSection
+                AutomationProperties.AutomationId="MiniGraphInternetSection"
                 x:Name="InternetSection"
                 Grid.Row="0"
                 Label="Internet"
@@ -55,6 +57,7 @@
                 Points="{x:Bind ViewModel.InternetPoints, Mode=OneWay}" />
 
             <controls:MiniTrafficSection
+                AutomationProperties.AutomationId="MiniGraphLocalSection"
                 x:Name="LocalSection"
                 Grid.Row="1"
                 Label="Local"
@@ -64,6 +67,7 @@
                 Points="{x:Bind ViewModel.LocalPoints, Mode=OneWay}" />
 
             <Border
+                AutomationProperties.AutomationId="MiniGraphSpeedTestBand"
                 x:Name="SpeedTestBand"
                 Grid.Row="2"
                 Margin="0,0,0,4"
@@ -91,6 +95,7 @@
             </Border>
 
             <Border
+                AutomationProperties.AutomationId="MiniGraphUnknownDevicesBand"
                 x:Name="UnknownDevicesBand"
                 Grid.Row="3"
                 Margin="0,0,0,4"
@@ -109,6 +114,7 @@
             </Border>
 
             <Button
+                AutomationProperties.AutomationId="MiniGraphCloseButton"
                 x:Name="CloseGlyph"
                 HorizontalAlignment="Right"
                 VerticalAlignment="Top"

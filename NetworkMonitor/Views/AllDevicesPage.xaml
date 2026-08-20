@@ -23,6 +23,7 @@
                 Spacing="2">
 
                 <AutoSuggestBox
+                    AutomationProperties.AutomationId="AllDevicesSearchBox"
                     PlaceholderText="Search Type, Name, IP, MAC…"
                     MaxWidth="380"
                     HorizontalAlignment="Left"
@@ -38,6 +39,7 @@
             </StackPanel>
 
             <ToggleSwitch
+                AutomationProperties.AutomationId="OnlineOnlyToggle"
                 Grid.Column="1"
                 VerticalAlignment="Center"
                 MinWidth="0"
@@ -53,6 +55,7 @@
                 IsActive="{x:Bind ViewModel.IsScanning, Mode=OneWay}" />
 
             <Button
+                AutomationProperties.AutomationId="AllDevicesScanNowButton"
                 Grid.Column="3"
                 Content="Scan Network"
                 Style="{StaticResource AccentButtonStyle}"
@@ -61,6 +64,7 @@
         </Grid>
 
         <controls:DataGrid
+            AutomationProperties.AutomationId="AllDevicesGrid"
             Grid.Row="1"
             x:Name="DeviceGrid"
             AutoGenerateColumns="False"

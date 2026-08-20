@@ -3,13 +3,20 @@ using FlaUI.Core.Patterns;
 
 namespace NetworkMonitor.UITests.Driving
 {
-    // Selects a NavigationViewItem by its visible Content text ("Traffic", "Devices", "Reports",
-    // "Settings" — MainWindow.xaml:22-59 plus the built-in Settings item), because no
-    // AutomationProperties.AutomationId exists on the shell yet; Task 7 adds those. Selection
-    // uses SelectionItemPattern.Select() rather than InvokePattern.Invoke(), because invoking a
-    // NavigationViewItem does not reliably change which one is selected.
+    // Selects a NavigationViewItem. Task 7 gave the shell stable AutomationIds (MainWindow.xaml
+    // and the SettingsItem set in MainWindow.xaml.cs's NavViewLoaded), so GoTo looks up by
+    // AutomationId first; the visible Content text ("Traffic", "Devices", "Reports", "Settings" —
+    // MainWindow.xaml:22-61 plus the built-in Settings item) is kept as a fallback for whichever
+    // of the two the running build does not yet carry. Selection uses SelectionItemPattern.Select()
+    // rather than InvokePattern.Invoke(), because invoking a NavigationViewItem does not reliably
+    // change which one is selected.
     public sealed class Navigator
     {
+        private const string TrafficAutomationId = "TrafficNavItem";
+        private const string DevicesAutomationId = "DevicesNavItem";
+        private const string ReportsAutomationId = "ReportsNavItem";
+        private const string SettingsAutomationId = "SettingsNavItem";
+
         private const string TrafficItemName = "Traffic";
         private const string DevicesItemName = "Devices";
         private const string ReportsItemName = "Reports";
@@ -29,13 +36,14 @@ namespace NetworkMonitor.UITests.Driving
 
         public void GoTo(NavRoute route)
         {
+            string automationId = AutomationIdFor(route);
             string itemName = NameFor(route);
             Window mainWindow = _session.MainWindow;
 
             AutomationElement navigationItem = Waits.UntilFound(
-                () => mainWindow.FindFirstDescendant(conditionFactory => conditionFactory.ByName(itemName)),
+                () => mainWindow.FindFirstDescendant(automationId) ?? mainWindow.FindFirstDescendant(conditionFactory => conditionFactory.ByName(itemName)),
                 SelectionTimeout,
-                $"the '{itemName}' navigation item to appear");
+                $"the '{itemName}' navigation item (AutomationId '{automationId}') to appear");
 
             ISelectionItemPattern selectionItemPattern = navigationItem.Patterns.SelectionItem.Pattern;
 
@@ -45,6 +53,20 @@ namespace NetworkMonitor.UITests.Driving
                 () => selectionItemPattern.IsSelected.Value,
                 SelectionTimeout,
                 $"the '{itemName}' navigation item to report itself selected after Select()");
+        }
+
+        private static string AutomationIdFor(NavRoute route)
+        {
+            string automationId = route switch
+            {
+                NavRoute.Traffic => TrafficAutomationId,
+                NavRoute.Devices => DevicesAutomationId,
+                NavRoute.Reports => ReportsAutomationId,
+                NavRoute.Settings => SettingsAutomationId,
+                _ => throw new ArgumentOutOfRangeException(nameof(route), route, "Navigator.GoTo does not know this NavRoute.")
+            };
+
+            return automationId;
         }
 
         private static string NameFor(NavRoute route)

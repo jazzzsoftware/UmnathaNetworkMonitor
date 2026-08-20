@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using NetworkMonitor.Services.Data;
 using NetworkMonitor.Models.Devices;
@@ -361,6 +362,13 @@ namespace NetworkMonitor
             if (ContentFrame.Content is null)
             {
                 ContentFrame.Navigate(typeof(TrafficHostPage));
+            }
+
+            // The built-in Settings item has no XAML declaration to hang an AutomationId off, so
+            // it is set here once the control exists.
+            if (NavView.SettingsItem is NavigationViewItem settingsItem)
+            {
+                AutomationProperties.SetAutomationId(settingsItem, "SettingsNavItem");
             }
 
         }

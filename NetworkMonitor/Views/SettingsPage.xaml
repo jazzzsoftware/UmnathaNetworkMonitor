@@ -61,18 +61,22 @@
             SelectionChanged="TabBarSelectionChanged">
 
             <SelectorBarItem
+                AutomationProperties.AutomationId="SettingsTrafficTab"
                 Tag="Traffic"
                 Text="Traffic" />
 
             <SelectorBarItem
+                AutomationProperties.AutomationId="SettingsDeviceTab"
                 Tag="Device"
                 Text="Devices" />
 
             <SelectorBarItem
+                AutomationProperties.AutomationId="SettingsThemeTab"
                 Tag="Theme"
                 Text="Theme" />
 
             <SelectorBarItem
+                AutomationProperties.AutomationId="SettingsOtherTab"
                 Tag="Other"
                 Text="Other" />
 
@@ -118,6 +122,7 @@
                             Spacing="4">
 
                             <ToggleSwitch
+                                AutomationProperties.AutomationId="ChartSmoothScrollingToggle"
                                 Header="Chart smooth scrolling"
                                 IsOn="{x:Bind ViewModel.ChartSmoothScrolling, Mode=TwoWay}" />
 
@@ -136,6 +141,7 @@
                                 Text="Speed units" />
 
                             <ComboBox
+                                AutomationProperties.AutomationId="SpeedUnitsComboBox"
                                 HorizontalAlignment="Stretch"
                                 SelectedIndex="{x:Bind ViewModel.RateUnitModeIndex, Mode=TwoWay}">
 
@@ -233,6 +239,7 @@
                             Spacing="4">
 
                             <ToggleSwitch
+                                AutomationProperties.AutomationId="SpeedTestEnabledToggle"
                                 Header="Run periodic speed tests (hourly)"
                                 IsOn="{x:Bind ViewModel.SpeedTestEnabled, Mode=TwoWay}" />
 
@@ -289,6 +296,7 @@
                             Spacing="12">
 
                             <Button
+                                AutomationProperties.AutomationId="PurgeTrafficNowButton"
                                 Content="Purge Now"
                                 Click="PurgeTrafficNowClick" />
 
@@ -334,6 +342,7 @@
                             Spacing="4">
 
                             <ToggleSwitch
+                                AutomationProperties.AutomationId="AutoDetectSubnetToggle"
                                 Header="Auto-detect subnet"
                                 IsOn="{x:Bind ViewModel.AutoDetectSubnet, Mode=TwoWay}" />
 
@@ -352,6 +361,7 @@
                                 Text="Subnet Base (e.g. 192.168.1)" />
 
                             <TextBox
+                                AutomationProperties.AutomationId="SubnetBaseTextBox"
                                 IsEnabled="{x:Bind ViewModel.SubnetBaseEditable, Mode=OneWay}"
                                 Text="{x:Bind ViewModel.SubnetBase, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
 
@@ -493,6 +503,7 @@
                             Spacing="12">
 
                             <Button
+                                AutomationProperties.AutomationId="PurgeHistoryNowButton"
                                 Content="Purge Now"
                                 Click="PurgeNowClick" />
 
@@ -541,6 +552,7 @@
                                 Text="Colour scheme" />
 
                             <ComboBox
+                                AutomationProperties.AutomationId="ChartSchemeComboBox"
                                 HorizontalAlignment="Stretch"
                                 ItemsSource="{x:Bind ViewModel.ChartSchemeNames}"
                                 SelectedIndex="{x:Bind ViewModel.ChartSchemeIndex, Mode=TwoWay}" />
@@ -777,6 +789,7 @@
                             Visibility="{x:Bind ViewModel.IsCustomScheme, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
 
                         <Button
+                            AutomationProperties.AutomationId="ResetChartSchemeButton"
                             Content="Reset to Classic"
                             HorizontalAlignment="Left"
                             Command="{x:Bind ViewModel.ResetChartSchemeCommand}" />
@@ -960,6 +973,7 @@
                             Spacing="4">
 
                             <ToggleSwitch
+                                AutomationProperties.AutomationId="RunAtStartupToggle"
                                 Header="Run at Windows startup"
                                 IsOn="{x:Bind ViewModel.RunAtStartup, Mode=TwoWay}" />
 
@@ -986,10 +1000,12 @@
                             Text="Notifications" />
 
                         <ToggleSwitch
+                            AutomationProperties.AutomationId="ShowToastsToggle"
                             Header="Show Toast Notifications"
                             IsOn="{x:Bind ViewModel.ShowToasts, Mode=TwoWay}" />
 
                         <CheckBox
+                            AutomationProperties.AutomationId="UnapprovedOnlyToastsCheckBox"
                             Content="Unapproved devices only"
                             Margin="8,0,0,0"
                             IsChecked="{x:Bind ViewModel.UnapprovedOnlyToasts, Mode=TwoWay}"
@@ -1010,10 +1026,12 @@
                             Text="Software updates" />
 
                         <ToggleSwitch
+                            AutomationProperties.AutomationId="AutoCheckForUpdatesToggle"
                             Header="Automatically check for updates"
                             IsOn="{x:Bind ViewModel.AutoCheckForUpdates, Mode=TwoWay}" />
 
                         <Button
+                            AutomationProperties.AutomationId="CheckForUpdatesButton"
                             Content="Check for updates"
                             HorizontalAlignment="Left"
                             Command="{x:Bind UpdateViewModel.CheckNowCommand}"
@@ -1043,6 +1061,7 @@
                             Spacing="4">
 
                             <ToggleSwitch
+                                AutomationProperties.AutomationId="ShowMiniGraphToggle"
                                 Header="Show floating mini graph"
                                 IsOn="{x:Bind ViewModel.ShowMiniGraph, Mode=TwoWay}" />
 
@@ -1055,18 +1074,22 @@
                         </StackPanel>
 
                         <CheckBox
+                            AutomationProperties.AutomationId="MiniGraphShowInternetCheckBox"
                             Content="Internet chart"
                             IsChecked="{x:Bind ViewModel.MiniGraphShowInternet, Mode=TwoWay}" />
 
                         <CheckBox
+                            AutomationProperties.AutomationId="MiniGraphShowLocalCheckBox"
                             Content="Local chart"
                             IsChecked="{x:Bind ViewModel.MiniGraphShowLocal, Mode=TwoWay}" />
 
                         <CheckBox
+                            AutomationProperties.AutomationId="MiniGraphShowSpeedTestCheckBox"
                             Content="Last speed test"
                             IsChecked="{x:Bind ViewModel.MiniGraphShowSpeedTest, Mode=TwoWay}" />
 
                         <CheckBox
+                            AutomationProperties.AutomationId="MiniGraphShowUnknownDevicesCheckBox"
                             Content="Unknown devices"
                             IsChecked="{x:Bind ViewModel.MiniGraphShowUnknownDevices, Mode=TwoWay}" />
 
@@ -1074,13 +1097,16 @@
                             Spacing="4">
 
                             <RadioButtons
+                                AutomationProperties.AutomationId="MiniGraphOrientationRadioButtons"
                                 Header="Orientation"
                                 SelectedIndex="{x:Bind ViewModel.MiniGraphOrientationIndex, Mode=TwoWay}">
 
                                 <RadioButton
+                                    AutomationProperties.AutomationId="MiniGraphOrientationVerticalRadioButton"
                                     Content="Vertical" />
 
                                 <RadioButton
+                                    AutomationProperties.AutomationId="MiniGraphOrientationHorizontalRadioButton"
                                     Content="Horizontal" />
 
                             </RadioButtons>
@@ -1097,6 +1123,7 @@
                             Spacing="4">
 
                             <CheckBox
+                                AutomationProperties.AutomationId="MiniGraphShowBorderCheckBox"
                                 Content="Show window border"
                                 IsChecked="{x:Bind ViewModel.MiniGraphShowBorder, Mode=TwoWay}" />
 
@@ -1115,6 +1142,7 @@
                                 Text="Resting opacity" />
 
                             <Slider
+                                AutomationProperties.AutomationId="MiniGraphOpacitySlider"
                                 Minimum="50"
                                 Maximum="100"
                                 StepFrequency="5"
@@ -1237,6 +1265,7 @@
                         </StackPanel>
 
                         <ToggleSwitch
+                            AutomationProperties.AutomationId="DigestNotifyToggle"
                             Header="Notify when a daily digest is ready"
                             IsOn="{x:Bind ViewModel.DigestNotify, Mode=TwoWay}" />
 
@@ -1258,6 +1287,7 @@
                             Spacing="4">
 
                             <ToggleSwitch
+                                AutomationProperties.AutomationId="EnableLoggingToggle"
                                 Header="Enable diagnostic logging"
                                 IsEnabled="{x:Bind ViewModel.LoggingToggleEnabled}"
                                 IsOn="{x:Bind ViewModel.EnableLoggingDisplay, Mode=TwoWay}" />
@@ -1441,10 +1471,12 @@
                 MaxWidth="480">
 
                 <Button
+                    AutomationProperties.AutomationId="AboutButton"
                     Content="About"
                     Click="AboutClick" />
 
                 <Button
+                    AutomationProperties.AutomationId="ReleaseNotesButton"
                     Content="Release Notes"
                     Click="ReleaseNotesClick" />
 

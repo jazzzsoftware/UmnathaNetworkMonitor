@@ -25,6 +25,7 @@
                 Spacing="4">
 
                 <Button
+                    AutomationProperties.AutomationId="LensAppButton"
                     x:Name="LensAppButton"
                     Content="By app"
                     Tag="ByApp"
@@ -32,6 +33,7 @@
                     Click="LensButtonClick" />
 
                 <Button
+                    AutomationProperties.AutomationId="LensDeviceButton"
                     x:Name="LensDeviceButton"
                     Content="By device"
                     Tag="ByDevice"
@@ -54,6 +56,7 @@
                 Spacing="4">
 
                 <Button
+                    AutomationProperties.AutomationId="LocalRange7dButton"
                     x:Name="Range7dButton"
                     Content="7d"
                     Tag="168"
@@ -61,6 +64,7 @@
                     Click="RangeButtonClick" />
 
                 <Button
+                    AutomationProperties.AutomationId="LocalRange24hButton"
                     x:Name="Range24hButton"
                     Content="24h"
                     Tag="24"
@@ -68,6 +72,7 @@
                     Click="RangeButtonClick" />
 
                 <Button
+                    AutomationProperties.AutomationId="LocalRange6hButton"
                     x:Name="Range6hButton"
                     Content="6h"
                     Tag="6"
@@ -75,6 +80,7 @@
                     Click="RangeButtonClick" />
 
                 <Button
+                    AutomationProperties.AutomationId="LocalRange1hButton"
                     x:Name="Range1hButton"
                     Content="1h"
                     Tag="1"
@@ -82,6 +88,7 @@
                     Click="RangeButtonClick" />
 
                 <Button
+                    AutomationProperties.AutomationId="LocalRange5mButton"
                     x:Name="Range5mButton"
                     Content="5m"
                     Tag="5m"
@@ -173,6 +180,7 @@
                     </StackPanel>
 
                     <Border
+                        AutomationProperties.AutomationId="LocalModeBadge"
                         x:Name="ModeBadge"
                         Grid.ColumnSpan="2"
                         HorizontalAlignment="Center"
@@ -218,6 +226,7 @@
                 <Grid>
 
                     <chart:TrafficAreaChart
+                        AutomationProperties.AutomationId="LocalAreaChart"
                         x:Name="AreaChart"
                         Height="120"
                         ChartPoints="{x:Bind ViewModel.ChartPoints, Mode=OneWay}"
@@ -277,6 +286,7 @@
         </Border>
 
         <controls:DataGrid
+            AutomationProperties.AutomationId="LocalAppGrid"
             Grid.Row="2"
             x:Name="AppGrid"
             AutoGenerateColumns="False"

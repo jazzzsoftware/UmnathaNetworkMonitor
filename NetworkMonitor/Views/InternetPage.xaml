@@ -36,6 +36,7 @@
                 Spacing="4">
 
                 <Button
+                    AutomationProperties.AutomationId="InternetRange7dButton"
                     x:Name="Range7dButton"
                     Content="7d"
                     Tag="168"
@@ -43,6 +44,7 @@
                     Click="RangeButtonClick" />
 
                 <Button
+                    AutomationProperties.AutomationId="InternetRange24hButton"
                     x:Name="Range24hButton"
                     Content="24h"
                     Tag="24"
@@ -50,6 +52,7 @@
                     Click="RangeButtonClick" />
 
                 <Button
+                    AutomationProperties.AutomationId="InternetRange6hButton"
                     x:Name="Range6hButton"
                     Content="6h"
                     Tag="6"
@@ -57,6 +60,7 @@
                     Click="RangeButtonClick" />
 
                 <Button
+                    AutomationProperties.AutomationId="InternetRange1hButton"
                     x:Name="Range1hButton"
                     Content="1h"
                     Tag="1"
@@ -64,6 +68,7 @@
                     Click="RangeButtonClick" />
 
                 <Button
+                    AutomationProperties.AutomationId="InternetRange5mButton"
                     x:Name="Range5mButton"
                     Content="5m"
                     Tag="5m"
@@ -155,6 +160,7 @@
                     </StackPanel>
 
                     <Border
+                        AutomationProperties.AutomationId="InternetModeBadge"
                         x:Name="ModeBadge"
                         Grid.ColumnSpan="2"
                         HorizontalAlignment="Center"
@@ -200,6 +206,7 @@
                 <Grid>
 
                     <chart:TrafficAreaChart
+                        AutomationProperties.AutomationId="InternetAreaChart"
                         x:Name="AreaChart"
                         Height="120"
                         ChartPoints="{x:Bind ViewModel.ChartPoints, Mode=OneWay}"
@@ -259,6 +266,7 @@
         </Border>
 
         <controls:DataGrid
+            AutomationProperties.AutomationId="InternetAppGrid"
             Grid.Row="2"
             x:Name="AppGrid"
             AutoGenerateColumns="False"

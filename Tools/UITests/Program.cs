@@ -1,8 +1,12 @@
 using System.Diagnostics;
+using FlaUI.Core;
 using FlaUI.Core.AutomationElements;
+using FlaUI.Core.Definitions;
+using FlaUI.Core.Patterns;
 using FlaUI.UIA3;
 using Microsoft.Data.Sqlite;
 using NetworkMonitor.Core.Common;
+using NetworkMonitor.UITests.Driving;
 using NetworkMonitor.UITests.Evidence;
 using NetworkMonitor.UITests.Fixtures;
 using NetworkMonitor.UITests.Runner;
@@ -20,6 +24,13 @@ if (args.Contains("--guard-selftest"))
     int guardSelfTestExitCode = guardSelfTestPassed ? 0 : 1;
 
     return guardSelfTestExitCode;
+}
+
+if (args.Contains("--dump-tree"))
+{
+    int dumpTreeExitCode = await RunDumpTree(args);
+
+    return dumpTreeExitCode;
 }
 
 PreflightResult preflight = Preflight.Check();
@@ -148,6 +159,305 @@ static string DescribeTimestamp(DateTime? timestamp)
         : "(file does not exist — expected if the app has never run on this machine)";
 
     return description;
+}
+
+// Task 7's standing diagnostic: launches a locally built x64 Debug NetworkMonitor.exe — never
+// the installed release, which InstalledApp.Launch is reserved for and which predates whatever
+// AutomationIds are being wired up right now — and dumps one page's automation tree to a file
+// under %TEMP%. This is the tool for adding and checking AutomationIds; it is meant to be run by
+// hand, repeatedly, while a page is being tagged, so it seeds and points at a throwaway
+// DataFolderFixture (same UMNATHA_DATA_FOLDER override InstalledApp.Launch uses) and never
+// touches the operator's real database. Preflight.Check() is deliberately not called for this
+// path: it demands an installed release and elevation, neither of which a dev-build tree dump
+// needs.
+static async Task<int> RunDumpTree(string[] commandLineArguments)
+{
+    string? pageArgument = ReadOptionValue(commandLineArguments, "--dump-tree");
+    string? executableOverride = ReadOptionValue(commandLineArguments, "--exe");
+    string executablePath = executableOverride ?? FindLocalDebugExecutable();
+    int exitCode;
+
+    if (executablePath.Length == 0 || !File.Exists(executablePath))
+    {
+        Console.WriteLine("--dump-tree: could not find a locally built NetworkMonitor.exe under NetworkMonitor/bin/x64/Debug.");
+        Console.WriteLine("Build it first: dotnet build NetworkMonitor.slnx -c Debug -p:Platform=x64");
+        Console.WriteLine("Or point at one explicitly: --dump-tree <page> --exe <path-to-NetworkMonitor.exe>");
+        exitCode = 2;
+    }
+    else
+    {
+        exitCode = await DumpTreeFromExecutable(executablePath, pageArgument);
+    }
+
+    return exitCode;
+}
+
+static async Task<int> DumpTreeFromExecutable(string executablePath, string? pageArgument)
+{
+    // Generous: a cold launch runs DatabaseInitializer.InitializeAsync (baseline-then-migrate)
+    // and loads the OUI vendor database before the splash hands off to the real shell.
+    TimeSpan shellReadyTimeout = TimeSpan.FromSeconds(60);
+
+    Console.WriteLine($"--dump-tree: launching {executablePath}");
+
+    DataFolderFixture fixture = await DataFolderFixture.CreateAsync();
+    string artifactFolder = Path.Combine(Path.GetTempPath(), "umnatha-uitests-dumptree", DateTime.Now.ToString("yyyyMMdd-HHmmss-fff"));
+
+    Directory.CreateDirectory(artifactFolder);
+
+    ProcessStartInfo startInfo = new ProcessStartInfo(executablePath)
+    {
+        UseShellExecute = false,
+        WorkingDirectory = Path.GetDirectoryName(executablePath) ?? string.Empty
+    };
+
+    startInfo.Environment[AppDataFolderResolver.OverrideVariableName] = fixture.FolderPath;
+
+    Application application = Application.Launch(startInfo);
+    int exitCode;
+
+    try
+    {
+
+        using (AppSession session = new AppSession(application))
+        {
+            // AppSession.MainWindow (Application.GetMainWindow) is satisfied by the first
+            // top-level HWND it sees, which is the Splash window (App.xaml.cs), not the shell —
+            // DatabaseInitializer.InitializeAsync and the rest of OnLaunched still have to finish
+            // before NavigationView exists. Waiting here for a shell landmark (the Traffic nav
+            // item) makes every session.MainWindow read after this point the real shell.
+            Waits.UntilFound(
+                () => session.MainWindow.FindFirstDescendant("TrafficNavItem"),
+                shellReadyTimeout,
+                "the shell (NavigationView with the Traffic nav item) to replace the splash screen");
+
+            AutomationElement windowToDump = session.MainWindow;
+
+            if (string.Equals(pageArgument, "minigraph", StringComparison.OrdinalIgnoreCase))
+            {
+                windowToDump = ShowMiniGraphWindow(session);
+            }
+            else if (pageArgument is not null)
+            {
+                NavigateToPage(session, pageArgument);
+            }
+
+            string dumpedPath = UiaTreeDumper.Dump(windowToDump, artifactFolder, pageArgument ?? "shell");
+
+            Console.WriteLine($"--dump-tree: wrote {dumpedPath}");
+            exitCode = dumpedPath.Length > 0 ? 0 : 1;
+        }
+
+    }
+    catch (Exception failure)
+    {
+        Console.WriteLine($"--dump-tree: failed: {failure}");
+        exitCode = 1;
+    }
+    finally
+    {
+        ShutDownDevBuild(application);
+    }
+
+    return exitCode;
+}
+
+static Window ShowMiniGraphWindow(AppSession session)
+{
+    Navigator navigator = new Navigator(session);
+
+    navigator.GoTo(NavRoute.Traffic);
+
+    AutomationElement miniGraphToggle = Waits.UntilFound(
+        () => session.MainWindow.FindFirstDescendant("MiniGraphToggle"),
+        TimeSpan.FromSeconds(10),
+        "the mini graph toggle button to appear");
+
+    ITogglePattern togglePattern = miniGraphToggle.Patterns.Toggle.Pattern;
+
+    if (togglePattern.ToggleState.Value != ToggleState.On)
+    {
+        togglePattern.Toggle();
+    }
+
+    Window miniGraphWindow = Waits.UntilFound(
+        () => session.MiniGraphWindow,
+        TimeSpan.FromSeconds(10),
+        "the mini graph window to appear after toggling it on");
+
+    return miniGraphWindow;
+}
+
+// Drives NavRoute + a SelectorBarItem's AutomationId, both wired up in Task 7, rather than one
+// page-specific method per surface — the same SelectionItemPattern.Select() approach Navigator
+// itself uses, and for the same reason: Invoke() does not reliably change a SelectorBarItem's
+// selection either.
+static void NavigateToPage(AppSession session, string pageArgument)
+{
+    (NavRoute route, string? tabAutomationId) = ResolvePage(pageArgument);
+    Navigator navigator = new Navigator(session);
+
+    navigator.GoTo(route);
+
+    if (tabAutomationId is not null)
+    {
+        AutomationElement tabItem = Waits.UntilFound(
+            () => session.MainWindow.FindFirstDescendant(tabAutomationId),
+            TimeSpan.FromSeconds(10),
+            $"the '{tabAutomationId}' tab to appear");
+
+        ISelectionItemPattern selectionItemPattern = tabItem.Patterns.SelectionItem.Pattern;
+
+        selectionItemPattern.Select();
+
+        Waits.Until(
+            () => selectionItemPattern.IsSelected.Value,
+            TimeSpan.FromSeconds(10),
+            $"the '{tabAutomationId}' tab to report itself selected after Select()");
+    }
+
+}
+
+static (NavRoute Route, string? TabAutomationId) ResolvePage(string pageArgument)
+{
+    string normalisedPageArgument = pageArgument.Trim().ToLowerInvariant();
+
+    (NavRoute Route, string? TabAutomationId) resolved = normalisedPageArgument switch
+    {
+        "traffic" => (NavRoute.Traffic, null),
+        "internet" => (NavRoute.Traffic, "InternetTab"),
+        "local" => (NavRoute.Traffic, "LocalTab"),
+        "speedtest" => (NavRoute.Traffic, "SpeedTestTab"),
+        "devices" => (NavRoute.Devices, "AllDevicesTab"),
+        "alldevices" => (NavRoute.Devices, "AllDevicesTab"),
+        "approved" => (NavRoute.Devices, "ApprovedDevicesTab"),
+        "unapproved" => (NavRoute.Devices, "UnapprovedDevicesTab"),
+        "devicehistory" => (NavRoute.Devices, "DeviceHistoryTab"),
+        "reports" => (NavRoute.Reports, "DigestTab"),
+        "digest" => (NavRoute.Reports, "DigestTab"),
+        "reportshistory" => (NavRoute.Reports, "ReportsHistoryTab"),
+        "settings" => (NavRoute.Settings, null),
+        "settingstraffic" => (NavRoute.Settings, "SettingsTrafficTab"),
+        "settingsdevice" => (NavRoute.Settings, "SettingsDeviceTab"),
+        "settingstheme" => (NavRoute.Settings, "SettingsThemeTab"),
+        "settingsother" => (NavRoute.Settings, "SettingsOtherTab"),
+        _ => throw new ArgumentException(
+            $"--dump-tree does not recognise page '{pageArgument}'. Known pages: traffic, internet, local, speedtest, "
+            + "devices, alldevices, approved, unapproved, devicehistory, reports, digest, reportshistory, settings, "
+            + "settingstraffic, settingsdevice, settingstheme, settingsother, minigraph.")
+    };
+
+    return resolved;
+}
+
+static string? ReadOptionValue(string[] commandLineArguments, string optionName)
+{
+    int optionIndex = Array.IndexOf(commandLineArguments, optionName);
+    string? optionValue = null;
+
+    if (optionIndex >= 0 && optionIndex + 1 < commandLineArguments.Length && !commandLineArguments[optionIndex + 1].StartsWith("--", StringComparison.Ordinal))
+    {
+        optionValue = commandLineArguments[optionIndex + 1];
+    }
+
+    return optionValue;
+}
+
+// Searches NetworkMonitor/bin/x64/Debug rather than assuming one fixed TFM-shaped path, so a
+// future TargetFramework bump does not silently break this diagnostic; picks the most recently
+// built exe if more than one configuration is present.
+static string FindLocalDebugExecutable()
+{
+    string executablePath = string.Empty;
+    string? repositoryRoot = FindRepositoryRoot(AppContext.BaseDirectory);
+
+    if (repositoryRoot is not null)
+    {
+        string searchRoot = Path.Combine(repositoryRoot, "NetworkMonitor", "bin", "x64", "Debug");
+
+        if (Directory.Exists(searchRoot))
+        {
+            string[] candidates = Directory.GetFiles(searchRoot, "NetworkMonitor.exe", SearchOption.AllDirectories);
+
+            if (candidates.Length > 0)
+            {
+                executablePath = candidates.OrderByDescending(File.GetLastWriteTimeUtc).First();
+            }
+
+        }
+
+    }
+
+    return executablePath;
+}
+
+static string? FindRepositoryRoot(string startDirectory)
+{
+    DirectoryInfo? currentDirectory = new DirectoryInfo(startDirectory);
+    string? repositoryRoot = null;
+
+    while (currentDirectory is not null && repositoryRoot is null)
+    {
+
+        if (File.Exists(Path.Combine(currentDirectory.FullName, "NetworkMonitor.slnx")))
+        {
+            repositoryRoot = currentDirectory.FullName;
+        }
+
+        currentDirectory = currentDirectory.Parent;
+    }
+
+    return repositoryRoot;
+}
+
+// Deliberately duplicates InstalledApp's Close()-then-Kill() fallback rather than calling into
+// it: that type's contract (its own file-header comment) is explicitly the registry-installed
+// release, including a tray-Exit path keyed to registry lookups that do not apply to a dev build
+// launched straight from a bin folder. The data folder here is a throwaway fixture, so an
+// unclean Kill() losing an uncheckpointed WAL costs nothing.
+static void ShutDownDevBuild(Application application)
+{
+
+    try
+    {
+
+        if (!application.HasExited)
+        {
+            application.Close();
+        }
+
+    }
+    catch (Exception exception)
+    {
+        Console.WriteLine($"--dump-tree: Close() threw and was ignored: {exception.Message}");
+    }
+
+    bool exited;
+
+    try
+    {
+        Waits.Until(() => application.HasExited, TimeSpan.FromSeconds(15), "the dev build process to exit");
+        exited = true;
+    }
+    catch (TimeoutException)
+    {
+        exited = false;
+    }
+
+    if (!exited)
+    {
+
+        try
+        {
+            application.Kill();
+        }
+        catch (Exception exception)
+        {
+            Console.WriteLine($"--dump-tree: Kill() threw and was ignored: {exception.Message}");
+        }
+
+    }
+
 }
 
 // Exercises RealDataGuard.CopyAside/Restore end to end — the highest-consequence code in the

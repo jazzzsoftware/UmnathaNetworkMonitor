@@ -30,10 +30,12 @@
                     IsActive="{x:Bind ViewModel.IsRunning, Mode=OneWay}" />
 
                 <Button
+                    AutomationProperties.AutomationId="SpeedTestExportCsvButton"
                     Content="Export CSV"
                     Click="ExportCsvClick" />
 
                 <Button
+                    AutomationProperties.AutomationId="RunSpeedTestButton"
                     Content="Run Speed Test"
                     Margin="12,0,12,0"
                     Style="{StaticResource AccentButtonStyle}"
@@ -44,6 +46,7 @@
                     Spacing="4">
 
                     <Button
+                        AutomationProperties.AutomationId="SpeedTestRange7dButton"
                         x:Name="Range7dButton"
                         Content="7d"
                         Tag="168"
@@ -51,6 +54,7 @@
                         Click="RangeButtonClick" />
 
                     <Button
+                        AutomationProperties.AutomationId="SpeedTestRange24hButton"
                         x:Name="Range24hButton"
                         Content="24h"
                         Tag="24"
@@ -242,6 +246,7 @@
                     </Grid>
 
                     <chart:SpeedTrendChart
+                        AutomationProperties.AutomationId="SpeedTestThroughputChart"
                         x:Name="ThroughputChart"
                         Height="110"
                         Unit="Mb/s"
@@ -337,6 +342,7 @@
         </StackPanel>
 
         <controls:DataGrid
+            AutomationProperties.AutomationId="SpeedTestHistoryGrid"
             Grid.Row="2"
             x:Name="HistoryGrid"
             AutoGenerateColumns="False"

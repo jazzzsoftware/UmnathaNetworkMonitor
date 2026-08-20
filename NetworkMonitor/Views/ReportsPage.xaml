@@ -18,10 +18,12 @@
             SelectionChanged="TabBarSelectionChanged">
 
             <SelectorBarItem
+                AutomationProperties.AutomationId="DigestTab"
                 Tag="Digest"
                 Text="Daily Digest" />
 
             <SelectorBarItem
+                AutomationProperties.AutomationId="ReportsHistoryTab"
                 Tag="History"
                 Text="History" />
 
@@ -39,6 +41,7 @@
                 Spacing="8">
 
                 <Button
+                    AutomationProperties.AutomationId="GenerateDigestButton"
                     Command="{x:Bind ViewModel.GenerateNowCommand}">
 
                     <StackPanel
@@ -60,6 +63,7 @@
                 </Button>
 
                 <Button
+                    AutomationProperties.AutomationId="ExportDigestPdfButton"
                     Content="Export PDF"
                     Click="ExportDigestPdfClick" />
 
@@ -88,6 +92,7 @@
                 RowDefinitions="*,Auto">
 
                 <ListView
+                    AutomationProperties.AutomationId="DigestHistoryList"
                     Grid.Row="0"
                     x:Name="HistoryList"
                     ItemsSource="{x:Bind ViewModel.Reports, Mode=OneWay}"
@@ -116,6 +121,7 @@
                 </ListView>
 
                 <Button
+                    AutomationProperties.AutomationId="ExportAllReportsCsvButton"
                     Grid.Row="1"
                     Margin="8"
                     HorizontalAlignment="Stretch"
@@ -135,10 +141,12 @@
                     Spacing="8">
 
                     <Button
+                        AutomationProperties.AutomationId="ExportHistoryPdfButton"
                         Content="Export PDF"
                         Click="ExportHistoryPdfClick" />
 
                     <Button
+                        AutomationProperties.AutomationId="DeleteDigestButton"
                         Content="Delete"
                         Click="DeleteHistoryClick" />
 

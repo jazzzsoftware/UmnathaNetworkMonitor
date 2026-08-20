@@ -21,20 +21,24 @@
                 SelectionChanged="TabBarSelectionChanged">
 
                 <SelectorBarItem
+                    AutomationProperties.AutomationId="InternetTab"
                     Tag="Internet"
                     Text="Internet" />
 
                 <SelectorBarItem
+                    AutomationProperties.AutomationId="LocalTab"
                     Tag="Local"
                     Text="Local" />
 
                 <SelectorBarItem
+                    AutomationProperties.AutomationId="SpeedTestTab"
                     Tag="SpeedTest"
                     Text="Speed Test" />
 
             </SelectorBar>
 
             <ToggleButton
+                AutomationProperties.AutomationId="MiniGraphToggle"
                 x:Name="MiniGraphToggle"
                 Grid.Column="1"
                 VerticalAlignment="Center"
