@@ -9,29 +9,55 @@ namespace NetworkMonitor.UITests.Evidence
     {
         private const string ReportFileName = "report.html";
 
+        // Dark by default, because the report is read at the end of a long run. The light block is
+        // an override for anyone who has asked their browser for light, not the other way round.
         private const string CssStyle = """
-            body { font-family: Segoe UI, Arial, sans-serif; margin: 2rem; color: #202020; background: #ffffff; }
+            :root {
+                --page: #16181c;
+                --panel: #1f2228;
+                --ink: #dfe3ea;
+                --ink-quiet: #9aa3b2;
+                --rule: #2e333c;
+                --pass: #4cc38a;
+                --fail: #f2726b;
+                --skip: #e0b341;
+                --fail-wash: #2a1c1e;
+            }
+            body { font-family: Segoe UI, Arial, sans-serif; margin: 2rem; color: var(--ink); background: var(--page); }
             h1 { text-transform: uppercase; letter-spacing: 0.05em; }
-            h1.passed { color: #1b7a3d; }
-            h1.failed { color: #b0261e; }
-            h1.aborted { color: #b0261e; }
-            section { margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid #dddddd; }
+            h1.passed { color: var(--pass); }
+            h1.failed { color: var(--fail); }
+            h1.aborted { color: var(--fail); }
+            section { margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--rule); }
             .counts { list-style: none; padding: 0; display: flex; gap: 1.5rem; }
-            .phase { margin-bottom: 1rem; padding: 0.75rem 1rem; background: #f6f6f6; border-radius: 6px; }
-            .duration { color: #666666; font-weight: normal; font-size: 0.85em; }
-            .badge.aborted { color: #ffffff; background: #b0261e; padding: 0.1em 0.5em; border-radius: 4px; font-size: 0.75em; }
+            .phase { margin-bottom: 1rem; padding: 0.75rem 1rem; background: var(--panel); border-radius: 6px; }
+            .duration { color: var(--ink-quiet); font-weight: normal; font-size: 0.85em; }
+            .badge.aborted { color: var(--page); background: var(--fail); padding: 0.1em 0.5em; border-radius: 4px; font-size: 0.75em; }
             ul.steps { list-style: none; padding-left: 0; }
             ul.steps li { padding: 0.25rem 0; border-left: 4px solid transparent; padding-left: 0.5rem; }
-            ul.steps li.passed { border-left-color: #1b7a3d; }
-            ul.steps li.failed { border-left-color: #b0261e; }
-            ul.steps li.skipped { border-left-color: #b08d1e; }
+            ul.steps li.passed { border-left-color: var(--pass); }
+            ul.steps li.failed { border-left-color: var(--fail); }
+            ul.steps li.skipped { border-left-color: var(--skip); }
             .outcome { font-weight: bold; margin-right: 0.5em; }
-            .message { color: #444444; white-space: pre-wrap; font-family: Consolas, monospace; font-size: 0.9em; }
-            .failure { padding: 1rem; margin-bottom: 1rem; background: #fdf1f0; border-radius: 6px; }
-            .failure pre.assertion { white-space: pre-wrap; font-family: Consolas, monospace; }
-            .failure img.screenshot { max-width: 100%; border: 1px solid #cccccc; margin-top: 0.5rem; }
-            details.tree-dump pre { max-height: 24rem; overflow: auto; background: #202020; color: #d4d4d4; padding: 0.75rem; font-family: Consolas, monospace; font-size: 0.8em; }
-            .muted { color: #777777; font-style: italic; }
+            .message { color: var(--ink-quiet); white-space: pre-wrap; font-family: Consolas, monospace; font-size: 0.9em; }
+            .failure { padding: 1rem; margin-bottom: 1rem; background: var(--fail-wash); border-radius: 6px; border: 1px solid var(--rule); }
+            .failure pre.assertion { white-space: pre-wrap; font-family: Consolas, monospace; color: var(--ink); }
+            .failure img.screenshot { max-width: 100%; border: 1px solid var(--rule); margin-top: 0.5rem; }
+            details.tree-dump pre { max-height: 24rem; overflow: auto; background: #0f1114; color: #cbd2dc; padding: 0.75rem; font-family: Consolas, monospace; font-size: 0.8em; }
+            .muted { color: var(--ink-quiet); font-style: italic; }
+            @media (prefers-color-scheme: light) {
+                :root {
+                    --page: #ffffff;
+                    --panel: #f6f6f6;
+                    --ink: #202020;
+                    --ink-quiet: #5a6270;
+                    --rule: #dddddd;
+                    --pass: #1b7a3d;
+                    --fail: #b0261e;
+                    --skip: #b08d1e;
+                    --fail-wash: #fdf1f0;
+                }
+            }
             """;
 
         public static string Write(RunOutcome outcome, RunEnvironment environment, string artifactFolder)

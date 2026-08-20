@@ -12,7 +12,13 @@
 
 ---
 
-## Prerequisite — the app is not currently installed
+## Prerequisite — RESOLVED 2026-08-20
+
+**v0.0.12 is now installed** at `C:\Program Files\Umnatha Network Monitor\`, with the uninstall key `{7074c3a8-a61b-4e4a-9e6c-dedc9a62ae94}_is1` reporting `DisplayVersion 0.0.12`. The installer's SHA-256 was verified against the release's `.sha256` asset before it was run.
+
+The operator's standing instruction is **"always assume it is not installed"** — so the runner must acquire and install what it needs rather than depending on this, or on any manual step. That is amendment C in Task 8. The section below is kept for the record of what the original plan assumed.
+
+## Prerequisite as originally written — the app was not installed
 
 **Verified on this machine on 2026-08-20:** `C:\Program Files\Umnatha Network Monitor` does not exist, and there is no uninstall entry under `HKLM`, `HKLM\WOW6432Node` or `HKCU` matching `*Umnatha*` or `*Network Monitor*`. `Tools/Installer/Output/` holds only `Umnatha Network Monitor v0.0.10.exe`.
 
@@ -1311,11 +1317,49 @@ DB impact: **none.**
 
 ### Task 8: Phases 01 Launch and 02 Devices
 
-**Prerequisite:** v0.0.12 must be installed — see the Prerequisite section. Preflight blocks the run until it is.
+**Amended after the Task 7 checkpoint, 2026-08-20.** Three things were learned by driving the real app that the original plan did not know. All three land in this task, before any phase is written, because each one can silently point the suite at the operator's real data or leave their machine worse than it found it.
+
+**A. The suite must refuse to run while the operator's own instance is up.** `App.xaml.cs:62` takes a named mutex, `NetworkMonitor.App.SingleInstance.Mutex`, and signals an activation event. A second launch therefore hands off to the running instance and exits — so `InstalledApp.Launch` would return a dead process and every subsequent lookup would resolve against **the operator's instance, which points at their real database**. That is the exact failure this design exists to prevent, and nothing currently detects it.
+
+`Preflight.Check` gains a check: if any `NetworkMonitor` process is running, refuse, naming the process id and telling the operator to exit it from the tray. **The runner must not close it for them** — see B for why killing this app is not safe. Operator's decision, recorded 2026-08-20.
+
+**B. An orphaned ETW session stops the app starting.** `TrafficCollector.cs:13` names its kernel session `NetworkMonitorTraffic`. If the app is hard-killed, that session survives, and the next launch hangs before it reaches its shell — reproduced twice at the checkpoint, and the reason Task 7 could never dump a live tree. `TrafficCollector.cs:164-169` already tries to clean up a leftover session by attaching and disposing, but it does not succeed after a kill.
+
+Two consequences:
+
+- `InstalledApp.ShutDown` falls back to `Kill()`, so **a failed run poisons the next one.** Teardown must stop the session — the equivalent of `logman stop NetworkMonitorTraffic -ets` — whenever it had to kill rather than exit gracefully, and say in the report that it did.
+- `Preflight.Check` gains a stale-session check: a `NetworkMonitorTraffic` session running with no `NetworkMonitor` process behind it is a blocker, with the stop command in the message.
+
+Note that closing the main window does **not** exit this app — it closes to tray. Any graceful shutdown has to go through the tray Exit item.
+
+**C. Never assume the app is installed.** Operator's instruction, 2026-08-20: the suite acquires what it needs rather than refusing. When no install is present, the runner downloads the latest release, **verifies its SHA-256 against the `.sha256` asset before running it**, and installs it `/SILENT /SUPPRESSMSGBOXES /NORESTART`. Preflight's not-installed case becomes something it fixes, not something it reports. Keep every other preflight refusal as a refusal.
+
+**Also now settled:** `UMNATHA_DATA_FOLDER` is proven end to end. Launching the real app with it set created `networkmonitor.db`, `Backups` and `Logs` inside the sandbox and left `%LOCALAPPDATA%\UmnathaNetworkMonitor` untouched. Task 1's verification gap is closed.
+
+**D. The app under test is a LOCAL BUILD, not the installed release. Added 2026-08-20 after the first real run, which failed and exposed a contradiction in this plan.**
+
+Spec decision 3 says drive the installed release. But this plan's own three production changes — the `UMNATHA_DATA_FOLDER` override, the chart draw summaries, and the 105 automation identifiers — exist only in this branch's source. **The installed v0.0.12 predates all of them**, verified by scanning the installed binary for `AllDevicesScanNowButton` and finding it absent. Two consequences, both observed on the first run:
+
+- The shell can never be located by automation identifier, so `LaunchPhase` waited 45 seconds and aborted.
+- Far worse: **the installed build ignores `UMNATHA_DATA_FOLDER` because it predates it**, so the fixture was silently bypassed and the run drove the operator's real data folder. The fixture folder held only the seeded `.db` and `settings.json` — no `-wal`, `-shm`, `Logs` or `Backups` — while the real folder's `-wal` and `-shm` were written during the run. No data was lost; these were the app's own ordinary writes. But every safeguard Task 5 built was bypassed, because it protects a folder the app under test was never using.
+
+Driving the installed release requires a release that already ships the test hooks, which cannot exist until the suite that needs them has run. Operator's decision, 2026-08-20 — **option 1**:
+
+- **Phases 01 through 08 drive a locally built binary** — `NetworkMonitor/bin/x64/Debug/net10.0-windows10.0.19041.0/win-x64/NetworkMonitor.exe`, built from the working tree. That binary has the override, the summaries and the identifiers by construction.
+- **Only `UpdateLifecyclePhase` (Task 12) uses installed builds**, which is correct on its own terms: that phase is *about* installing an old release and updating it, so the installed build is the subject rather than the instrument.
+
+**Two guards are required, because this failure was silent.** A run that drives the wrong folder must never again look like a run that merely failed:
+
+1. **Static, at preflight** — the binary about to be driven must contain the override marker. Scan the app folder's assemblies for `UMNATHA_DATA_FOLDER` (it lives in `NetworkMonitor.Core.dll`, from `AppDataFolderResolver.OverrideVariableName`). Absent means refuse, naming the binary and saying it predates the override.
+2. **Behavioural, immediately after launch** — assert the fixture folder gains `networkmonitor.db-wal` within a short, justified timeout. If the app is running and the fixture folder stays inert, it is using a different folder: **abort the whole run at once**, do not continue into the phases. This is the check that would have caught the first run in seconds rather than at teardown.
+
+Rename `InstalledApp` to reflect that it now launches whichever build is under test, and make the choice explicit at the call site rather than implicit.
 
 **Files:**
 - Create: `Tools/UITests/Phases/LaunchPhase.cs`
 - Create: `Tools/UITests/Phases/DevicesPhase.cs`
+- Modify: `Tools/UITests/Runner/Preflight.cs` (A, B, C)
+- Modify: `Tools/UITests/Fixtures/InstalledApp.cs` (B)
 - Modify: `Tools/UITests/Program.cs`
 
 - [ ] **Step 1: Write `LaunchPhase`**

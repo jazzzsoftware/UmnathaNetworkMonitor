@@ -195,7 +195,7 @@ Done - Investigated the two logged errors (2026-08-20). ScanWorker double-dispos
 Done - Add % markers to opacity slider.
 
 UI automated testing - spec written, see Documents/superpowers/specs/2026-08-20-ui-automated-testing-design.md
-
+Fix the kill-orphans-ETW-session defect is in the shipped app
 
 
 
