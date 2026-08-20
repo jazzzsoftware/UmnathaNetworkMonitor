@@ -1,4 +1,5 @@
 using NetworkMonitor.UITests.Driving;
+using NetworkMonitor.UITests.Fixtures;
 
 namespace NetworkMonitor.UITests.Runner
 {
