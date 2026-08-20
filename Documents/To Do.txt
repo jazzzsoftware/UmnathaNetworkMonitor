@@ -194,7 +194,7 @@ Done - Investigated the two logged errors (2026-08-20). ScanWorker double-dispos
     UnauthorizedAccessException was an antivirus scanner briefly refusing the temp-file rename, now retried and reported instead of silently swallowed.
 Done - Add % markers to opacity slider.
 
-UI automated testing
+UI automated testing - spec written, see Documents/superpowers/specs/2026-08-20-ui-automated-testing-design.md
 
 
 

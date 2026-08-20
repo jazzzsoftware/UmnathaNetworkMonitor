@@ -116,6 +116,7 @@
     <File Path="Documents/superpowers/specs/2026-07-31-floating-mini-graph-design.md" />
     <File Path="Documents/superpowers/specs/2026-08-05-horizontal-mini-graph-design.md" />
     <File Path="Documents/superpowers/specs/2026-08-12-chart-colour-schemes-design.md" />
+    <File Path="Documents/superpowers/specs/2026-08-20-ui-automated-testing-design.md" />
   </Folder>
   <Folder Name="/Tools/HistoryRestore/">
     <File Path="Tools/HistoryRestore/HistoryRestore.csproj" />
