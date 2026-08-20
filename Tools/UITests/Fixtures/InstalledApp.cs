@@ -23,8 +23,19 @@ namespace NetworkMonitor.UITests.Fixtures
         private const string ShowHiddenIconsName = "Show hidden icons";
         private const string ExitMenuItemName = "Exit";
 
+        // TrafficCollector.cs:13 names its kernel ETW session; a hard Kill() never reaches the
+        // ct.Register(() => startedSession.Stop()) that a graceful shutdown relies on
+        // (TrafficCollector.cs:114), so the session survives the process and hangs the next launch
+        // before it reaches its shell (reproduced twice at the 2026-08-20 Task 7 checkpoint —
+        // amendment B). CloseThenKill stops it itself whenever it actually had to kill.
+        private const string TrafficSessionName = "NetworkMonitorTraffic";
+
         private static readonly TimeSpan TrayInteractionTimeout = TimeSpan.FromSeconds(5);
         private static readonly TimeSpan GracefulExitTimeout = TimeSpan.FromSeconds(15);
+
+        // logman against a local ETW session answers in well under a second; ten seconds is
+        // generous headroom for a slow trace subsystem, not a wait this is expected to hit.
+        private static readonly TimeSpan LogmanTimeout = TimeSpan.FromSeconds(10);
 
         public static Application Launch(string dataFolder)
         {
@@ -255,8 +266,65 @@ namespace NetworkMonitor.UITests.Fixtures
                     Console.WriteLine($"InstalledApp: Kill() threw and was ignored: {exception.Message}");
                 }
 
+                StopTrafficSessionAfterKill();
             }
 
+        }
+
+        // Amendment B: whenever ShutDown had to kill rather than exit gracefully, the kernel ETW
+        // session it owned is orphaned (see the TrafficSessionName field comment) and must be
+        // stopped here — the app's own next-launch cleanup (TrafficCollector.StopOrphanedSession)
+        // does not reliably succeed against a session left behind by a kill. Best-effort and
+        // always reported, never thrown: a failed cleanup here must not mask the Kill() outcome
+        // above, and Preflight's stale-session check is the backstop if this does not succeed.
+        private static void StopTrafficSessionAfterKill()
+        {
+            bool stopped = TryRunLogman($"stop {TrafficSessionName} -ets");
+
+            if (stopped)
+            {
+                Console.WriteLine($"InstalledApp: stopped the orphaned '{TrafficSessionName}' ETW session left behind by the kill.");
+            }
+            else
+            {
+                Console.WriteLine(
+                    $"InstalledApp: could not confirm the '{TrafficSessionName}' ETW session was stopped after the "
+                    + $"kill. If the next launch hangs before its shell appears, stop it by hand: logman stop {TrafficSessionName} -ets");
+            }
+
+        }
+
+        private static bool TryRunLogman(string arguments)
+        {
+            bool succeeded;
+
+            try
+            {
+
+                using (Process logman = new Process())
+                {
+                    logman.StartInfo = new ProcessStartInfo("logman", arguments)
+                    {
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        CreateNoWindow = true
+                    };
+
+                    logman.Start();
+                    logman.WaitForExit((int)LogmanTimeout.TotalMilliseconds);
+
+                    succeeded = logman.ExitCode == 0;
+                }
+
+            }
+            catch (Exception exception)
+            {
+                Console.WriteLine($"InstalledApp: running 'logman {arguments}' threw and was treated as failure: {exception.Message}");
+                succeeded = false;
+            }
+
+            return succeeded;
         }
     }
 }

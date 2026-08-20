@@ -9,6 +9,7 @@ using NetworkMonitor.Core.Common;
 using NetworkMonitor.UITests.Driving;
 using NetworkMonitor.UITests.Evidence;
 using NetworkMonitor.UITests.Fixtures;
+using NetworkMonitor.UITests.Phases;
 using NetworkMonitor.UITests.Runner;
 
 if (args.Contains("--selftest"))
@@ -33,7 +34,7 @@ if (args.Contains("--dump-tree"))
     return dumpTreeExitCode;
 }
 
-PreflightResult preflight = Preflight.Check();
+PreflightResult preflight = await Preflight.CheckAsync(CancellationToken.None);
 
 if (!preflight.Ready)
 {
@@ -51,8 +52,82 @@ if (!preflight.Ready)
 }
 
 Console.WriteLine($"Preflight passed. Installed version: {Preflight.ReadInstalledVersion()}");
+Console.WriteLine();
 
-return 0;
+int runExitCode = await RunSuiteAsync();
+
+return runExitCode;
+
+// The real run: seeds a throwaway fixture, launches the installed release against it (never the
+// operator's real data folder — see DataFolderFixture/InstalledApp), drives every registered
+// phase and writes the HTML report. Only two phases are registered so far (LaunchPhase,
+// DevicesPhase); later tasks append to the list below as their phases are written.
+static async Task<int> RunSuiteAsync()
+{
+    string artifactFolder = Path.Combine(
+        Path.GetTempPath(),
+        "umnatha-uitests-run",
+        DateTime.Now.ToString("yyyyMMdd-HHmmss"));
+
+    Directory.CreateDirectory(artifactFolder);
+
+    RunEnvironment environment = RunEnvironment.Read();
+    int exitCode;
+
+    try
+    {
+        DataFolderFixture fixture = await DataFolderFixture.CreateAsync();
+
+        Console.WriteLine($"Fixture data folder: {fixture.FolderPath}");
+        Console.WriteLine($"Artifact folder: {artifactFolder}");
+        Console.WriteLine();
+
+        PhaseContext context = new PhaseContext(fixture.FolderPath, artifactFolder, fixture.Counts);
+
+        List<Phase> phases = new List<Phase>
+        {
+            new Phase("01 Launch", true, LaunchPhase.RunAsync),
+            new Phase("02 Devices", false, DevicesPhase.RunAsync)
+        };
+
+        try
+        {
+            RunOutcome outcome = await PhaseRunner.RunAsync(phases, context);
+
+            environment.AppVersionAfter = Preflight.ReadInstalledVersion();
+
+            string reportPath = HtmlReport.Write(outcome, environment, artifactFolder);
+
+            Console.WriteLine();
+            Console.WriteLine(
+                $"Passed: {outcome.PassedCount}  Failed: {outcome.FailedCount}  Skipped: {outcome.SkippedCount}  "
+                + $"Duration: {outcome.TotalDuration.TotalSeconds:0.0}s");
+            Console.WriteLine($"Report: {reportPath}");
+
+            OpenInBrowser(reportPath);
+
+            exitCode = outcome.ExitCode;
+        }
+        finally
+        {
+
+            if (context.Session is not null)
+            {
+                InstalledApp.ShutDown(context.Session.Application);
+                context.Session.Dispose();
+            }
+
+        }
+
+    }
+    catch (Exception failure)
+    {
+        Console.WriteLine($"The suite failed before it could produce a report: {failure}");
+        exitCode = 1;
+    }
+
+    return exitCode;
+}
 
 // Fabricates one passed, one failed (with a real screenshot and tree dump of the desktop) and
 // one skipped StepResult, then renders them through the real HtmlReport. This is how the report

@@ -6,10 +6,10 @@ release, and restores things afterward. Because it installs, uninstalls and rein
 product and touches the operator's real data folder, it refuses to run at all unless the machine
 is genuinely ready for that — see Preflight below.
 
-**Current state:** only the preflight check and the phase-running skeleton exist so far
-(`Runner/Preflight.cs`, `Runner/PhaseRunner.cs` and friends). Nothing drives the app yet — no
-phases are wired into `Program.cs`. Later work adds the FlaUI driving layer, the seeded database
-fixture, the nine phases, and the HTML report.
+**Current state:** the runner, the FlaUI driving layer, the seeded database fixture, the HTML
+report and the first two phases (`Phases/LaunchPhase.cs`, `Phases/DevicesPhase.cs`) all exist and
+are wired into `Program.cs`'s default run. The remaining seven phases (Traffic, Speed Test,
+Reports, Settings, Mini Graph, Purge, the update lifecycle) are later work.
 
 ## The one command
 
@@ -24,20 +24,32 @@ through an install or uninstall.
 
 ## Preflight
 
-Before anything else runs, `Preflight.Check()` verifies:
+Before anything else runs, `Preflight.CheckAsync` verifies:
 
 - The process is elevated.
-- Umnatha Network Monitor is installed (the suite drives the installed release, not a dev build
-  — read from the Inno Setup uninstall registry key, both 32- and 64-bit views).
+- No `NetworkMonitor` process is already running. A second launch would hand off to it
+  (`App.xaml.cs`'s single-instance mutex) and drive the operator's real database instead of the
+  fixture — this is a refusal, naming the process id, and the runner never closes it for you.
+  Exit it from the tray icon (right-click, then Exit) and run again.
+- No `NetworkMonitorTraffic` ETW trace session is running with no `NetworkMonitor` process behind
+  it — almost always a previous hard kill's leftover (`TrafficCollector.cs:13`); the next launch
+  hangs before it reaches its shell while this is present. The blocker names the exact `logman
+  stop NetworkMonitorTraffic -ets` command to clear it.
+- Umnatha Network Monitor is installed. Unlike the checks above, **this one is not just a
+  refusal**: if elevated, the runner downloads the latest GitHub release itself, verifies its
+  SHA-256 against the release's own `.sha256` asset before ever executing it, and installs it
+  `/SILENT /SUPPRESSMSGBOXES /NORESTART` — see `Fixtures/ReleaseInstaller.cs`. Only a failure to
+  acquire or install it (or a lack of elevation to do so) becomes a blocker.
 - No stranded data-folder backup is sitting in `%LOCALAPPDATA%` from a previous run that did not
   clean up after itself (see Recovering a stranded backup, below).
 - At least 3 GB free on the system drive (the update phase downloads two ~75 MB installers and
   copies the data folder aside).
 
 Any blocker prints to the console and the process exits **2** — distinct from **1** (a real test
-failure once phases exist) and **0** (everything passed). Preflight refusing is the correct,
-expected outcome on a machine that has never had the app installed; it is not a bug in the
-runner.
+failure) and **0** (everything passed). `InstalledApp.ShutDown` also plays its part here: whenever
+it has to fall back to `Kill()` rather than a graceful tray exit, it stops the orphaned
+`NetworkMonitorTraffic` session itself and reports whether that succeeded, precisely so the
+stale-session blocker above is the exception, not the routine case.
 
 ## Phase 09 really uninstalls the app
 
@@ -48,9 +60,10 @@ to have the app uninstalled and reinstalled.
 
 ## Where the report lands
 
-Not built yet. Once `Evidence/HtmlReport.cs` exists, a single self-contained HTML report will be
-written under the run's artifact folder (`PhaseContext.ArtifactFolder`), alongside any
-screenshots and UI Automation tree dumps captured on step failure.
+A single self-contained HTML report is written to `%TEMP%\umnatha-uitests-run\<timestamp>\report.html`
+— the run's artifact folder (`PhaseContext.ArtifactFolder`) — alongside any screenshots and UI
+Automation tree dumps captured on step failure, and opened in the default browser once the run
+finishes.
 
 ## Recovering a stranded backup
 

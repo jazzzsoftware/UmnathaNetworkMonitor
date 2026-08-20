@@ -55,6 +55,13 @@ namespace NetworkMonitor.UITests.Driving
             }
         }
 
+        public Window[] TopLevelWindows()
+        {
+            Window[] topLevelWindows = Application.GetAllTopLevelWindows(_automation);
+
+            return topLevelWindows;
+        }
+
         public AutomationElement? ByAutomationId(string automationId)
         {
             Window[] topLevelWindows = Application.GetAllTopLevelWindows(_automation);

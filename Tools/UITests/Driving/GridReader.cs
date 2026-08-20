@@ -46,5 +46,24 @@ namespace NetworkMonitor.UITests.Driving
 
             return cellText;
         }
+
+        // WinUI's ToolTipService is documented to publish an element's tooltip content through UI
+        // Automation's HelpText property, which is how AllDevicesPage/ApprovedDevicesPage/
+        // UnapprovedDevicesPage attach a device's Notes to its Name-column cell (NotesToolTipConverter
+        // returns null — no ToolTip object, hence no HelpText — for a device with no notes).
+        //
+        // UNVERIFIED, same caveat as CellText above: never run against the real app. Whether the
+        // CommunityToolkit DataGrid's cell-level automation peer actually forwards the inner
+        // TextBlock's HelpText up to the cell GridPattern.GetItem returns, rather than leaving it
+        // on a descendant, is exactly what running this suite for real would confirm. ValueOrDefault
+        // returns empty rather than throwing if HelpText is unsupported on this element.
+        public static string CellHelpText(AutomationElement grid, int row, int column)
+        {
+            IGridPattern gridPattern = grid.Patterns.Grid.Pattern;
+            AutomationElement cell = gridPattern.GetItem(row, column);
+            string helpText = cell.Properties.HelpText.ValueOrDefault ?? string.Empty;
+
+            return helpText;
+        }
     }
 }
