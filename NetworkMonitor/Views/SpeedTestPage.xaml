@@ -332,6 +332,7 @@
                     </Grid>
 
                     <chart:SpeedTrendChart
+                        AutomationProperties.AutomationId="SpeedTestLatencyChart"
                         x:Name="LatencyChart"
                         Height="110"
                         Unit="ms"
