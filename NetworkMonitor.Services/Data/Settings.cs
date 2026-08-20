@@ -216,6 +216,21 @@ namespace NetworkMonitor.Services.Data
             set;
         } = false;
 
+        // The size the main window opens at when nothing has been saved yet — first run, or a
+        // settings.json that predates window placement. Held in DIPs and scaled to the window's
+        // DPI at use, so it means the same thing on a 1080p panel and a 4K one at 200%.
+        public int DefaultWindowWidth
+        {
+            get;
+            set;
+        } = 1280;
+
+        public int DefaultWindowHeight
+        {
+            get;
+            set;
+        } = 860;
+
         public int DigestPurgeDays
         {
             get;

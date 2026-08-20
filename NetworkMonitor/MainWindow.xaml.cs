@@ -106,6 +106,11 @@ namespace NetworkMonitor
 
             if (_settings.WindowWidth > 0 && _settings.WindowHeight > 0)
             {
+                RectInt32 workArea = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary).WorkArea;
+
+                int restoredWidth = Math.Min(_settings.WindowWidth, workArea.Width);
+                int restoredHeight = Math.Min(_settings.WindowHeight, workArea.Height);
+
                 WINDOWPLACEMENT placement = new()
                 {
                     Length = Marshal.SizeOf<WINDOWPLACEMENT>(),
@@ -117,12 +122,16 @@ namespace NetworkMonitor
                     {
                         Left = _settings.WindowX,
                         Top = _settings.WindowY,
-                        Right = _settings.WindowX + _settings.WindowWidth,
-                        Bottom = _settings.WindowY + _settings.WindowHeight
+                        Right = _settings.WindowX + restoredWidth,
+                        Bottom = _settings.WindowY + restoredHeight
                     }
                 };
 
                 SetWindowPlacement(_hwnd, ref placement);
+            }
+            else
+            {
+                ApplyDefaultWindowSize();
             }
 
             if (_settings.WindowMaximized && AppWindow.Presenter is OverlappedPresenter presenter)
@@ -188,6 +197,32 @@ namespace NetworkMonitor
 
         }
 
+        // With no saved placement WinUI sizes the window itself and picks something close to the
+        // whole screen. The opening size comes from configuration (Scanner:DefaultWindowWidth /
+        // DefaultWindowHeight in appsettings.json) rather than a fraction of the work area, because
+        // a fraction is wrong on wide desktops — 68% of a 5120-wide work area is a 3482px window.
+        // The configured value is in DIPs and is scaled by the window's DPI, since physical pixels
+        // are what WorkArea and MoveAndResize both speak, then clamped so a small display still
+        // gets a window that fits on it.
+        private void ApplyDefaultWindowSize()
+        {
+            RectInt32 workArea = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary).WorkArea;
+
+            uint dpi = GetDpiForWindow(_hwnd);
+            double scale = dpi > 0 ? dpi / 96.0 : 1.0;
+
+            int width = (int)Math.Round(_settings.DefaultWindowWidth * scale);
+            int height = (int)Math.Round(_settings.DefaultWindowHeight * scale);
+
+            width = Math.Min(width, workArea.Width);
+            height = Math.Min(height, workArea.Height);
+
+            int left = workArea.X + ((workArea.Width - width) / 2);
+            int top = workArea.Y + ((workArea.Height - height) / 2);
+
+            AppWindow.MoveAndResize(new RectInt32(left, top, width, height));
+        }
+
         private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
         {
 
@@ -241,6 +276,9 @@ namespace NetworkMonitor
 
         [DllImport("user32.dll")]
         private static extern bool IsZoomed(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        private static extern uint GetDpiForWindow(IntPtr hWnd);
 
         [StructLayout(LayoutKind.Sequential)]
         private struct POINT
