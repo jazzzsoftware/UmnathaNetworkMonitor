@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <Platforms>x64</Platforms>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>NetworkMonitor.UITests</RootNamespace>
+    <UseWindowsForms>false</UseWindowsForms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\NetworkMonitor.Models\NetworkMonitor.Models.csproj" />
+    <ProjectReference Include="..\..\NetworkMonitor.Core\NetworkMonitor.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FlaUI.Core" Version="5.0.0" />
+    <PackageReference Include="FlaUI.UIA3" Version="5.0.0" />
+    <PackageReference Include="System.Drawing.Common" Version="10.*" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.*" />
+    <!-- Pinned the way the app pins it; the transitive 2.x bundle carries a known advisory. -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
+  </ItemGroup>
+
+  <!--
+    NetworkMonitor.Services is net10.0-windows with UseWinUI, which this plain console host
+    cannot reference without dragging WinUI in. These files plus the Migrations folder are the
+    whole of the DB layer, are platform-neutral, and are what SeedDatabase needs to build a
+    fixture with the app's own schema. Same approach, and same reason, as Tools/MigrationVerify.
+  -->
+  <ItemGroup>
+    <Compile Include="..\..\NetworkMonitor.Services\Data\AppDbContext.cs" Link="Linked\AppDbContext.cs" />
+    <Compile Include="..\..\NetworkMonitor.Services\Data\AppPaths.cs" Link="Linked\AppPaths.cs" />
+    <Compile Include="..\..\NetworkMonitor.Services\Data\AppDbContextDesignTimeFactory.cs" Link="Linked\AppDbContextDesignTimeFactory.cs" />
+    <Compile Include="..\..\NetworkMonitor.Services\Data\DatabaseInitializer.cs" Link="Linked\DatabaseInitializer.cs" />
+    <Compile Include="..\..\NetworkMonitor.Services\Platform\AppLog.cs" Link="Linked\AppLog.cs" />
+    <Compile Include="..\..\NetworkMonitor.Services\Data\Migrations\**\*.cs" LinkBase="Linked\Migrations" />
+  </ItemGroup>
+
+</Project>
