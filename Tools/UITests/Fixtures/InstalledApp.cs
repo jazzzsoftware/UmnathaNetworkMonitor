@@ -4,6 +4,7 @@ using FlaUI.Core.AutomationElements;
 using FlaUI.UIA3;
 using Microsoft.Win32;
 using NetworkMonitor.Core.Common;
+using NetworkMonitor.UITests.Driving;
 using NetworkMonitor.UITests.Runner;
 
 namespace NetworkMonitor.UITests.Fixtures
@@ -24,7 +25,6 @@ namespace NetworkMonitor.UITests.Fixtures
 
         private static readonly TimeSpan TrayInteractionTimeout = TimeSpan.FromSeconds(5);
         private static readonly TimeSpan GracefulExitTimeout = TimeSpan.FromSeconds(15);
-        private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(200);
 
         public static Application Launch(string dataFolder)
         {
@@ -180,22 +180,23 @@ namespace NetworkMonitor.UITests.Fixtures
             return trayIcon;
         }
 
+        // Waits.UntilFound throws on timeout; callers here expect null instead, so the timeout is
+        // caught and converted back rather than propagated — the polling itself (and its single
+        // Thread.Sleep) now lives only in Waits.
         private static AutomationElement? WaitForNamedElement(UIA3Automation automation, string name, TimeSpan timeout)
         {
-            DateTime deadline = DateTime.UtcNow + timeout;
-            AutomationElement? found = null;
+            AutomationElement? found;
 
-            while (DateTime.UtcNow < deadline && found is null)
+            try
             {
-                AutomationElement desktop = automation.GetDesktop();
-
-                found = desktop.FindFirstDescendant(conditionFactory => conditionFactory.ByName(name));
-
-                if (found is null)
-                {
-                    Thread.Sleep(PollInterval);
-                }
-
+                found = Waits.UntilFound(
+                    () => automation.GetDesktop().FindFirstDescendant(conditionFactory => conditionFactory.ByName(name)),
+                    timeout,
+                    $"the '{name}' element to appear");
+            }
+            catch (TimeoutException)
+            {
+                found = null;
             }
 
             return found;
@@ -203,13 +204,16 @@ namespace NetworkMonitor.UITests.Fixtures
 
         private static bool WaitForExit(Application application, TimeSpan timeout)
         {
-            DateTime deadline = DateTime.UtcNow + timeout;
-            bool exited = application.HasExited;
+            bool exited;
 
-            while (DateTime.UtcNow < deadline && !exited)
+            try
             {
-                Thread.Sleep(PollInterval);
-                exited = application.HasExited;
+                Waits.Until(() => application.HasExited, timeout, "the app process to exit");
+                exited = true;
+            }
+            catch (TimeoutException)
+            {
+                exited = false;
             }
 
             return exited;
