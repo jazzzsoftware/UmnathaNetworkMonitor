@@ -10,6 +10,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\NetworkMonitor.Models\NetworkMonitor.Models.csproj" />
+    <!-- AppPaths.cs, linked below, resolves the data folder through Core. -->
+    <ProjectReference Include="..\..\NetworkMonitor.Core\NetworkMonitor.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>
