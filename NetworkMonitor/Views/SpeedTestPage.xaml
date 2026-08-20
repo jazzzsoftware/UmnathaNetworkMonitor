@@ -252,6 +252,8 @@
                         Unit="Mb/s"
                         SecondaryUnit="MB/s"
                         SecondaryDivisor="8"
+                        SeriesLabel="download,upload"
+                        RangeLabel="throughput"
                         Series="{x:Bind ViewModel.ThroughputSeries, Mode=OneWay}" />
 
                 </StackPanel>
@@ -333,6 +335,8 @@
                         x:Name="LatencyChart"
                         Height="110"
                         Unit="ms"
+                        SeriesLabel="latency,jitter"
+                        RangeLabel="latency"
                         Series="{x:Bind ViewModel.LatencySeries, Mode=OneWay}" />
 
                 </StackPanel>

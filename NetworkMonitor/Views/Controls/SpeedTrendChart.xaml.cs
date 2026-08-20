@@ -49,6 +49,20 @@ namespace NetworkMonitor.Views.Controls
                 typeof(SpeedTrendChart),
                 new PropertyMetadata(1.0));
 
+        public static readonly DependencyProperty SeriesLabelProperty =
+            DependencyProperty.Register(
+                nameof(SeriesLabel),
+                typeof(string),
+                typeof(SpeedTrendChart),
+                new PropertyMetadata(string.Empty));
+
+        public static readonly DependencyProperty RangeLabelProperty =
+            DependencyProperty.Register(
+                nameof(RangeLabel),
+                typeof(string),
+                typeof(SpeedTrendChart),
+                new PropertyMetadata(string.Empty));
+
         public SpeedTrendChart()
         {
             InitializeComponent();
@@ -82,6 +96,18 @@ namespace NetworkMonitor.Views.Controls
         {
             get => (double)GetValue(PrimaryDivisorProperty);
             set => SetValue(PrimaryDivisorProperty, value);
+        }
+
+        public string SeriesLabel
+        {
+            get => (string)GetValue(SeriesLabelProperty);
+            set => SetValue(SeriesLabelProperty, value);
+        }
+
+        public string RangeLabel
+        {
+            get => (string)GetValue(RangeLabelProperty);
+            set => SetValue(RangeLabelProperty, value);
         }
 
         private static void OnSeriesChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
@@ -154,10 +180,10 @@ namespace NetworkMonitor.Views.Controls
         {
             string summary = ChartDrawSummary.Format(
                 pointCount,
-                "download,upload",
+                SeriesLabel,
                 peakBitsPerSecond,
                 axisMax,
-                "speed");
+                RangeLabel);
 
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(ChartRoot, summary);
         }
