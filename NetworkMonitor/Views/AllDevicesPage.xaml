@@ -168,6 +168,7 @@
                                 <TextBlock
                                     VerticalAlignment="Center"
                                     ToolTipService.ToolTip="{x:Bind Notes, Converter={StaticResource NotesToolTipConverter}, Mode=OneWay}"
+                                    AutomationProperties.HelpText="{x:Bind Notes, Mode=OneWay}"
                                     Text="{x:Bind DisplayName, Mode=OneWay}" />
 
                                 <Border
