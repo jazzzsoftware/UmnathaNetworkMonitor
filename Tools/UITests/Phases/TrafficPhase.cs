@@ -110,7 +110,7 @@ namespace NetworkMonitor.UITests.Phases
 
         public static Task<IReadOnlyList<StepResult>> RunAsync(PhaseContext context)
         {
-            List<StepResult> steps = new List<StepResult>();
+            StepLog steps = new StepLog(context);
             AppSession session = context.Session
                 ?? throw new InvalidOperationException(
                     "TrafficPhase requires LaunchPhase to have run first and set PhaseContext.Session.");
@@ -120,22 +120,20 @@ namespace NetworkMonitor.UITests.Phases
             navigator.GoTo(NavRoute.Traffic);
             navigator.SelectTab(InternetTabAutomationId);
 
-            steps.AddRange(RunInternetTab(session));
+            RunInternetTab(session, steps);
 
             navigator.SelectTab(LocalTabAutomationId);
 
-            steps.AddRange(RunLocalTab(session));
+            RunLocalTab(session, steps);
 
-            IReadOnlyList<StepResult> result = steps;
+            IReadOnlyList<StepResult> result = steps.Steps;
             Task<IReadOnlyList<StepResult>> completed = Task.FromResult(result);
 
             return completed;
         }
 
-        private static List<StepResult> RunInternetTab(AppSession session)
+        private static void RunInternetTab(AppSession session, StepLog steps)
         {
-            List<StepResult> steps = new List<StepResult>();
-
             steps.AddRange(RunRange(session, "Internet", InternetRange5mButtonAutomationId, FiveMinuteRange, FiveMinuteBuckets, 0L));
             steps.AddRange(RunRange(session, "Internet", InternetRange6hButtonAutomationId, SixHourRange, SixHourBuckets, SeedDatabase.WanNewestRollupBucketDownloadBytes));
             steps.AddRange(RunRange(session, "Internet", InternetRange1hButtonAutomationId, HourRange, HourBuckets, SeedDatabase.WanNewestRollupBucketDownloadBytes));
@@ -147,14 +145,10 @@ namespace NetworkMonitor.UITests.Phases
             steps.Add(AssertRowPresent("The Internet grid lists the second seeded WAN app", internetGrid, GroupNameColumn, WanProcessTwo));
             steps.Add(AssertAllRowHasTraffic("The Internet grid's All Apps row totals the window's traffic", internetGrid, AllAppsRowName, InternetTotalColumn));
             steps.AddRange(RunBucketSelection(session, "Internet", InternetGridAutomationId, AllAppsRowName, InternetTotalColumn));
-
-            return steps;
         }
 
-        private static List<StepResult> RunLocalTab(AppSession session)
+        private static void RunLocalTab(AppSession session, StepLog steps)
         {
-            List<StepResult> steps = new List<StepResult>();
-
             steps.AddRange(RunRange(session, "Local", LocalRange5mButtonAutomationId, FiveMinuteRange, FiveMinuteBuckets, 0L));
             steps.AddRange(RunRange(session, "Local", LocalRange6hButtonAutomationId, SixHourRange, SixHourBuckets, SeedDatabase.LocalNewestRollupBucketDownloadBytes));
             steps.AddRange(RunRange(session, "Local", LocalRange1hButtonAutomationId, HourRange, HourBuckets, SeedDatabase.LocalNewestRollupBucketDownloadBytes));
@@ -171,8 +165,6 @@ namespace NetworkMonitor.UITests.Phases
             steps.AddRange(RunDrillDown(session));
             steps.AddRange(RunLensToggle(session));
             steps.AddRange(RunBucketSelection(session, "Local", LocalGridAutomationId, AllAppsRowName, LocalTotalColumn));
-
-            return steps;
         }
 
         // One range button, then everything that can be said about what the chart drew for it. The

@@ -18,6 +18,14 @@ namespace NetworkMonitor.UITests.Runner
             set;
         }
 
+        // Set by StepLog's constructor, so PhaseRunner can recover what a phase had already
+        // recorded when that phase throws rather than returns.
+        public StepLog? RecordedSteps
+        {
+            get;
+            set;
+        }
+
         public string DataFolder
         {
             get;

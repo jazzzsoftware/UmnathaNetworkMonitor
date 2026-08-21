@@ -56,7 +56,7 @@ namespace NetworkMonitor.UITests.Phases
 
         public static Task<IReadOnlyList<StepResult>> RunAsync(PhaseContext context)
         {
-            List<StepResult> steps = new List<StepResult>();
+            StepLog steps = new StepLog(context);
             Application application = AppUnderTest.LaunchLocalBuild(context.DataFolder);
             AppSession session = new AppSession(application);
 
@@ -87,7 +87,7 @@ namespace NetworkMonitor.UITests.Phases
             steps.Add(CheckMiniGraphWindow(session));
             steps.Add(CheckNoErrorDialog(session));
 
-            IReadOnlyList<StepResult> result = steps;
+            IReadOnlyList<StepResult> result = steps.Steps;
             Task<IReadOnlyList<StepResult>> completed = Task.FromResult(result);
 
             return completed;

@@ -1448,24 +1448,56 @@ DB impact: **none.**
 
 ### Task 10: Phases 05 Reports and 06 Settings
 
+**Amended while implementing, 2026-08-21.**
+
+**A. The ten numeric settings had no automation identifiers, so "every setting" could not have meant them.** Task 7 gave identifiers to the controls the suite drove at the time, and every `NumberBox` on the Settings page was left without one — no `AutomationId`, and no `x:Name` to stand in for one either. That is the scan interval, the traffic sampling interval, the three retention windows, the host range, the ping timeout, the parallel-ping count and the digest hour: exactly the settings whose "saves but does not persist" failure mode this phase exists to catch. Ten identifiers added to `SettingsPage.xaml` (additive, no behaviour change, no migration), and the phase drives all ten.
+
+**B. A failed step still captured no evidence, so it was fixed here rather than left to Task 13.** The README and the report both promised screenshots and tree dumps "on step failure" and neither existed for the ordinary case — only a phase that *threw* produced any. With around twenty assertions in the Settings phase alone, each capable of failing on a control that moved, diagnosing by hand the way Task 9 had to was not sustainable. `Runner/StepLog.cs` now captures at the moment a failure is recorded, not at the end of the phase: a screenshot taken later shows a screen the failure did not happen on, which is worse than none because it looks like evidence. Every phase records through it.
+
+**C. The save dialog and the shell-handler machinery moved out of `DevicesPhase`.** Both Reports exports go through the same `Win32FileSaveDialog` the CSV export uses, and both hand the written file to `ShellLauncher.Open` afterwards — the app opens what it just exported, putting an external program on screen with focus. That was ~450 lines of hard-won handling (the fix-round-2 read-back guard, the label-based name box, the error-dialog sibling check, the registry handler resolution, the already-running precondition) living privately in one phase. Now `Driving/SaveFileDialog.cs`, `Driving/ShellFileHandler.cs` (parameterised by extension rather than hardcoded to `.csv`) and `Driving/UiaText.cs`, with `DevicesPhase` calling them; it lost ~575 lines.
+
+**D. The logging toggle cannot be exercised, and the phase proves that rather than assuming it.** `SettingsViewModel.LoggingToggleEnabled` compiles to `false` in a Debug build (logging is forced on), and amendment D on Task 8 makes the app under test a Debug build by construction. The step is skipped — but only after reading the control's own `IsEnabled` and finding it false, so the report states an observation. If a future build ever enables it, that step fails instead of skipping quietly.
+
+**E. Run at startup does not touch `settings.json` at all.** `WindowsStartupService` creates a logon **scheduled task** at highest privileges pointing at whichever executable is running — here the Debug build under test. That is a change to the operator's machine, outside the fixture sandbox and outside anything `RealDataGuard` restores. So: it is driven only when no such task already exists (if the operator uses the feature, their task is left strictly alone and the step skips saying so), the assertion is made against `schtasks` itself, and the delete runs in a `finally` whatever happens.
+
+**F. The control inventory in this task's step 2 does not match the page.** It called for 5 combos and 3 radios; the Settings page has two combo boxes (speed units, chart scheme) and two orientation radio buttons. The other counts hold. The phase covers what is there — 8 toggles round-tripped plus the skipped logging one, 2 combos, 6 check boxes, 2 radios, the opacity slider, the subnet text box and the ten numeric boxes from amendment A.
+
+**H. A button that opens a modal dialog must be CLICKED, not invoked — the pattern deadlocks.** `InvokePattern.Invoke()` runs the handler and does not return until that handler does. Both Reports exports reach `Win32FileSaveDialog.PickSavePath`, a blocking modal call on the app's UI thread, so the handler cannot return until the dialog is dismissed — and the only code that would dismiss it was the code sitting inside `Invoke()`. Two runs deadlocked there for ~25 seconds until FlaUI's own UIA timeout fired, leaving the dialog open (its screenshot showed the *suggested* file name untouched, proving the line that types the path was never reached) and taking the rest of the phase with it. `DevicesPhase` never hit this because it clicks with the mouse, which posts input and returns. Both export buttons now click; the distinction is documented at the call site.
+
+**I. One dialog left open fails every phase after it, so nothing may leave one behind.** A `ContentDialog` is modal to the window and blocks UIA calls to it, so the failures it causes name the wrong thing entirely — a run on 2026-08-21 reported ten failures across four phases from a single "Import Approved Devices" dialog that a throw had left on screen. Three changes: `SaveFileDialog` now waits for Enter to close the dialog and only falls back to the accept button if it did not (reaching into an already-destroyed window was what threw in the first place); a failed export dismisses both the native dialog and any app dialog; and `PhaseRunner` clears the front before every phase, so one phase's mess cannot spread. `AppDialogs` deliberately never matches a button named "Close" — the window's own title bar has one, and clicking it would close the app under test.
+
+**J. `PhaseRunner` used to erase everything a phase had recorded when it later threw.** The catch replaced the phase's step list with one "phase completed without throwing" failure, so an abort hid both the assertions that had passed and — in the run that prompted this — the two failed steps that explained the abort. The recorded steps are now kept and the abort appended to them. This is what made the deadlock in H diagnosable at all.
+
+**K. Per-step timing, at the operator's request during the task.** The report already showed each phase's elapsed time and the run's total; what was missing was where the time went inside a phase. Each step now carries the clock time it was recorded and how long the work behind it took, and the phase and run headers carry wall-clock start times. It paid for itself immediately: "export 14.0s, then Edit 11.2s and Delete 11.0s" read as three unrelated failures until the timings showed two of them were just timeouts waiting behind the first one's dialog.
+
+**G. Reports: the history count moves under the phase's own feet.** "Generate now" adds a real report to the fixture database, so the History tab's expected count is the seeded three plus one, and the delete step then takes it back down. Asserting `SeedCounts.DigestReports` flat would fail for the right reason in the wrong place.
+
 **Files:**
 - Create: `Tools/UITests/Phases/ReportsPhase.cs`
 - Create: `Tools/UITests/Phases/SettingsPhase.cs`
+- Create: `Tools/UITests/Driving/SaveFileDialog.cs`, `Tools/UITests/Driving/ShellFileHandler.cs`, `Tools/UITests/Driving/UiaText.cs` (C)
+- Create: `Tools/UITests/Runner/StepLog.cs` (B), `Tools/UITests/Fixtures/SettingsFileReader.cs`
+- Modify: `NetworkMonitor/Views/SettingsPage.xaml` (A — ten automation identifiers)
+- Modify: `Tools/UITests/Phases/DevicesPhase.cs` (C), the other phases (B), `Tools/UITests/Program.cs`
 
-- [ ] **Step 1: Write `ReportsPhase`**
+- [x] **Step 1: Write `ReportsPhase`**
 
 The three seeded digests: the list shows them, one renders, PDF export writes a file to the fixture folder and the file is non-empty and starts with `%PDF`. The **24-hour digest schedule is not tested** — it is bound to wall-clock time; only the output is reachable.
 
-- [ ] **Step 2: Write `SettingsPhase`**
+- [x] **Step 2: Write `SettingsPhase`**
 
 Every setting the UI exposes, round-tripped through `settings.json` **on disk in the fixture folder**, not just read back from the control. For each: change it, wait for the save, read the JSON, assert the new value, restore it. This is the phase that catches a setting that appears to save but does not — the class of defect commit `3a822b8` fixed.
 
 Cover the 9 toggles, 5 combos, 6 checks, 3 radios and the opacity slider. The chart colour scheme combo drives the v0.0.12 feature and is worth an explicit assertion that the scheme id lands in the JSON.
 
-- [ ] **Step 3: Run and commit**
+- [x] **Step 3: Run and commit**
 
 Run (elevated): `dotnet run --project Tools/UITests`
 Expected: Exit 0, six phases green.
+
+**Run on 2026-08-21, five times.** Every failure along the way was a defect in how the suite drives the app, not a flaky test, and each is recorded in the amendments above: 75 passed / 10 failed (one import dialog blocking four phases), 87 / 4, 112 / 9 (the phase now reached its assertions, exposing the keystroke bug), 120 / 0, and a final confirmation run. **Exit 0, 120 passed, 0 failed, 6 skipped, 68.2s** across all six phases. The Settings phase alone fell from 106.6s to a few seconds once its keystrokes actually committed — 70 seconds of that had been seven ten-second waits for saves that could never happen.
+
+The six skips each carry their reason in the report: the two 5-minute peak floors (Task 9), the unrun speed test (Task 9), the logging toggle (amendment D), Run at startup (amendment E — the operator already has that scheduled task), and the unapproved-only toast check box, which the app disables while toasts are off.
 
 ```bash
 git add Tools/UITests/Phases/

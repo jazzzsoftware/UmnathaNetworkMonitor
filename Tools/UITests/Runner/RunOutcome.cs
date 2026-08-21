@@ -2,9 +2,10 @@ namespace NetworkMonitor.UITests.Runner
 {
     public sealed class RunOutcome
     {
-        public RunOutcome(IReadOnlyList<PhaseResult> phases, TimeSpan totalDuration)
+        public RunOutcome(IReadOnlyList<PhaseResult> phases, DateTime startedAt, TimeSpan totalDuration)
         {
             Phases = phases;
+            StartedAt = startedAt;
             TotalDuration = totalDuration;
         }
 
@@ -13,10 +14,17 @@ namespace NetworkMonitor.UITests.Runner
             get;
         }
 
+        public DateTime StartedAt
+        {
+            get;
+        }
+
         public TimeSpan TotalDuration
         {
             get;
         }
+
+        public DateTime FinishedAt => StartedAt + TotalDuration;
 
         public int PassedCount => CountSteps(StepOutcome.Passed);
 

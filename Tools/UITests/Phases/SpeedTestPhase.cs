@@ -72,7 +72,7 @@ namespace NetworkMonitor.UITests.Phases
 
         public static Task<IReadOnlyList<StepResult>> RunAsync(PhaseContext context)
         {
-            List<StepResult> steps = new List<StepResult>();
+            StepLog steps = new StepLog(context);
             AppSession session = context.Session
                 ?? throw new InvalidOperationException(
                     "SpeedTestPhase requires LaunchPhase to have run first and set PhaseContext.Session.");
@@ -105,7 +105,7 @@ namespace NetworkMonitor.UITests.Phases
                 + "by nothing in this suite, and the fixture keeps SpeedTestEnabled off so the background worker "
                 + "does not add results mid-run either."));
 
-            IReadOnlyList<StepResult> result = steps;
+            IReadOnlyList<StepResult> result = steps.Steps;
             Task<IReadOnlyList<StepResult>> completed = Task.FromResult(result);
 
             return completed;

@@ -3,11 +3,8 @@ using System.Runtime.InteropServices;
 using System.Text;
 using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Definitions;
-using FlaUI.Core.Input;
 using FlaUI.Core.Patterns;
-using FlaUI.Core.WindowsAPI;
 using FlaUI.UIA3;
-using Microsoft.Win32;
 using NetworkMonitor.UITests.Driving;
 using NetworkMonitor.UITests.Evidence;
 using NetworkMonitor.UITests.Runner;
@@ -55,6 +52,7 @@ namespace NetworkMonitor.UITests.Phases
         private const string EditedFriendlyName = "UI Test Renamed Device";
         private const string DeleteTargetHostname = "printer-office";
         private const string ExportedCsvFileName = "approved-devices-export.csv";
+        private const string CsvExtension = ".csv";
 
         // The Windows common item dialog (IFileDialog and GetOpenFileNameW both render the same
         // Vista+ dialog on this OS — Win32FileSaveDialog.PickSavePath and OpenFileDialog.Show use
@@ -119,24 +117,9 @@ namespace NetworkMonitor.UITests.Phases
         // report a working feature as broken.
         private static readonly TimeSpan DataChangeTimeout = TimeSpan.FromSeconds(15);
 
-        // A native dialog closing after a successful accept is near-instant; five seconds is
-        // generous headroom while still being short enough that a stuck dialog is caught and
-        // dumped well before DataChangeTimeout gives up waiting for a file that was never written.
-        private static readonly TimeSpan AcceptConfirmTimeout = TimeSpan.FromSeconds(5);
-
-        // A CloseMainWindow() request on a simple CSV viewer (no unsaved changes to prompt about,
-        // since this phase never edits the file) is answered in well under a second; five seconds
-        // is generous headroom before falling back to Kill(), not a wait this is expected to hit.
-        private static readonly TimeSpan ExportHandlerCloseTimeout = TimeSpan.FromSeconds(5);
-
-        // ShellLauncher.Open's Process.Start returns almost immediately, but a heavyweight
-        // handler like Excel can take a few seconds to actually register in the process table;
-        // generous so a genuinely slow-starting handler is still caught, not raced past.
-        private static readonly TimeSpan HandlerAppearTimeout = TimeSpan.FromSeconds(10);
-
         public static Task<IReadOnlyList<StepResult>> RunAsync(PhaseContext context)
         {
-            List<StepResult> steps = new List<StepResult>();
+            StepLog steps = new StepLog(context);
             AppSession session = context.Session
                 ?? throw new InvalidOperationException(
                     "DevicesPhase requires LaunchPhase to have run first and set PhaseContext.Session.");
@@ -215,7 +198,7 @@ namespace NetworkMonitor.UITests.Phases
             steps.AddRange(RunEditDevice(session));
             steps.Add(RunDeleteDevice(session));
 
-            IReadOnlyList<StepResult> result = steps;
+            IReadOnlyList<StepResult> result = steps.Steps;
             Task<IReadOnlyList<StepResult>> completed = Task.FromResult(result);
 
             return completed;
@@ -412,7 +395,7 @@ namespace NetworkMonitor.UITests.Phases
 
             for (int descendantIndex = 0; descendantIndex < descendants.Length && matchedText.Length == 0; descendantIndex++)
             {
-                string candidateText = TryReadName(descendants[descendantIndex]);
+                string candidateText = UiaText.NameOrEmpty(descendants[descendantIndex]);
 
                 if (candidateText.Contains(marker, StringComparison.Ordinal))
                 {
@@ -422,22 +405,6 @@ namespace NetworkMonitor.UITests.Phases
             }
 
             return matchedText;
-        }
-
-        private static string TryReadName(AutomationElement element)
-        {
-            string name;
-
-            try
-            {
-                name = element.Name;
-            }
-            catch (Exception)
-            {
-                name = string.Empty;
-            }
-
-            return name;
         }
 
         // Fix round 2 (2026-08-20): a real ContentDialog Save click threw NoClickablePointException
@@ -510,260 +477,6 @@ namespace NetworkMonitor.UITests.Phases
             element.Click();
         }
 
-        private static void DriveCommonFileDialog(string filePath, string artifactFolder)
-        {
-
-            using (UIA3Automation automation = new UIA3Automation())
-            {
-                AutomationElement desktop = automation.GetDesktop();
-                AutomationElement dialogWindow = Waits.UntilFound(
-                    () => desktop.FindFirstDescendant(conditionFactory => conditionFactory.ByClassName(CommonFileDialogClassName)),
-                    ControlTimeout,
-                    "the native file dialog to appear");
-
-                AutomationElement fileNameBox = FindFileNameBoxWithDiagnostics(dialogWindow, artifactFolder);
-                IValuePattern fileNameValuePattern = fileNameBox.Patterns.Value.Pattern;
-
-                fileNameValuePattern.SetValue(filePath);
-
-                // Fix round 2 (2026-08-20): the operator watched a real run type a path into the
-                // dialog's search box (found by the old positional fallback) instead of the file
-                // name box; Windows rejected the illegal backslash/colon characters that box does
-                // not accept, and nothing caught it — the step just timed out later looking for
-                // the accept button's effect. Reading the value back and comparing it is the
-                // guard: whatever control this is, if it did not accept what was just written,
-                // stop here and say exactly which control was found rather than clicking accept.
-                string actualValue = fileNameValuePattern.Value.ValueOrDefault ?? string.Empty;
-
-                if (!string.Equals(actualValue, filePath, StringComparison.Ordinal))
-                {
-                    throw new InvalidOperationException(
-                        "Set the file dialog's file name box to '" + filePath + "', but reading it back gave '"
-                        + actualValue + "'. The control actually found was " + DescribeControl(fileNameBox)
-                        + " -- this is a wrong control, not a slow one; see fix round 2 in the task report.");
-                }
-
-                // ValuePattern.SetValue updates the control's UIA-visible text (the read-back
-                // above confirms that much), but a Win32 ComboBoxEx hosted by the shell's own Save
-                // dialog does not always treat that the same as a real keystroke for the purpose
-                // of its own internal "what did the user actually type" state -- clicking Save
-                // right after SetValue alone left the dialog sitting open, unmoved, in a live run.
-                // Focusing the control and pressing Enter is what a person driving this dialog
-                // does to commit a typed name, and it exercises the same code path Save's own
-                // click handler reads from.
-                fileNameBox.Focus();
-                Keyboard.Press(VirtualKeyShort.RETURN);
-
-                AutomationElement? acceptButton = dialogWindow.FindFirstDescendant(CommonFileDialogAcceptButtonId);
-
-                if (acceptButton is not null)
-                {
-                    Invoke(acceptButton);
-                }
-
-                // Fix round 2 (2026-08-20): a Windows message box (the illegal-character error the
-                // operator saw) is also class "#32770" -- a second, separate top-level window, not
-                // a descendant of the file dialog. If one appears after accept, read its text into
-                // the failure now rather than letting the caller wait out ControlTimeout looking
-                // for something else while the real answer sits on screen.
-                string? errorDialogText = TryReadErrorDialogText(desktop);
-
-                if (errorDialogText is not null)
-                {
-                    throw new InvalidOperationException("The file dialog reported an error after accepting: " + errorDialogText);
-                }
-
-                // A second, distinct evidence point: the read-back guard above already proved the
-                // right control received the right text, but that alone does not prove accept
-                // actually confirmed the dialog. If it is still open this long after the click,
-                // dump its live structure now -- a caller waiting on a file that never appears on
-                // disk otherwise has nothing to diagnose from.
-                bool dialogClosed;
-
-                try
-                {
-                    Waits.Until(
-                        () => desktop.FindFirstDescendant(conditionFactory => conditionFactory.ByClassName(CommonFileDialogClassName)) is null,
-                        AcceptConfirmTimeout,
-                        "the file dialog to close after accepting");
-
-                    dialogClosed = true;
-                }
-                catch (TimeoutException)
-                {
-                    dialogClosed = false;
-                }
-
-                if (!dialogClosed)
-                {
-                    string dumpPath = UiaTreeDumper.Dump(dialogWindow, artifactFolder, "file-dialog-did-not-close");
-
-                    throw new InvalidOperationException(
-                        "The file dialog was still open " + AcceptConfirmTimeout.TotalSeconds
-                        + "s after clicking its accept button (AutomationId '" + CommonFileDialogAcceptButtonId
-                        + "'); its structure is dumped at " + dumpPath + ".");
-                }
-
-            }
-
-        }
-
-        // Dumps the dialog's real tree to the artifact folder before letting a lookup failure
-        // propagate — the native file dialog is exactly the part of this phase with no live
-        // evidence to diagnose from otherwise (unlike a phase abort, an individual step failure
-        // captures nothing today), and guessing again without it is how fix round 2's original
-        // "first Edit anywhere" mistake happened in the first place.
-        private static AutomationElement FindFileNameBoxWithDiagnostics(AutomationElement dialogWindow, string artifactFolder)
-        {
-            AutomationElement resolved;
-
-            try
-            {
-                resolved = FindFileNameBox(dialogWindow);
-            }
-            catch (TimeoutException)
-            {
-                string dumpPath = UiaTreeDumper.Dump(dialogWindow, artifactFolder, "file-dialog-structure");
-
-                Console.WriteLine($"DevicesPhase: could not locate the file dialog's name box; its real structure is dumped at {dumpPath}");
-
-                throw;
-            }
-
-            return resolved;
-        }
-
-        // Fix round 2 (2026-08-20): the file dialog's actual input control is a ComboBox (or the
-        // pane hosting one) carrying the accessible name "File name:" -- its own AutomationId is
-        // whatever the current Windows version happens to assign, but this label is what a person
-        // (or a screen reader) actually reads, so it is the specific, non-positional way to find
-        // it. A second real run showed AutomationId "1148" itself resolving to the ComboBox
-        // wrapper (not its Edit child) for the Import dialog, where it had been absent entirely
-        // for the Export dialog moments before -- so both the known-id path and the label
-        // fallback are normalised through the same ResolveEditableControl rule below, rather than
-        // only the fallback drilling into the Edit child.
-        private static AutomationElement FindFileNameBox(AutomationElement dialogWindow)
-        {
-            AutomationElement? byKnownId = dialogWindow.FindFirstDescendant(CommonFileDialogNameBoxId);
-            AutomationElement control = byKnownId ?? FindFileNameControlByLabel(dialogWindow);
-            AutomationElement resolved = ResolveEditableControl(control);
-
-            return resolved;
-        }
-
-        private static AutomationElement FindFileNameControlByLabel(AutomationElement dialogWindow)
-        {
-            AutomationElement labelledControl = Waits.UntilFound(
-                () => dialogWindow.FindFirstDescendant(
-                    conditionFactory => conditionFactory.ByName(FileNameLabelText)
-                        .And(conditionFactory.ByControlType(ControlType.ComboBox).Or(conditionFactory.ByControlType(ControlType.Edit)))),
-                ControlTimeout,
-                "the file dialog's ComboBox or Edit control labelled '" + FileNameLabelText
-                    + "' (AutomationId '" + CommonFileDialogNameBoxId + "' was not present)");
-
-            return labelledControl;
-        }
-
-        // The control's own editable text lives on a nested Edit child when it is a ComboBox
-        // wrapper; if it is already an Edit, it is used as-is.
-        private static AutomationElement ResolveEditableControl(AutomationElement control)
-        {
-            AutomationElement? editChild = control.ControlType == ControlType.Edit
-                ? null
-                : control.FindFirstDescendant(conditionFactory => conditionFactory.ByControlType(ControlType.Edit));
-
-            AutomationElement resolved = editChild ?? control;
-
-            return resolved;
-        }
-
-        // A message box shares the file dialog's window class, so it shows up as a second,
-        // separate top-level "#32770" window rather than a descendant of the first -- this is a
-        // sibling-window check, not a tree search within the dialog itself.
-        private static string? TryReadErrorDialogText(AutomationElement desktop)
-        {
-            AutomationElement[] dialogClassWindows = desktop.FindAllDescendants(
-                conditionFactory => conditionFactory.ByClassName(CommonFileDialogClassName));
-            string? errorText = null;
-
-            if (dialogClassWindows.Length > 1)
-            {
-                AutomationElement errorWindow = dialogClassWindows[dialogClassWindows.Length - 1];
-                string collectedText = CollectDialogText(errorWindow);
-
-                errorText = collectedText.Length > 0 ? collectedText : TryReadName(errorWindow);
-            }
-
-            return errorText;
-        }
-
-        private static string CollectDialogText(AutomationElement dialogRoot)
-        {
-            AutomationElement[] textDescendants = dialogRoot.FindAllDescendants(
-                conditionFactory => conditionFactory.ByControlType(ControlType.Text));
-            List<string> fragments = new List<string>();
-
-            foreach (AutomationElement textElement in textDescendants)
-            {
-                string fragmentText = TryReadName(textElement);
-
-                if (fragmentText.Length > 0)
-                {
-                    fragments.Add(fragmentText);
-                }
-
-            }
-
-            string combined = string.Join(" | ", fragments);
-
-            return combined;
-        }
-
-        // Mirrors UiaTreeDumper's own defensive property reads: naming the control that was
-        // actually found (its control type, AutomationId and Name) is the whole point of the
-        // read-back guard above, so this must not itself throw and blank the message it is for.
-        private static string DescribeControl(AutomationElement element)
-        {
-            string controlType = TryReadControlType(element);
-            string automationId = TryReadAutomationId(element);
-            string name = TryReadName(element);
-            string description = controlType + " (AutomationId='" + automationId + "', Name='" + name + "')";
-
-            return description;
-        }
-
-        private static string TryReadControlType(AutomationElement element)
-        {
-            string controlType;
-
-            try
-            {
-                controlType = element.ControlType.ToString();
-            }
-            catch (Exception)
-            {
-                controlType = "?";
-            }
-
-            return controlType;
-        }
-
-        private static string TryReadAutomationId(AutomationElement element)
-        {
-            string automationId;
-
-            try
-            {
-                automationId = element.AutomationId;
-            }
-            catch (Exception)
-            {
-                automationId = "?";
-            }
-
-            return automationId;
-        }
-
         // Wrapped in one try/catch rather than letting a dialog-automation failure throw out of
         // RunAsync: this is the least certain part of the phase (a native OS dialog, plus
         // ShellLauncher.Open launching an uncontrolled external process — see the comment inline
@@ -782,8 +495,8 @@ namespace NetworkMonitor.UITests.Phases
             // tell "the operator's own workbook" apart from "the one this step just wrote" at all.
             // Checked before Export is even clicked, so a real precondition failure is reported
             // by name instead of guessed at.
-            string csvHandlerProcessName = ResolveCsvHandlerProcessName();
-            string preExistingHandlerBlocker = FindPreExistingHandlerProcessBlocker(csvHandlerProcessName);
+            string csvHandlerProcessName = ShellFileHandler.ResolveHandlerProcessName(CsvExtension);
+            string preExistingHandlerBlocker = ShellFileHandler.FindPreExistingHandlerBlocker(csvHandlerProcessName, CsvExtension);
 
             if (preExistingHandlerBlocker.Length > 0)
             {
@@ -803,7 +516,7 @@ namespace NetworkMonitor.UITests.Phases
                         "the Export CSV button");
 
                     Invoke(exportButton);
-                    DriveCommonFileDialog(exportPath, artifactFolder);
+                    SaveFileDialog.SaveTo(exportPath, artifactFolder);
 
                     Waits.Until(() => File.Exists(exportPath), DataChangeTimeout, "the exported CSV file to appear on disk");
 
@@ -816,7 +529,7 @@ namespace NetworkMonitor.UITests.Phases
                     // into whichever step ran next. The precondition check above guarantees no
                     // instance of this process name was running before the export click, so any
                     // instance found now was started by it.
-                    CloseExportHandlerProcess(csvHandlerProcessName, exportPath);
+                    ShellFileHandler.CloseOpenedFile(csvHandlerProcessName, exportPath);
                     AssertForegroundWindowBelongsToAppUnderTest(session);
 
                     string exportedCsv = File.ReadAllText(exportPath);
@@ -840,7 +553,7 @@ namespace NetworkMonitor.UITests.Phases
                         "the Import CSV button");
 
                     Invoke(importButton);
-                    DriveCommonFileDialog(exportPath, artifactFolder);
+                    SaveFileDialog.SaveTo(exportPath, artifactFolder);
 
                     // Fix round 2 (2026-08-20): searching by ByClassName("ContentDialog")
                     // consistently failed to find this dialog across several real runs (the Edit
@@ -899,274 +612,19 @@ namespace NetworkMonitor.UITests.Phases
                     // supported") — consistent with a native Save/Open dialog left open and modal
                     // to the main window, blocking every step that runs after this one.
                     // Best-effort recovery so this step's failure stays this step's failure.
+                    //
+                    // Task 10 added the second half. The native dialog is not the only thing that
+                    // can be left holding the front: a run threw *after* the import succeeded and
+                    // left the app's own "Import Approved Devices" result dialog open, which is
+                    // modal to the window and cost the Edit and Delete steps 11 seconds each
+                    // waiting for dialogs that could never appear behind it.
                     TryDismissStrayFileDialog();
+                    AppDialogs.DismissIfOpen(session);
                 }
 
             }
 
             return steps;
-        }
-
-        // Fix round 2 (2026-08-20): resolves the real, per-user default handler for .csv rather
-        // than assuming "Excel" — Windows records the user's actual choice under
-        // FileExts\.csv\UserChoice (falling back to the class-registered default), and the
-        // handler's own registered open command names the executable. Best-effort: an empty
-        // result disables both the precondition check and the post-export close, which is the
-        // safe default (never guess a process name to search for or close).
-        private static string ResolveCsvHandlerProcessName()
-        {
-            string processName = string.Empty;
-
-            try
-            {
-                string progId = ReadCsvProgId();
-
-                if (progId.Length > 0)
-                {
-                    string commandLine = ReadShellOpenCommand(progId);
-                    string executablePath = ExtractExecutablePath(commandLine);
-
-                    if (executablePath.Length > 0)
-                    {
-                        processName = Path.GetFileNameWithoutExtension(executablePath);
-                    }
-
-                }
-
-            }
-            catch (Exception exception)
-            {
-                Console.WriteLine($"DevicesPhase: could not resolve the .csv file association: {exception.Message}");
-            }
-
-            return processName;
-        }
-
-        private static string ReadCsvProgId()
-        {
-            string progId = string.Empty;
-
-            using (RegistryKey? userChoiceKey = Registry.CurrentUser.OpenSubKey(
-                @"Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.csv\UserChoice"))
-            {
-
-                if (userChoiceKey is not null)
-                {
-                    progId = userChoiceKey.GetValue("ProgId") as string ?? string.Empty;
-                }
-
-            }
-
-            if (progId.Length == 0)
-            {
-
-                using (RegistryKey? classesKey = Registry.ClassesRoot.OpenSubKey(".csv"))
-                {
-
-                    if (classesKey is not null)
-                    {
-                        progId = classesKey.GetValue(null) as string ?? string.Empty;
-                    }
-
-                }
-
-            }
-
-            return progId;
-        }
-
-        private static string ReadShellOpenCommand(string progId)
-        {
-            string command = string.Empty;
-
-            using (RegistryKey? commandKey = Registry.ClassesRoot.OpenSubKey(progId + @"\shell\open\command"))
-            {
-
-                if (commandKey is not null)
-                {
-                    command = commandKey.GetValue(null) as string ?? string.Empty;
-                }
-
-            }
-
-            return command;
-        }
-
-        private static string ExtractExecutablePath(string commandLine)
-        {
-            string executablePath = string.Empty;
-
-            if (commandLine.Length > 0)
-            {
-
-                if (commandLine.StartsWith("\"", StringComparison.Ordinal))
-                {
-                    int closingQuoteIndex = commandLine.IndexOf('"', 1);
-
-                    executablePath = closingQuoteIndex > 0 ? commandLine.Substring(1, closingQuoteIndex - 1) : commandLine;
-                }
-                else
-                {
-                    int spaceIndex = commandLine.IndexOf(' ');
-
-                    executablePath = spaceIndex > 0 ? commandLine.Substring(0, spaceIndex) : commandLine;
-                }
-
-            }
-
-            return executablePath;
-        }
-
-        // ShellLauncher.Open's Process.Start call returns almost immediately, but the handler
-        // process itself can take a moment longer to actually appear in the process table --
-        // waited for explicitly rather than assumed already present by the time this runs, so a
-        // handler that is merely slow to start is still found and closed instead of this method
-        // racing ahead of it and finding nothing.
-        private static Process[] WaitForHandlerProcesses(string handlerProcessName)
-        {
-            Process[] found = Array.Empty<Process>();
-
-            try
-            {
-                Waits.Until(
-                    () =>
-                    {
-                        found = Process.GetProcessesByName(handlerProcessName);
-
-                        return found.Length > 0;
-                    },
-                    HandlerAppearTimeout,
-                    $"a '{handlerProcessName}' process to appear after ShellLauncher.Open");
-            }
-            catch (TimeoutException)
-            {
-                // Nothing appeared -- nothing to close. Best-effort cleanup, not a requirement:
-                // some environments may not actually launch a visible handler for every file type.
-            }
-
-            return found;
-        }
-
-        // Operator's ruling (2026-08-20 fix round 2): closing only what this step's own export
-        // opened is safe only if nothing of that kind was already running before the click —
-        // Excel (and handlers like it) can open a file as another window inside an existing
-        // process rather than starting a new one, which would make "close only mine" impossible
-        // to promise honestly after the fact. So this runs before Export is even clicked, and a
-        // match here is a precondition failure, not something to click through and guess about.
-        private static string FindPreExistingHandlerProcessBlocker(string handlerProcessName)
-        {
-            string blocker = string.Empty;
-
-            if (handlerProcessName.Length > 0)
-            {
-                Process[] matchingProcesses = Process.GetProcessesByName(handlerProcessName);
-
-                if (matchingProcesses.Length > 0)
-                {
-                    int[] processIds = new int[matchingProcesses.Length];
-
-                    for (int index = 0; index < matchingProcesses.Length; index++)
-                    {
-                        processIds[index] = matchingProcesses[index].Id;
-                        matchingProcesses[index].Dispose();
-                    }
-
-                    blocker =
-                        $"A '{handlerProcessName}' process (the .csv file handler) is already running "
-                        + $"(pid(s) {string.Join(", ", processIds)}) before Export was even clicked. This step "
-                        + "cannot promise it will close only what its own export opens if that handler might "
-                        + "reuse this existing process instead of starting a new one — close it by hand first.";
-                }
-
-            }
-
-            return blocker;
-        }
-
-        // The precondition check above guarantees this process name was not running before the
-        // export click, so any instance found now was started by ShellLauncher.Open — closed by
-        // name and window title together as a final sanity check, never by name alone.
-        private static void CloseExportHandlerProcess(string handlerProcessName, string exportedFilePath)
-        {
-
-            if (handlerProcessName.Length > 0)
-            {
-                string exportedFileName = Path.GetFileName(exportedFilePath);
-                Process[] matchingProcesses = WaitForHandlerProcesses(handlerProcessName);
-
-                foreach (Process candidate in matchingProcesses)
-                {
-
-                    try
-                    {
-                        CloseSingleExportHandlerProcess(candidate, exportedFileName);
-                    }
-                    catch (Exception exception)
-                    {
-                        Console.WriteLine($"DevicesPhase: could not close process {candidate.Id} ('{handlerProcessName}'): {exception.Message}");
-                    }
-                    finally
-                    {
-                        candidate.Dispose();
-                    }
-
-                }
-
-            }
-
-        }
-
-        // Fix round 3 (2026-08-20): Waits.cs claims every wait in this suite routes through it;
-        // CloseSingleExportHandlerProcess's Process.WaitForExit(int) below was one of three
-        // places across the suite that did not. Same Waits.Until(() => process.HasExited, ...)
-        // shape AppUnderTest.WaitForExit(Application, TimeSpan) already used for the app process
-        // itself.
-        private static bool WaitForProcessExit(Process process, TimeSpan timeout)
-        {
-            bool exited;
-
-            try
-            {
-                Waits.Until(() => process.HasExited, timeout, "the process to exit");
-                exited = true;
-            }
-            catch (TimeoutException)
-            {
-                exited = false;
-            }
-
-            return exited;
-        }
-
-        private static void CloseSingleExportHandlerProcess(Process candidate, string exportedFileName)
-        {
-            string windowTitle = candidate.MainWindowTitle;
-            bool titleNamesOurFile = windowTitle.Length > 0 && windowTitle.Contains(exportedFileName, StringComparison.OrdinalIgnoreCase);
-
-            if (titleNamesOurFile)
-            {
-                Console.WriteLine(
-                    $"DevicesPhase: closing '{candidate.ProcessName}' (pid {candidate.Id}, titled '{windowTitle}'), "
-                    + $"opened by ShellLauncher.Open on '{exportedFileName}'.");
-
-                candidate.CloseMainWindow();
-
-                bool exited = WaitForProcessExit(candidate, ExportHandlerCloseTimeout);
-
-                if (!exited)
-                {
-                    candidate.Kill();
-                }
-
-            }
-            else
-            {
-                Console.WriteLine(
-                    $"DevicesPhase: found a '{candidate.ProcessName}' process (pid {candidate.Id}) after export, but its "
-                    + $"window title ('{windowTitle}') does not name '{exportedFileName}' — left alone rather than "
-                    + "guessing it is the one this step opened.");
-            }
-
         }
 
         // Fix round 2 (2026-08-20): ShellLauncher.Open's handler becoming the foreground window

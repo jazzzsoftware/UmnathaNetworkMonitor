@@ -39,6 +39,8 @@ namespace NetworkMonitor.UITests.Evidence
             ul.steps li.failed { border-left-color: var(--fail); }
             ul.steps li.skipped { border-left-color: var(--skip); }
             .outcome { font-weight: bold; margin-right: 0.5em; }
+            .timing { color: var(--ink-quiet); font-family: Consolas, monospace; font-size: 0.8em; margin-right: 0.6em; }
+            p.legend { color: var(--ink-quiet); font-size: 0.85em; max-width: 70ch; }
             .message { color: var(--ink-quiet); white-space: pre-wrap; font-family: Consolas, monospace; font-size: 0.9em; }
             .failure { padding: 1rem; margin-bottom: 1rem; background: var(--fail-wash); border-radius: 6px; border: 1px solid var(--rule); }
             .failure pre.assertion { white-space: pre-wrap; font-family: Consolas, monospace; color: var(--ink); }
@@ -113,6 +115,7 @@ namespace NetworkMonitor.UITests.Evidence
             builder.Append($"<li>Passed: {outcome.PassedCount}</li>\n");
             builder.Append($"<li>Failed: {outcome.FailedCount}</li>\n");
             builder.Append($"<li>Skipped: {outcome.SkippedCount}</li>\n");
+            builder.Append($"<li>Started: {FormatClock(outcome.StartedAt)} &nbsp;·&nbsp; Finished: {FormatClock(outcome.FinishedAt)}</li>\n");
             builder.Append($"<li>Total wall-clock: {FormatDuration(outcome.TotalDuration)}</li>\n");
             builder.Append("</ul>\n</section>\n");
 
@@ -126,6 +129,11 @@ namespace NetworkMonitor.UITests.Evidence
             StringBuilder builder = new StringBuilder();
 
             builder.Append("<section id=\"timeline\">\n<h2>Phase timeline</h2>\n");
+            builder.Append(
+                "<p class=\"legend\">Each step shows the clock time it was recorded and how long the work behind it took, "
+                + "measured from the previous step. Steps a phase records as a group attribute the group's time to its "
+                + "first step, so a run of near-zero timings after one longer step is one batch, not twenty instant "
+                + "checks.</p>\n");
 
             foreach (PhaseResult phase in outcome.Phases)
             {
@@ -134,7 +142,8 @@ namespace NetworkMonitor.UITests.Evidence
                     : string.Empty;
 
                 builder.Append("<div class=\"phase\">\n");
-                builder.Append($"<h3>{HtmlEncode(phase.Name)} <span class=\"duration\">{FormatDuration(phase.Duration)}</span> {abortedBadge}</h3>\n");
+                builder.Append(
+                    $"<h3>{HtmlEncode(phase.Name)} <span class=\"duration\">{FormatClock(phase.StartedAt)} · {FormatDuration(phase.Duration)}</span> {abortedBadge}</h3>\n");
                 builder.Append("<ul class=\"steps\">\n");
 
                 foreach (StepResult step in phase.Steps)
@@ -159,7 +168,11 @@ namespace NetworkMonitor.UITests.Evidence
                 ? $"<div class=\"message\">{HtmlEncode(step.Message)}</div>"
                 : string.Empty;
 
-            string fragment = $"<li class=\"{cssClass}\"><span class=\"outcome\">{step.Outcome}</span> {HtmlEncode(step.Name)}{message}</li>\n";
+            string timing = step.CompletedAt == default
+                ? string.Empty
+                : $"<span class=\"timing\">{FormatClock(step.CompletedAt)} · {FormatDuration(step.Duration)}</span> ";
+
+            string fragment = $"<li class=\"{cssClass}\">{timing}<span class=\"outcome\">{step.Outcome}</span> {HtmlEncode(step.Name)}{message}</li>\n";
 
             return fragment;
         }
@@ -311,6 +324,13 @@ namespace NetworkMonitor.UITests.Evidence
             };
 
             return cssClass;
+        }
+
+        private static string FormatClock(DateTime moment)
+        {
+            string formatted = moment.ToString("HH:mm:ss");
+
+            return formatted;
         }
 
         private static string FormatDuration(TimeSpan duration)

@@ -110,6 +110,7 @@
                                 Text="Scan Interval (seconds)" />
 
                             <NumberBox
+                                AutomationProperties.AutomationId="TrafficIntervalSecondsBox"
                                 Minimum="1"
                                 Maximum="60"
                                 SpinButtonPlacementMode="Inline"
@@ -278,6 +279,7 @@
                                 Text="Purge traffic older than (days)" />
 
                             <NumberBox
+                                AutomationProperties.AutomationId="TrafficPurgeDaysBox"
                                 Minimum="0"
                                 Maximum="7"
                                 SpinButtonPlacementMode="Inline"
@@ -379,6 +381,7 @@
                                     Text="Start Host" />
 
                                 <NumberBox
+                                    AutomationProperties.AutomationId="StartHostBox"
                                     Minimum="1"
                                     Maximum="254"
                                     SpinButtonPlacementMode="Inline"
@@ -400,6 +403,7 @@
                                     Text="End Host" />
 
                                 <NumberBox
+                                    AutomationProperties.AutomationId="EndHostBox"
                                     Minimum="1"
                                     Maximum="254"
                                     SpinButtonPlacementMode="Inline"
@@ -430,6 +434,7 @@
                                 Text="Scan Interval (minutes)" />
 
                             <NumberBox
+                                AutomationProperties.AutomationId="ScanIntervalMinutesBox"
                                 Minimum="1"
                                 Maximum="60"
                                 SpinButtonPlacementMode="Inline"
@@ -444,6 +449,7 @@
                                 Text="Ping Timeout (ms)" />
 
                             <NumberBox
+                                AutomationProperties.AutomationId="PingTimeoutBox"
                                 Minimum="100"
                                 Maximum="5000"
                                 SpinButtonPlacementMode="Inline"
@@ -458,6 +464,7 @@
                                 Text="Max Parallel Pings" />
 
                             <NumberBox
+                                AutomationProperties.AutomationId="MaxParallelPingsBox"
                                 Minimum="10"
                                 Maximum="254"
                                 SpinButtonPlacementMode="Inline"
@@ -486,6 +493,7 @@
                                 Text="Purge history older than (days)" />
 
                             <NumberBox
+                                AutomationProperties.AutomationId="HistoryPurgeDaysBox"
                                 Minimum="0"
                                 Maximum="3650"
                                 SpinButtonPlacementMode="Inline"
@@ -1243,6 +1251,7 @@
                                 Text="Daily digest generation time (hour, 0–23)" />
 
                             <NumberBox
+                                AutomationProperties.AutomationId="DigestGenerationHourBox"
                                 Minimum="0"
                                 Maximum="23"
                                 SpinButtonPlacementMode="Inline"
@@ -1257,6 +1266,7 @@
                                 Text="Keep digests for (days)" />
 
                             <NumberBox
+                                AutomationProperties.AutomationId="DigestPurgeDaysBox"
                                 Minimum="1"
                                 Maximum="3650"
                                 SpinButtonPlacementMode="Inline"

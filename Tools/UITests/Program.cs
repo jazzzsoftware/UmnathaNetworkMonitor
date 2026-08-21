@@ -89,7 +89,16 @@ static List<Phase> BuildPhases()
 
         // Four chart summaries and a grid read against thirty seeded results, with no real speed
         // test run (see SpeedTestPhase's header for why); 60s is well clear of what that needs.
-        new Phase("04 Speed Test", false, SpeedTestPhase.RunAsync, TimeSpan.FromSeconds(60))
+        new Phase("04 Speed Test", false, SpeedTestPhase.RunAsync, TimeSpan.FromSeconds(60)),
+
+        // Two native save dialogs with an external file handler apiece, plus generating a digest
+        // (which renders its charts through Win2D) and deleting one; 60s covers the render, which
+        // is the slow part.
+        new Phase("05 Reports", false, ReportsPhase.RunAsync, TimeSpan.FromSeconds(60)),
+
+        // Around twenty settings, each changed, waited for on disk and restored; individually
+        // fast, but the file wait is what sets the pace. 90s is generous for the whole sweep.
+        new Phase("06 Settings", false, SettingsPhase.RunAsync, TimeSpan.FromSeconds(90))
     };
 
     return phases;
@@ -196,9 +205,9 @@ static async Task<int> RunSelfTest()
         "Self-test does not touch the installed app.");
 
     List<StepResult> steps = new List<StepResult> { passedStep, failedStep, skippedStep };
-    PhaseResult phase = new PhaseResult("Self-test phase", TimeSpan.FromSeconds(3), false, steps);
+    PhaseResult phase = new PhaseResult("Self-test phase", DateTime.Now, TimeSpan.FromSeconds(3), false, steps);
     List<PhaseResult> phases = new List<PhaseResult> { phase };
-    RunOutcome outcome = new RunOutcome(phases, TimeSpan.FromSeconds(3));
+    RunOutcome outcome = new RunOutcome(phases, DateTime.Now, TimeSpan.FromSeconds(3));
     RunEnvironment environment = RunEnvironment.Read();
 
     environment.AppVersionAfter = environment.AppVersionBefore;
