@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Text;
 using System.Threading;
@@ -27,6 +28,27 @@ namespace NetworkMonitor.UITests.Runner
 
         private const long RequiredFreeBytes = 3L * 1024L * 1024L * 1024L;
 
+        // The full nine-phase suite targets roughly 15 minutes end to end (README.md's "Current
+        // state"). When the screen saver activates, Windows switches the input desktop to a
+        // separate one; synthetic input aimed at the original desktop is then refused
+        // (SendInput -> Win32Exception (5): Access is denied) and there is no foreground window
+        // at all (GetForegroundWindow() returns zero). Confirmed live: an operator's screen saver
+        // fired partway through an overnight run and turned 17 passed / 1 failed into 13 passed /
+        // 4 failed with no code change -- exactly the kind of non-deterministic, near-the-end
+        // failure pattern that reads as flaky tests rather than an environment problem.
+        private static readonly TimeSpan ExpectedMaximumRunDuration = TimeSpan.FromMinutes(15);
+
+        // Doubling the plan's own 15-minute target leaves headroom for a run that takes longer
+        // than expected (a slow phase, a slow machine) without demanding an operator hunt for the
+        // exact minimum -- and it is still a low-friction ask: raise the timeout, or turn the
+        // screen saver off, for the duration of one run.
+        private static readonly TimeSpan MinimumRequiredScreenSaverTimeout = TimeSpan.FromMinutes(30);
+
+        private const string DesktopRegistryKeyPath = @"Control Panel\Desktop";
+        private const string ScreenSaveActiveValueName = "ScreenSaveActive";
+        private const string ScreenSaveTimeOutValueName = "ScreenSaveTimeOut";
+        private const uint SpiGetScreenSaverRunning = 0x0072;
+
         // Matches all three suffixes RealDataGuard can leave behind: a copy of the operator's
         // real data (backup), a validated copy waiting to be swapped in (restore-staging), or
         // the pre-swap original waiting to be discarded (displaced). None of them are data-losing
@@ -47,6 +69,20 @@ namespace NetworkMonitor.UITests.Runner
             if (!elevated)
             {
                 blockers.Add("Not elevated. The suite installs and uninstalls the app; start it from an elevated terminal.");
+            }
+
+            string screenSaverRunningBlocker = FindScreenSaverRunningBlocker();
+
+            if (screenSaverRunningBlocker.Length > 0)
+            {
+                blockers.Add(screenSaverRunningBlocker);
+            }
+
+            string screenSaverTimeoutBlocker = FindScreenSaverTimeoutBlocker();
+
+            if (screenSaverTimeoutBlocker.Length > 0)
+            {
+                blockers.Add(screenSaverTimeoutBlocker);
             }
 
             int[] runningProcessIds = FindRunningProcessIds();
@@ -166,6 +202,98 @@ namespace NetworkMonitor.UITests.Runner
                 return elevated;
             }
 
+        }
+
+        // SPI_GETSCREENSAVERRUNNING answers "is the screen saver active on this desktop right
+        // now" -- true for the seconds-to-minutes window between it starting and the operator (or
+        // this check) dismissing it. A run must never start into that window: SendInput and
+        // GetForegroundWindow are both already broken for as long as it lasts.
+        private static string FindScreenSaverRunningBlocker()
+        {
+            string blocker = string.Empty;
+            bool screenSaverRunning = false;
+            bool queried = SystemParametersInfo(SpiGetScreenSaverRunning, 0, ref screenSaverRunning, 0);
+
+            if (queried && screenSaverRunning)
+            {
+                blocker =
+                    "The screen saver is currently running. It switches to a separate desktop, which refuses "
+                    + "synthetic input aimed at the original one (SendInput -> Win32Exception (5): Access is "
+                    + "denied) and leaves no foreground window at all (GetForegroundWindow() returns zero) -- "
+                    + "every step from here on would fail. Move the mouse or press a key to dismiss it, then run "
+                    + "again.";
+            }
+
+            return blocker;
+        }
+
+        // Distinct from FindScreenSaverRunningBlocker above: this refuses a run that has not hit
+        // the screen saver yet but is on course to, because its configured timeout is shorter than
+        // this suite is expected to run for. Never writes to the registry -- only reads it and
+        // explains what the operator needs to change by hand, the same principle amendment A
+        // already applies to a running app: refuse and explain, never touch their configuration.
+        private static string FindScreenSaverTimeoutBlocker()
+        {
+            string blocker = string.Empty;
+
+            using (RegistryKey? desktopKey = Registry.CurrentUser.OpenSubKey(DesktopRegistryKeyPath))
+            {
+                bool screenSaverEnabled = ReadRegistryFlag(desktopKey, ScreenSaveActiveValueName);
+
+                if (screenSaverEnabled)
+                {
+                    int timeoutSeconds = ReadRegistryInt(desktopKey, ScreenSaveTimeOutValueName);
+
+                    if (timeoutSeconds > 0 && TimeSpan.FromSeconds(timeoutSeconds) < MinimumRequiredScreenSaverTimeout)
+                    {
+                        double timeoutMinutes = timeoutSeconds / 60.0;
+
+                        blocker =
+                            $"The screen saver is enabled with a {timeoutMinutes:0.#} minute timeout "
+                            + $"(HKCU\\{DesktopRegistryKeyPath}\\{ScreenSaveTimeOutValueName}), but this suite is "
+                            + $"expected to run for about {ExpectedMaximumRunDuration.TotalMinutes:0} minutes end to "
+                            + "end -- it will activate mid-run, switch to a separate desktop, and start failing "
+                            + "steps non-deterministically from that point on (SendInput -> Win32Exception (5): "
+                            + "Access is denied, GetForegroundWindow() returning zero), in a way that looks like "
+                            + "flaky tests rather than an environment problem. Disable the screen saver or raise "
+                            + $"its timeout to at least {MinimumRequiredScreenSaverTimeout.TotalMinutes:0} minutes "
+                            + "for the duration of this run, then run again. This suite will not change that "
+                            + "setting for you.";
+                    }
+
+                }
+
+            }
+
+            return blocker;
+        }
+
+        private static bool ReadRegistryFlag(RegistryKey? key, string valueName)
+        {
+            bool flagValue = false;
+
+            if (key is not null)
+            {
+                string rawValue = key.GetValue(valueName) as string ?? string.Empty;
+
+                flagValue = rawValue == "1";
+            }
+
+            return flagValue;
+        }
+
+        private static int ReadRegistryInt(RegistryKey? key, string valueName)
+        {
+            int intValue = 0;
+
+            if (key is not null)
+            {
+                string rawValue = key.GetValue(valueName) as string ?? string.Empty;
+
+                int.TryParse(rawValue, out intValue);
+            }
+
+            return intValue;
         }
 
         private static string FindStrandedBackup()
@@ -345,5 +473,8 @@ namespace NetworkMonitor.UITests.Runner
 
             return found;
         }
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool SystemParametersInfo(uint action, uint parameter, ref bool value, uint updateFlags);
     }
 }

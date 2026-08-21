@@ -44,12 +44,33 @@ Before anything else runs, `Preflight.CheckAsync` verifies:
   clean up after itself (see Recovering a stranded backup, below).
 - At least 3 GB free on the system drive (the update phase downloads two ~75 MB installers and
   copies the data folder aside).
+- The screen saver is not currently running, and is not enabled with a timeout short enough to
+  fire during a run (see Why the desktop must stay interactive, below).
 
 Any blocker prints to the console and the process exits **2** — distinct from **1** (a real test
 failure) and **0** (everything passed). `InstalledApp.ShutDown` also plays its part here: whenever
 it has to fall back to `Kill()` rather than a graceful tray exit, it stops the orphaned
 `NetworkMonitorTraffic` session itself and reports whether that succeeded, precisely so the
 stale-session blocker above is the exception, not the routine case.
+
+## Why the desktop must stay interactive
+
+This suite drives the app with real OS-level input — FlaUI's `Click()` and the keyboard helpers
+in `Waits`/`DevicesPhase` ultimately call `SendInput`, and several steps check
+`GetForegroundWindow()` to confirm no other window has stolen focus before continuing. Both calls
+assume the session's original desktop is the one actually receiving input.
+
+The Windows screen saver breaks that assumption: when it activates, Windows switches the
+workstation to a separate desktop object, and synthetic input aimed at the original desktop is
+refused from that point on. A real run confirmed this directly — `SendInput` started throwing
+`Win32Exception (5): Access is denied` and `GetForegroundWindow()` started returning zero, and the
+run's pass count dropped from 17 passed / 1 failed to 13 passed / 4 failed with no code change in
+between. `Preflight.cs` refuses to start a run if the screen saver is already running
+(`SPI_GETSCREENSAVERRUNNING`), or if its configured timeout (`HKCU\Control Panel\Desktop\ScreenSaveTimeOut`)
+is short enough to fire before the suite is expected to finish — but it cannot stop one that
+activates for some other reason mid-run (a policy change, a second interactive session locking the
+screen). If a run fails partway through with exactly these symptoms, this is the first thing to
+rule out, not the phase code.
 
 ## Phase 09 really uninstalls the app
 
