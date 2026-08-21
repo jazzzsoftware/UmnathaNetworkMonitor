@@ -9,6 +9,7 @@ using NetworkMonitor.Core.Common;
 using NetworkMonitor.UITests.Driving;
 using NetworkMonitor.UITests.Evidence;
 using NetworkMonitor.UITests.Fixtures;
+using NetworkMonitor.UITests.Launcher;
 using NetworkMonitor.UITests.Phases;
 using NetworkMonitor.UITests.Runner;
 
@@ -34,8 +35,54 @@ if (args.Contains("--dump-tree"))
     return dumpTreeExitCode;
 }
 
-List<Phase> registeredPhases = BuildPhases();
+// Phase 09 is opt-in, and deliberately not part of a routine run. It uninstalls the operator's
+// installed app, downloads and installs the previous release, drives its update banner and lets it
+// install the newest one again — several minutes and roughly 150 MB of downloads, with the
+// operator's real data folder copied aside and restored around it. Making that the price of every
+// run would have destroyed the fast feedback loop the other eight phases depend on (85 seconds,
+// repeatable, touching nothing outside %TEMP%), and would have uninstalled and reinstalled the app
+// on this machine dozens of times during Tasks 9 to 11 alone. The plan registered it
+// unconditionally; this is a deviation, recorded in the Task 12 amendments.
+bool includeUpdateLifecycle = args.Contains("--all-with-update-lifecycle");
+bool pickPhases = args.Contains("--pick");
+
+List<Phase> allPhases = BuildPhases(includeUpdateLifecycle || pickPhases);
+IReadOnlyList<Phase> registeredPhases = allPhases;
+
+// --pick opens a small dialog to tick phases rather than remembering flags — worth it when you
+// are iterating on one phase and do not want to sit through the other eight. It offers the update
+// lifecycle too (unticked), which is why the list above includes it whenever --pick is passed.
+// A run with no arguments stays non-interactive so nothing scripted ever waits on a dialog.
+if (pickPhases)
+{
+    IReadOnlyList<Phase>? chosen = PhasePicker.Choose(allPhases);
+
+    if (chosen is null)
+    {
+        Console.WriteLine("No phases chosen — nothing was run.");
+
+        return 0;
+    }
+
+    registeredPhases = chosen;
+}
+
 TimeSpan expectedRunDuration = SumExpectedDuration(registeredPhases);
+
+if (includeUpdateLifecycle && !pickPhases)
+{
+    Console.WriteLine("Phase 09 (the update lifecycle) IS included in this run.");
+    Console.WriteLine("It will uninstall Umnatha Network Monitor, install the previous release, update it, and");
+    Console.WriteLine("restore your data folder afterwards. Your data folder is copied aside first.");
+    Console.WriteLine();
+}
+else if (!pickPhases)
+{
+    Console.WriteLine("Phase 09 (the update lifecycle) is NOT included. Pass --all-with-update-lifecycle to run it,");
+    Console.WriteLine("or --pick to choose phases from a dialog. It uninstalls and reinstalls the app, so it is");
+    Console.WriteLine("opt-in either way.");
+    Console.WriteLine();
+}
 
 PreflightResult preflight = await Preflight.CheckAsync(CancellationToken.None, expectedRunDuration);
 
@@ -68,7 +115,7 @@ return runExitCode;
 // above — to judge whether the operator's screen-saver timeout will survive a real run; see
 // Preflight's own margin comment for how the sum is used. Built here, before Preflight runs, so
 // that check reasons about the phases actually registered rather than a hardcoded number.
-static List<Phase> BuildPhases()
+static List<Phase> BuildPhases(bool includeUpdateLifecycle)
 {
     List<Phase> phases = new List<Phase>
     {
@@ -109,6 +156,21 @@ static List<Phase> BuildPhases()
         // against.
         new Phase("08 Purge", false, PurgePhase.RunAsync, TimeSpan.FromSeconds(60))
     };
+
+    if (includeUpdateLifecycle)
+    {
+        // Two ~75 MB downloads, two silent installs, an uninstall and a cold start of an old
+        // build. Ten minutes is an estimate of a real run on a working connection — the same kind
+        // of figure every other phase here carries, and deliberately NOT the sum of this phase's
+        // internal timeouts, which allow closer to twenty between them.
+        //
+        // The distinction matters because this number feeds the screen-saver headroom check, and
+        // that check is a real guard rather than a formality: a saver firing mid-run switches
+        // desktops and fails everything after it. A run including this phase will still refuse on a
+        // machine with a short saver timeout, which is correct — this is precisely the run that
+        // must not be interrupted.
+        phases.Add(new Phase("09 Update Lifecycle", false, UpdateLifecyclePhase.RunAsync, TimeSpan.FromMinutes(10)));
+    }
 
     return phases;
 }

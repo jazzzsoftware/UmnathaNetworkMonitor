@@ -1560,6 +1560,22 @@ DB impact: **none.** The purge deletes seeded rows from a temporary database.
 
 **This is the phase with real consequences.** It is last, it is the only phase that mutates the machine outside the throwaway folder, and it really does uninstall the operator's app.
 
+**Amended while implementing, 2026-08-21. It took four runs, and every failure was a driving defect with a specific mechanism — none was a timing guess.**
+
+**A. It is opt-in, not part of a routine run.** `--all-with-update-lifecycle` runs everything including it; `--pick` offers it in a dialog; a plain run does neither. The plan registered it unconditionally, which would have meant uninstalling and reinstalling the app on every run — dozens of times during Tasks 9 to 11 alone — plus ~150 MB of downloads each time, destroying the 85-second feedback loop the other eight phases depend on. Operator's call, taken during the task.
+
+**B. Run 1 — the banner "never appeared" because the wait was measuring the wrong thing.** The 45-second budget started at launch, and the baseline build's cold start opens the OPERATOR'S real database (162 MB here) and runs `DatabaseInitializer`'s baseline-then-migrate against it before its shell exists. Split into two waits: two minutes for the shell, then 90 seconds for the banner — which is `UpdateCheckWorker`'s 10-second initial delay plus `UpdateService`'s own 20-second check deadline, with room for a slow network. The number now measures the check rather than the migration.
+
+**C. Run 2 — the shell "never appeared" while the operator was looking straight at it.** The evidence dump settles it: the desktop tree contained `Window | Umnatha Network Monitor`, its `Traffic` nav item, `Text | Title | Software update` and `Button | Update now`. The window was there; `AppSession.MainWindow` could not see it, because it filters by the process FlaUI launched — and **the installer starts the app itself when it finishes**, so the phase's own launch hit `App.xaml.cs`'s single-instance mutex, handed off to that instance and exited, leaving FlaUI holding a dead process id. This is Task 8 amendment A biting from inside a phase. Fixed by closing whatever the installer started *before* launching, so the session owns the process it drives.
+
+**D. Run 3 — the app must be closed before the installer, and before the restore.** Two related findings, one from the operator: an Inno Setup installer told to run silently while the app is up does not wait for it, it exits with code 5. And `RealDataGuard` rightly refuses to restore while any app process lives ("a checkpoint landing mid-copy can tear the .db/-wal pair"). `CloseEveryAppProcess` now sweeps repeatedly rather than enumerating once — an installer's relaunch can produce a process *after* the snapshot — and kills after a two-second grace, because `CloseMainWindow` on this app only closes it to the tray and the process stays alive by design.
+
+**E. Run 3 — the banner's Name is its title, not its message.** An `InfoBar`'s Name is "Software update"; the sentence naming the version is a separate `Text` child, and the container holding the buttons has no Name at all. The assertion read an empty string and failed against a banner that was on screen and entirely correct. It now scans the window's Text elements for the one naming the target version, and logs what it found — run 4 recorded `the banner reads "v0.0.12 is available."`.
+
+**F. `ReleaseResolver` lives in `Fixtures/`, not the `Environment/` folder this task named.** Nothing was ever put there, and it belongs beside `ReleaseInstaller`: both are about which release, and installing it. `ReleaseInstaller` gained a public `InstallAsync(AvailableUpdate, ...)` so the baseline install reuses the existing download-verify-install path rather than a second copy of it.
+
+**G. Step 11's rehearsal was done, and found nothing wrong with the guard itself.** `--guard-selftest` passes end to end (copy-aside/restore round trip, refusal on a bad manifest, rollback after a failed swap), and a simulated stranded backup was confirmed to make preflight refuse with its recovery message. Both were run before the first live attempt, as the step required.
+
 **Files:**
 - Create: `Tools/UITests/Phases/UpdateLifecyclePhase.cs`
 - Create: `Tools/UITests/Environment/ReleaseResolver.cs`
@@ -1568,7 +1584,7 @@ DB impact: **none.** The purge deletes seeded rows from a temporary database.
 - Consumes: `RealDataGuard` (Task 5); `ReleaseInfoParser`, `UpdateDownloader`, `ChecksumVerifier`, `SemanticVersion` from `NetworkMonitor.Core/Update/` — **spec correction 3**, this machinery already exists and is reused rather than reimplemented.
 - Produces: `ReleaseResolver.ResolveAsync() → (string targetTag, string baselineTag, AvailableUpdate baseline)`.
 
-- [ ] **Step 1: Write `ReleaseResolver`**
+- [x] **Step 1: Write `ReleaseResolver`**
 
 Query `https://api.github.com/repos/jazzzsoftware/UmnathaNetworkMonitor/releases`, take the newest as the target and the second-newest as the baseline. **Verified 2026-08-20:** that is v0.0.12 and v0.0.11. Fail the phase if fewer than two releases exist.
 
@@ -1576,15 +1592,15 @@ Query `https://api.github.com/repos/jazzzsoftware/UmnathaNetworkMonitor/releases
 
 GitHub's unauthenticated limit is 60 requests an hour and this makes one. If it does fail, report the limit rather than a confusing parse error.
 
-- [ ] **Step 2: Write the guards (spec step 1)**
+- [x] **Step 2: Write the guards (spec step 1)**
 
 Refuse if a previous run left a stranded data-folder backup (already in `Preflight`), refuse if not elevated, refuse if the working copy has uncommitted installer changes.
 
-- [ ] **Step 3: Copy the live data folder aside (spec step 2)**
+- [x] **Step 3: Copy the live data folder aside (spec step 2)**
 
 `RealDataGuard.CopyAside()`, wrapped so that **everything from here to Step 10 sits inside a `try` whose `finally` restores**.
 
-- [ ] **Step 4: Uninstall the current build (spec step 4)**
+- [x] **Step 4: Uninstall the current build (spec step 4)**
 
 Read the uninstall string from the registry key in `Preflight.UninstallKeyPath` and run:
 
@@ -1594,7 +1610,7 @@ Read the uninstall string from the registry key in `Preflight.UninstallKeyPath` 
 
 Wait for the uninstall entry to disappear, using `Waits.Until` with a named timeout.
 
-- [ ] **Step 5: Download and install the baseline (spec step 5)**
+- [x] **Step 5: Download and install the baseline (spec step 5)**
 
 **Spec correction 1:** the SHA-256 is a **separate release asset**, not in the release notes. Verified on the live v0.0.11 release, whose assets are exactly:
 
@@ -1605,17 +1621,17 @@ Umnatha.Network.Monitor.v0.0.11.exe.sha256           64 bytes
 
 `ReleaseInfoParser.Parse` already resolves both URLs into `AvailableUpdate.DownloadUrl` and `AvailableUpdate.ChecksumUrl`, and `UpdateDownloader` already downloads and verifies against it. Reuse both, then run the installer `/SILENT /SUPPRESSMSGBOXES /NORESTART`.
 
-- [ ] **Step 6: Assert the baseline is installed (spec step 6)**
+- [x] **Step 6: Assert the baseline is installed (spec step 6)**
 
 Registry `DisplayVersion` equals the baseline version.
 
-- [ ] **Step 7: Launch the baseline and wait for the banner (spec step 7)**
+- [x] **Step 7: Launch the baseline and wait for the banner (spec step 7)**
 
 **The old build ignores `UMNATHA_DATA_FOLDER`** — it predates the override — so it uses the real folder. That is precisely why Step 3 exists.
 
 Wait for the `InfoBar` in `MainWindow` and assert its message names the target version. `UpdateService` has a 20-second check deadline, so **the wait is 45 seconds** before failing — that reasoning lives next to the number, per the flake policy.
 
-- [ ] **Step 8: Drive the update (spec step 8)**
+- [x] **Step 8: Drive the update (spec step 8)**
 
 **Spec correction 2:** the banner's buttons are **"Update now"** and **"Later"**, with **"Cancel"** appearing during download (`MainWindow.xaml:139-167`). There is no "Download" button — the download starts on "Update now".
 
@@ -1623,17 +1639,17 @@ Click **Update now**, wait for the progress bar to reach 100 and for SHA-256 ver
 
 Because the baseline build cannot be found by automation id (it predates Task 7), find these three buttons **by name** — and say so in a comment, so nobody later "fixes" it to use an id that does not exist in the old build.
 
-- [ ] **Step 9: Assert the target is installed (spec step 9)**
+- [x] **Step 9: Assert the target is installed (spec step 9)**
 
 Registry `DisplayVersion` equals the target version; relaunch and assert the in-app version matches.
 
-- [ ] **Step 10: Restore (spec step 10)**
+- [x] **Step 10: Restore (spec step 10)**
 
 In the `finally`: delete whatever data folder now exists, restore the backup copy over it, and verify the restored database opens and reports the same row counts recorded in Step 3.
 
 **If restore cannot complete, write the backup location in large letters into the report and to the console, and exit non-zero.** This is the single most important line of error handling in the suite.
 
-- [ ] **Step 11: Rehearse the destructive path before trusting it**
+- [x] **Step 11: Rehearse the destructive path before trusting it**
 
 Do **not** let the first execution of this phase be a real run against the operator's install.
 
@@ -1641,7 +1657,9 @@ Do **not** let the first execution of this phase be a real run against the opera
 2. Kill the process between copy-aside and restore, then confirm the original folder is still in place and preflight refuses the next run with the stranded-backup message.
 3. Only then run the phase whole.
 
-- [ ] **Step 12: Commit**
+**Run on 2026-08-21.** Four runs, each ending in a real defect fixed and documented (amendments B to E). Final: **exit 0, 146 passed, 0 failed, 7 skipped, 117.9s** across all nine phases, with the banner logged as reading "v0.0.12 is available.", the update driven through download, SHA-256 verification and install, the machine confirmed on v0.0.12 and the operator's data folder restored automatically with no backup left behind. `dotnet test`: 516/516.
+
+- [x] **Step 12: Commit**
 
 ```bash
 git add Tools/UITests/

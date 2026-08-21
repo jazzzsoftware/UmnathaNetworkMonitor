@@ -70,6 +70,32 @@ namespace NetworkMonitor.UITests.Fixtures
             return outcome;
         }
 
+        // Installs a release the caller has already resolved, rather than whatever GitHub calls
+        // latest. UpdateLifecyclePhase needs the SECOND-newest release — the baseline it updates
+        // from — and everything below it (download, SHA-256 verification against the release's own
+        // .sha256 asset, silent install, exit-code check) is identical whichever release that is.
+        public static async Task<(bool Installed, string Message)> InstallAsync(AvailableUpdate update, CancellationToken cancellationToken)
+        {
+            (bool Installed, string Message) outcome;
+
+            using (HttpClient httpClient = new HttpClient())
+            {
+                httpClient.DefaultRequestHeaders.Add("User-Agent", UserAgent);
+
+                try
+                {
+                    outcome = await DownloadVerifyAndInstallAsync(httpClient, update, cancellationToken);
+                }
+                catch (Exception exception)
+                {
+                    outcome = (false, $"Installing release {update.VersionTag} failed: {exception.Message}");
+                }
+
+            }
+
+            return outcome;
+        }
+
         private static async Task<(bool Installed, string Message)> DownloadVerifyAndInstallAsync(
             HttpClient httpClient,
             AvailableUpdate update,

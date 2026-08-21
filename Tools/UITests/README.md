@@ -7,11 +7,15 @@ product and touches the operator's real data folder, it refuses to run at all un
 is genuinely ready for that — see Preflight below.
 
 **Current state:** the runner, the FlaUI driving layer, the seeded database fixture, the HTML
-report and the first eight phases (`Phases/LaunchPhase.cs`, `Phases/DevicesPhase.cs`,
-`Phases/TrafficPhase.cs`, `Phases/SpeedTestPhase.cs`, `Phases/ReportsPhase.cs`,
-`Phases/SettingsPhase.cs`, `Phases/MiniGraphPhase.cs`, `Phases/PurgePhase.cs`) all exist and are
-wired into `Program.cs`'s default run. A full run is 138 assertions in about 85 seconds. Only the
-update lifecycle (phase 09) is still to come.
+report and all nine phases exist and are wired into `Program.cs`.
+
+- A plain run drives the eight non-destructive phases: 138 assertions in about 85 seconds, touching
+  nothing outside `%TEMP%`.
+- `--all-with-update-lifecycle` adds phase 09, the update lifecycle: 146 assertions in about two
+  minutes. It uninstalls the installed app, installs the previous release, drives its update banner
+  and restores the data folder afterwards.
+- `--pick` opens a dialog listing every phase, all ticked, and starts by itself after thirty
+  seconds unless you touch something.
 
 ## The one command
 
@@ -81,11 +85,11 @@ runs until the saver activated, and the next run then started straight into it.
   specific run needs.** "Needs" is derived from the phases actually registered for this run
   (`Program.cs`'s `BuildPhases`/`SumExpectedDuration`, each phase carrying its own hand-set
   `Phase.ExpectedDuration` estimate) rather than the plan's eventual nine-phase target, with a
-  1.5x safety margin on top for a slower machine or an optimistic per-phase estimate. At today's
-  eight registered phases that sum is nine minutes (a real run takes about 85 seconds of it), so a
-  normal desktop default (commonly 15 minutes) is not yet a real risk and a run proceeds; once the
-  full nine phases exist and a run approaches that same default, the comparison refuses for a real
-  reason instead.
+  1.5x safety margin on top for a slower machine or an optimistic per-phase estimate. The eight
+  non-destructive phases sum to nine minutes (a real run spends about 85 seconds of it), which a
+  normal desktop default of 15 minutes clears. Adding phase 09 takes the sum to nineteen minutes
+  and so needs about 29 minutes of headroom — a 15-minute saver is refused, correctly: that is
+  precisely the run that must not be interrupted halfway through an uninstall.
 
 Preflight cannot stop a screen saver that activates for some other reason mid-run (a policy
 change, a second interactive session locking the screen). If a run fails partway through with
@@ -93,10 +97,11 @@ exactly these symptoms, this is the first thing to rule out, not the phase code.
 
 ## Phase 09 really uninstalls the app
 
-Once the phase sequence exists (a later task), phase 09 genuinely runs the Inno Setup
-uninstaller against the real installed copy, as part of driving the update banner end to end.
-This is not a dry run or a simulation — do not point this suite at a machine that cannot afford
-to have the app uninstalled and reinstalled.
+Phase 09 genuinely runs the Inno Setup uninstaller against the real installed copy, installs the
+previous release over the operator's real data folder, and drives its update banner end to end.
+This is not a dry run or a simulation — do not point it at a machine that cannot afford to have
+the app uninstalled and reinstalled. It only runs when asked for by name
+(`--all-with-update-lifecycle`, or ticked in `--pick`).
 
 ## Where the report lands
 

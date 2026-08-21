@@ -8,8 +8,19 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>NetworkMonitor.UITests</RootNamespace>
-    <UseWindowsForms>false</UseWindowsForms>
+    <!-- Task 12: the phase picker (Launcher/PhasePicker.cs) is a small WinForms dialog. Nothing
+         else in this project uses it, and none of this ships. -->
+    <UseWindowsForms>true</UseWindowsForms>
   </PropertyGroup>
+
+  <!--
+    UseWindowsForms adds a global `using System.Windows.Forms`, whose Application type then
+    collides with FlaUI.Core.Application in every file that drives the app under test. The picker
+    is the only thing here that wants WinForms, so it imports the namespace itself.
+  -->
+  <ItemGroup>
+    <Using Remove="System.Windows.Forms" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\NetworkMonitor.Models\NetworkMonitor.Models.csproj" />
