@@ -1510,24 +1510,42 @@ DB impact: **none.**
 
 ### Task 11: Phases 07 Mini Graph and 08 Purge
 
+**Amended while implementing, 2026-08-21.**
+
+**A. The traffic Purge Now button cannot delete anything, and that is a finding about the app.** `SettingsViewModel.PurgeTrafficAsync` deletes raw `TrafficEntries` older than `TrafficPurgeDays` — a value measured in **days** — but `TrafficTracker.PurgeRawEntriesAsync` already deletes every raw entry older than **one hour**, every five minutes, unconditionally. The button's query can therefore only ever match nothing, whatever the operator sets it to. `ScanWorker.PurgeOldHistoryAsync` documents exactly this for the automatic sweep ("the raw TrafficEntries and LocalTrafficEntries feed the 5-minute live view alone and are purged hourly by TrafficTracker, so deleting them here would only ever match nothing") and purges the **rollups** instead — the manual button never got the same treatment and touches no rollup at all. So this task's step 2 cannot assert "the row counts drop" for traffic. What the phase asserts is what the button really does — it runs, and it destroys nothing else, with the rollup counts checked either side — and the missing half is a skip whose reason states the above. Whether the button should purge rollups too is a product question, not a suite question, and is left for the operator.
+
+**B. The history purge needed its window narrowed to have anything to do.** The fixture's `HistoryPurgeDays` is 30 and its seeded events span the trailing 48 hours, so a purge at the fixture's own setting is a no-op. The phase sets the window to one day first, which puts the seeded events on both sides of the cutoff, then asserts from the database that everything older went and everything newer stayed — counting both before and after rather than trusting the status line the app writes about itself. The window is put back to 30 afterwards.
+
+**C. Cancel is tested as well as Purge.** These are one-way doors; a confirmation dialog whose Cancel does not cancel is worse than no dialog. Nothing else in the suite proved that, so the history purge is driven both ways: Cancel, assert nothing was deleted, then Purge.
+
+**D. U-1 is asserted through settings.json, which is where it actually broke.** `MiniGraphStripHeight` is a **panel** height and every reader adds the window frame back onto it; the defect was the window saving its own frame-inclusive height into it, so each save/restore round trip fed the frame in twice. An orientation switch is one round trip, so the phase performs five and asserts the stored value never moves. Reading the on-screen window height would measure the symptom; reading the setting measures the thing that was wrong.
+
+**E. The widget's section containers are not in the UIA tree.** `MiniGraphInternetSection` and its siblings are Borders, and a Border with no automation properties of its own is not a control-view element — the same finding Task 9 recorded for the chart controls. Section visibility is asserted through the text inside each section (`LabelText`, `SpeedTestLine`, `UnknownDevicesLine`), which is reachable and is what the operator actually reads.
+
+**F. A row action clicked straight after a reload has nowhere to land.** The Edit step threw `NoClickablePointException` 0.3 seconds after the CSV import's result dialog closed: the button existed in the tree, but the grid was still reloading and its bounding rectangle was not yet clickable. `ClickRowButton` now waits for `IsClickable` — the check this file already applied to dialog buttons mid-animation — before clicking. Pre-existing, exposed here because Task 11's phases changed the run's timing.
+
 **Files:**
 - Create: `Tools/UITests/Phases/MiniGraphPhase.cs`
 - Create: `Tools/UITests/Phases/PurgePhase.cs`
+- Create: `Tools/UITests/Fixtures/FixtureDatabase.cs` (read-only row counts out of the fixture database)
+- Modify: `Tools/UITests/Phases/DevicesPhase.cs` (F), `Tools/UITests/Program.cs`
 
-- [ ] **Step 1: Write `MiniGraphPhase`**
+- [x] **Step 1: Write `MiniGraphPhase`**
 
 Both orientations (panel and horizontal strip), section toggles, the opacity slider, the last-section invariant (the final section cannot be turned off), and placement persisting across a hide and show. **Assert the strip's height is unchanged across five orientation switches** — that is U-1 from the 2026-08-12 manual run, where the strip grew ~7 DIP per switch until it hit the 120 DIP ceiling. It is pinned by a unit test on the arithmetic; this pins it through the real save/restore round trip, which is where it actually broke.
 
 **Mixed-DPI is out of reach** and stays in `Documents/Code Review/2026-08-10/manual-test-plan.md` Part 1 — C2-2 and C2-5 still need a second monitor at a different scale factor. Say so in the report's "Not covered" list; this suite does not close them.
 
-- [ ] **Step 2: Write `PurgePhase`**
+- [x] **Step 2: Write `PurgePhase`**
 
 The retention purge and the one-way-door paths: purge traffic data, purge device history, and the confirmation dialogs on each. Runs against the fixture, so a purge destroys only seeded rows. Assert the row counts drop as expected by opening the fixture database directly afterwards.
 
-- [ ] **Step 3: Run and commit**
+- [x] **Step 3: Run and commit**
 
 Run (elevated): `dotnet run --project Tools/UITests`
 Expected: Exit 0, eight phases green.
+
+**Run on 2026-08-21.** First run: 137 passed, 1 failed, 7 skipped — both new phases green on their first attempt, and the one failure was the pre-existing Edit step hitting amendment F. After that fix: **exit 0, 138 passed, 0 failed, 7 skipped, 85.0s** across all eight phases. `dotnet test`: 516/516.
 
 ```bash
 git add Tools/UITests/Phases/

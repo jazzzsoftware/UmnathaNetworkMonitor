@@ -62,13 +62,12 @@ int runExitCode = await RunSuiteAsync(registeredPhases);
 
 return runExitCode;
 
-// Only two phases are registered so far (LaunchPhase, DevicesPhase); later tasks append to this
-// list as their phases are written. Each phase's own ExpectedDuration is a deliberately generous,
-// hand-set estimate (not the phase's internal hard timeouts, and not a measured average) used by
-// Preflight.CheckAsync — via the sum computed above — to judge whether the operator's screen-saver
-// timeout will survive a real run; see Preflight's own margin comment for how the sum is used.
-// Built here, before Preflight runs, specifically so that check reasons about the phases actually
-// registered for this run rather than a number hardcoded separately from them.
+// Eight phases are registered; Task 12's update lifecycle is the one still to come. Each phase's
+// own ExpectedDuration is a deliberately generous, hand-set estimate (not the phase's internal
+// hard timeouts, and not a measured average) used by Preflight.CheckAsync — via the sum computed
+// above — to judge whether the operator's screen-saver timeout will survive a real run; see
+// Preflight's own margin comment for how the sum is used. Built here, before Preflight runs, so
+// that check reasons about the phases actually registered rather than a hardcoded number.
 static List<Phase> BuildPhases()
 {
     List<Phase> phases = new List<Phase>
@@ -83,13 +82,14 @@ static List<Phase> BuildPhases()
         new Phase("02 Devices", false, DevicesPhase.RunAsync, TimeSpan.FromSeconds(90)),
 
         // Six chart redraws (three ranges on each traffic tab, plus two more for the drill-down's
-        // reload check), a lens switch and two bucket selections, each waiting on a real reload;
-        // 120s is generous headroom over the ~35s a first real run took.
-        new Phase("03 Traffic", false, TrafficPhase.RunAsync, TimeSpan.FromSeconds(120)),
+        // reload check), a lens switch and two bucket selections, each waiting on a real reload.
+        // Measured at 54s; 90s is headroom without pushing the run's declared length into the
+        // screen-saver check for no reason.
+        new Phase("03 Traffic", false, TrafficPhase.RunAsync, TimeSpan.FromSeconds(90)),
 
         // Four chart summaries and a grid read against thirty seeded results, with no real speed
-        // test run (see SpeedTestPhase's header for why); 60s is well clear of what that needs.
-        new Phase("04 Speed Test", false, SpeedTestPhase.RunAsync, TimeSpan.FromSeconds(60)),
+        // test run (see SpeedTestPhase's header for why). Measured at 2s; 30s is ample.
+        new Phase("04 Speed Test", false, SpeedTestPhase.RunAsync, TimeSpan.FromSeconds(30)),
 
         // Two native save dialogs with an external file handler apiece, plus generating a digest
         // (which renders its charts through Win2D) and deleting one; 60s covers the render, which
@@ -98,7 +98,16 @@ static List<Phase> BuildPhases()
 
         // Around twenty settings, each changed, waited for on disk and restored; individually
         // fast, but the file wait is what sets the pace. 90s is generous for the whole sweep.
-        new Phase("06 Settings", false, SettingsPhase.RunAsync, TimeSpan.FromSeconds(90))
+        new Phase("06 Settings", false, SettingsPhase.RunAsync, TimeSpan.FromSeconds(90)),
+
+        // Section switches, the last-section rule, and eleven orientation changes for the U-1
+        // height invariant — each one a window teardown and rebuild. 90s covers that.
+        new Phase("07 Mini Graph", false, MiniGraphPhase.RunAsync, TimeSpan.FromSeconds(90)),
+
+        // Two confirmation dialogs each way and a handful of database reads; 60s is ample.
+        // Registered last of the driving phases because it deletes the rows the others assert
+        // against.
+        new Phase("08 Purge", false, PurgePhase.RunAsync, TimeSpan.FromSeconds(60))
     };
 
     return phases;

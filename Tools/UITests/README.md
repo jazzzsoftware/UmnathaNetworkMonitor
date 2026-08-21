@@ -7,11 +7,11 @@ product and touches the operator's real data folder, it refuses to run at all un
 is genuinely ready for that — see Preflight below.
 
 **Current state:** the runner, the FlaUI driving layer, the seeded database fixture, the HTML
-report and the first six phases (`Phases/LaunchPhase.cs`, `Phases/DevicesPhase.cs`,
+report and the first eight phases (`Phases/LaunchPhase.cs`, `Phases/DevicesPhase.cs`,
 `Phases/TrafficPhase.cs`, `Phases/SpeedTestPhase.cs`, `Phases/ReportsPhase.cs`,
-`Phases/SettingsPhase.cs`) all exist and are wired into `Program.cs`'s default run. A full run is
-120 assertions in about 70 seconds. The remaining three phases (Mini Graph, Purge, the update
-lifecycle) are later work.
+`Phases/SettingsPhase.cs`, `Phases/MiniGraphPhase.cs`, `Phases/PurgePhase.cs`) all exist and are
+wired into `Program.cs`'s default run. A full run is 138 assertions in about 85 seconds. Only the
+update lifecycle (phase 09) is still to come.
 
 ## The one command
 
@@ -82,7 +82,7 @@ runs until the saver activated, and the next run then started straight into it.
   (`Program.cs`'s `BuildPhases`/`SumExpectedDuration`, each phase carrying its own hand-set
   `Phase.ExpectedDuration` estimate) rather than the plan's eventual nine-phase target, with a
   1.5x safety margin on top for a slower machine or an optimistic per-phase estimate. At today's
-  six registered phases that sum is 7.5 minutes (a real run takes about 70 seconds of it), so a
+  eight registered phases that sum is nine minutes (a real run takes about 85 seconds of it), so a
   normal desktop default (commonly 15 minutes) is not yet a real risk and a run proceeds; once the
   full nine phases exist and a run approaches that same default, the comparison refuses for a real
   reason instead.

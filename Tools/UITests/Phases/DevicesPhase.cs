@@ -449,6 +449,17 @@ namespace NetworkMonitor.UITests.Phases
                 ControlTimeout,
                 $"the '{buttonAutomationId}' button in row {row}");
 
+            // Existing is not the same as clickable. Task 11: the Edit step threw
+            // NoClickablePointException 0.3 seconds after the CSV import's result dialog closed —
+            // the button was in the tree, but the grid was still reloading behind it and the
+            // element's bounding rectangle was not yet somewhere a click could land. IsClickable is
+            // the same check this file already applies to dialog buttons mid-animation; waiting on
+            // it here is what makes a row action safe to drive straight after a reload.
+            Waits.Until(
+                () => IsClickable(button),
+                ControlTimeout,
+                $"the '{buttonAutomationId}' button in row {row} to be somewhere a click can land");
+
             Invoke(button);
         }
 
