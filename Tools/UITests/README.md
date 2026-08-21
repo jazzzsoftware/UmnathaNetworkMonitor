@@ -7,9 +7,10 @@ product and touches the operator's real data folder, it refuses to run at all un
 is genuinely ready for that — see Preflight below.
 
 **Current state:** the runner, the FlaUI driving layer, the seeded database fixture, the HTML
-report and the first two phases (`Phases/LaunchPhase.cs`, `Phases/DevicesPhase.cs`) all exist and
-are wired into `Program.cs`'s default run. The remaining seven phases (Traffic, Speed Test,
-Reports, Settings, Mini Graph, Purge, the update lifecycle) are later work.
+report and the first four phases (`Phases/LaunchPhase.cs`, `Phases/DevicesPhase.cs`,
+`Phases/TrafficPhase.cs`, `Phases/SpeedTestPhase.cs`) all exist and are wired into `Program.cs`'s
+default run. The remaining five phases (Reports, Settings, Mini Graph, Purge, the update
+lifecycle) are later work.
 
 ## The one command
 
@@ -80,9 +81,10 @@ runs until the saver activated, and the next run then started straight into it.
   (`Program.cs`'s `BuildPhases`/`SumExpectedDuration`, each phase carrying its own hand-set
   `Phase.ExpectedDuration` estimate) rather than the plan's eventual nine-phase target, with a
   1.5x safety margin on top for a slower machine or an optimistic per-phase estimate. At today's
-  two registered phases that sum is well under a minute, so a normal desktop default (commonly 15
-  minutes) is nowhere near a real risk and a run proceeds; once the full nine phases exist and a
-  run approaches that same default, the comparison refuses for a real reason instead.
+  four registered phases that sum is five minutes (a real run takes about 35 seconds of it), so a
+  normal desktop default (commonly 15 minutes) is not yet a real risk and a run proceeds; once the
+  full nine phases exist and a run approaches that same default, the comparison refuses for a real
+  reason instead.
 
 Preflight cannot stop a screen saver that activates for some other reason mid-run (a policy
 change, a second interactive session locking the screen). If a run fails partway through with

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using NetworkMonitor.Core.Charting;
+using NetworkMonitor.Core.Traffic;
 
 namespace NetworkMonitor.UITests.Fixtures
 {
@@ -117,6 +118,30 @@ namespace NetworkMonitor.UITests.Fixtures
                 get;
                 set;
             } = 1.0;
+
+            // Pinned for Task 9, which was written against it and reads as nonsense without it.
+            // It is the app's own default, but leaving it to the default made two assertions
+            // depend on a value the fixture never stated: it is the bucket width the 5-minute
+            // window uses (InternetViewModel.BucketSizeFor), so it sets both how many buckets that
+            // window has and — through ChartDrawRange.FromBucketSeconds, which reads bucket width
+            // alone — which range token the chart reports drawing. At anything above 1 the
+            // 5-minute window reports itself as "1h", indistinguishable from the real 1-hour
+            // window. That ambiguity is the chart summary's, not this fixture's, and is recorded
+            // as amendment A on Task 9 in the plan.
+            public int TrafficIntervalSeconds
+            {
+                get;
+                set;
+            } = 1;
+
+            // Pinned for the same reason: LocalPage opens on whichever lens Settings last held,
+            // and TrafficPhase asserts the By-app lens is what it finds before toggling to
+            // By-device.
+            public LocalLens LocalLens
+            {
+                get;
+                set;
+            } = LocalLens.ByApp;
 
             public bool DevicesOnlineOnly
             {

@@ -53,6 +53,60 @@ namespace NetworkMonitor.UITests.Driving
         // Text descendant, not on the outer cell wrapper CellText itself used to (wrongly) read
         // Name from. ValueOrDefault returns empty rather than throwing if HelpText is unsupported
         // on whichever element is actually read.
+        // Every Text inside a cell, not only the first one CellText reads. The Local grid renders
+        // its chips — the service tag ("SMB"), "discovery only", the live rate — as further Text
+        // siblings inside the same template cell as the row's name, so asserting a chip means
+        // reading past CellText's first-Text rule. Unreadable elements are skipped rather than
+        // thrown, for the same reason CellText's own comment gives.
+        public static IReadOnlyList<string> CellTexts(AutomationElement grid, int row, int column)
+        {
+            IGridPattern gridPattern = grid.Patterns.Grid.Pattern;
+
+            ScrollRowIntoView(grid, row);
+
+            AutomationElement cell = gridPattern.GetItem(row, column);
+            AutomationElement[] textElements = cell.FindAllDescendants(conditionFactory => conditionFactory.ByControlType(ControlType.Text));
+            List<string> texts = new List<string>();
+
+            foreach (AutomationElement textElement in textElements)
+            {
+                string text = ReadNameOrEmpty(textElement);
+
+                if (text.Length > 0)
+                {
+                    texts.Add(text);
+                }
+
+            }
+
+            IReadOnlyList<string> result = texts;
+
+            return result;
+        }
+
+        // The one place a phase turns "the row whose column reads like this" into a row index.
+        // Substring rather than equality, because a template cell's first Text is the row's display
+        // name and often carries more than the caller is matching on ("nas-media +1"). Returns -1
+        // when no row matches, which every caller reports as a failed step rather than throwing.
+        public static int FindRowIndex(AutomationElement grid, int column, string expectedSubstring)
+        {
+            int rowCount = RowCount(grid);
+            int matchedRow = -1;
+
+            for (int row = 0; row < rowCount && matchedRow < 0; row++)
+            {
+                string cellText = CellText(grid, row, column);
+
+                if (cellText.Contains(expectedSubstring, StringComparison.Ordinal))
+                {
+                    matchedRow = row;
+                }
+
+            }
+
+            return matchedRow;
+        }
+
         public static string CellHelpText(AutomationElement grid, int row, int column)
         {
             IGridPattern gridPattern = grid.Patterns.Grid.Pattern;
@@ -84,6 +138,22 @@ namespace NetworkMonitor.UITests.Driving
                 scrollItemPattern.ScrollIntoView();
             }
 
+        }
+
+        private static string ReadNameOrEmpty(AutomationElement element)
+        {
+            string name;
+
+            try
+            {
+                name = element.Name ?? string.Empty;
+            }
+            catch (Exception)
+            {
+                name = string.Empty;
+            }
+
+            return name;
         }
 
         private static string ReadCellDisplayName(AutomationElement cell)

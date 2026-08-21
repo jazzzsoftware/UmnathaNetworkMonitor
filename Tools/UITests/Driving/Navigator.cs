@@ -55,6 +55,27 @@ namespace NetworkMonitor.UITests.Driving
                 $"the '{itemName}' navigation item to report itself selected after Select()");
         }
 
+        // The tab strips inside a page (TrafficHostPage's Internet/Local/Speed Test, DevicesHostPage's
+        // four device tabs) are SelectorBarItems rather than NavigationViewItems, but selecting one
+        // is the same two-step dance GoTo does: Select() through SelectionItemPattern, then wait for
+        // the item to report itself selected rather than assuming the click took.
+        public void SelectTab(string tabAutomationId)
+        {
+            AutomationElement tabItem = Waits.UntilFound(
+                () => _session.MainWindow.FindFirstDescendant(tabAutomationId),
+                SelectionTimeout,
+                $"the '{tabAutomationId}' tab to appear");
+
+            ISelectionItemPattern selectionItemPattern = tabItem.Patterns.SelectionItem.Pattern;
+
+            selectionItemPattern.Select();
+
+            Waits.Until(
+                () => selectionItemPattern.IsSelected.Value,
+                SelectionTimeout,
+                $"the '{tabAutomationId}' tab to report itself selected after Select()");
+        }
+
         private static string AutomationIdFor(NavRoute route)
         {
             string automationId = route switch

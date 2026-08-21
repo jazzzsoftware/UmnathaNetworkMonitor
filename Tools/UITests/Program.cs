@@ -80,7 +80,16 @@ static List<Phase> BuildPhases()
         // A real run's Devices phase measured 19.0s end to end, including a native file dialog
         // round trip for CSV export/import; 90s covers a slower shell-handler launch on a loaded
         // machine.
-        new Phase("02 Devices", false, DevicesPhase.RunAsync, TimeSpan.FromSeconds(90))
+        new Phase("02 Devices", false, DevicesPhase.RunAsync, TimeSpan.FromSeconds(90)),
+
+        // Six chart redraws (three ranges on each traffic tab, plus two more for the drill-down's
+        // reload check), a lens switch and two bucket selections, each waiting on a real reload;
+        // 120s is generous headroom over the ~35s a first real run took.
+        new Phase("03 Traffic", false, TrafficPhase.RunAsync, TimeSpan.FromSeconds(120)),
+
+        // Four chart summaries and a grid read against thirty seeded results, with no real speed
+        // test run (see SpeedTestPhase's header for why); 60s is well clear of what that needs.
+        new Phase("04 Speed Test", false, SpeedTestPhase.RunAsync, TimeSpan.FromSeconds(60))
     };
 
     return phases;
@@ -329,13 +338,21 @@ static async Task<int> DumpTreeFromExecutable(string executablePath, string? pag
 
         using (AppSession session = new AppSession(application))
         {
-            // AppSession.MainWindow (Application.GetMainWindow) is satisfied by the first
-            // top-level HWND it sees, which is the Splash window (App.xaml.cs), not the shell —
-            // DatabaseInitializer.InitializeAsync and the rest of OnLaunched still have to finish
-            // before NavigationView exists. Waiting here for a shell landmark (the Traffic nav
-            // item) makes every session.MainWindow read after this point the real shell.
+            // Waits for a shell landmark (the Traffic nav item) rather than for any window, so
+            // every session.MainWindow read after this point is the real shell and not the splash
+            // (App.xaml.cs shows it while DatabaseInitializer.InitializeAsync and the rest of
+            // OnLaunched run).
+            //
+            // Task 9: TryFindShellLandmark, not a bare session.MainWindow read. AppSession's
+            // fix-round-1 rewrite made MainWindow *throw* whenever no window is titled "Umnatha
+            // Network Monitor" right now, which is the normal state for the first second or two of
+            // every cold start — and Waits.Until propagates a thrown exception instead of treating
+            // it as "not yet". This diagnostic therefore aborted on its very first poll, on every
+            // run, with the message the wait was written to tolerate. LaunchPhase.ShellIsReady
+            // already catches exactly this; the diagnostic had been left behind when that fix
+            // landed.
             Waits.UntilFound(
-                () => session.MainWindow.FindFirstDescendant("TrafficNavItem"),
+                () => TryFindShellLandmark(session),
                 shellReadyTimeout,
                 "the shell (NavigationView with the Traffic nav item) to replace the splash screen");
 
@@ -400,6 +417,25 @@ static Window ShowMiniGraphWindow(AppSession session)
 // page-specific method per surface — the same SelectionItemPattern.Select() approach Navigator
 // itself uses, and for the same reason: Invoke() does not reliably change a SelectorBarItem's
 // selection either.
+// Polled from Waits.UntilFound, which retries on null but not on a thrown exception: until the
+// splash closes there is no window with the shell's title and AppSession.MainWindow throws, which
+// is expected on every early poll of a cold start rather than a reason to give up.
+static AutomationElement? TryFindShellLandmark(AppSession session)
+{
+    AutomationElement? landmark;
+
+    try
+    {
+        landmark = session.MainWindow.FindFirstDescendant("TrafficNavItem");
+    }
+    catch (Exception)
+    {
+        landmark = null;
+    }
+
+    return landmark;
+}
+
 static void NavigateToPage(AppSession session, string pageArgument)
 {
     (NavRoute route, string? tabAutomationId) = ResolvePage(pageArgument);

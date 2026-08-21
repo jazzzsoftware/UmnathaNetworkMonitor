@@ -20,6 +20,60 @@ namespace NetworkMonitor.UITests.Fixtures
         private const string WanProcessOne = "chrome.exe";
         private const string WanProcessTwo = "OneDrive.exe";
         private const string LocalDiscoveryMulticastIp = "224.0.0.251";
+        private const string LocalDataProcess = "System";
+        private const string LocalFileProcess = "explorer.exe";
+
+        private const int TcpProtocol = 6;
+        private const int UdpProtocol = 17;
+        private const int SmbPort = 445;
+        private const int MediaPort = 8009;
+        private const int MdnsPort = 5353;
+
+        private const int NasDeviceIndex = 10;
+        private const int SecondPeerDeviceIndex = 7;
+        private const int RouterDeviceIndex = 0;
+
+        private const long ChromeRollupDownloadBase = 700000L;
+        private const long ChromeRollupDownloadStep = 12000L;
+        private const long ChromeRollupUploadBase = 90000L;
+        private const long ChromeRollupUploadStep = 1500L;
+        private const long OneDriveRollupDownloadBase = 22000L;
+        private const long OneDriveRollupDownloadStep = 300L;
+        private const long OneDriveRollupUploadBase = 30000L;
+        private const long OneDriveRollupUploadStep = 400L;
+
+        private const long NasSmbRollupDownloadBase = 200000L;
+        private const long NasSmbRollupDownloadStep = 7000L;
+        private const long NasSmbRollupUploadBase = 25000L;
+        private const long NasSmbRollupUploadStep = 900L;
+        private const long NasFileRollupDownloadBase = 60000L;
+        private const long NasFileRollupDownloadStep = 2000L;
+        private const long NasFileRollupUploadBase = 8000L;
+        private const long NasFileRollupUploadStep = 300L;
+        private const long SecondPeerRollupDownloadBase = 15000L;
+        private const long SecondPeerRollupDownloadStep = 500L;
+        private const long SecondPeerRollupUploadBase = 3000L;
+        private const long SecondPeerRollupUploadStep = 100L;
+        private const long DiscoveryRollupUploadBase = 1000L;
+        private const long DiscoveryRollupUploadStep = 30L;
+
+        // The floor TrafficPhase asserts the Internet chart's reported peak against, for any
+        // window whose buckets are a minute or wider (1h and 6h — both read TrafficRollups). It is
+        // the newest seeded rollup minute's total download across both WAN processes, which is the
+        // one seeded bucket guaranteed to still be inside the window however long the run takes to
+        // reach the Traffic page. Download, not upload, because every seeded stream downloads more
+        // than it uploads, and the chart's peak is the larger of the two.
+        //
+        // A floor rather than an equality: the app under test is capturing real traffic into the
+        // same fixture database while the suite drives it, so the drawn peak can only be this or
+        // higher — never lower. See TrafficPhase's header for the rest of that reasoning.
+        public const long WanNewestRollupBucketDownloadBytes = ChromeRollupDownloadBase + OneDriveRollupDownloadBase;
+
+        // The same floor for the Local chart. Only the data streams count: LocalViewModel's chart
+        // SQL excludes discovery ports outright (`NOT LocalFlowClassifier.DiscoverySqlPredicate`),
+        // so the two seeded mDNS streams contribute nothing to what the chart draws.
+        public const long LocalNewestRollupBucketDownloadBytes =
+            NasSmbRollupDownloadBase + NasFileRollupDownloadBase + SecondPeerRollupDownloadBase;
 
         public static async Task<SeedCounts> BuildAsync(string dbPath, DateTime nowUtc)
         {
@@ -347,8 +401,8 @@ namespace NetworkMonitor.UITests.Fixtures
                     MinuteEpoch = minuteEpoch,
                     ProcessName = WanProcessOne,
                     ProcessPath = @"C:\Program Files\Google\Chrome\Application\chrome.exe",
-                    BytesUploaded = 90000 + (pointIndex * 1500),
-                    BytesDownloaded = 700000 + (pointIndex * 12000)
+                    BytesUploaded = ChromeRollupUploadBase + (pointIndex * ChromeRollupUploadStep),
+                    BytesDownloaded = ChromeRollupDownloadBase + (pointIndex * ChromeRollupDownloadStep)
                 });
 
                 trafficRollups.Add(new TrafficRollup
@@ -356,20 +410,42 @@ namespace NetworkMonitor.UITests.Fixtures
                     MinuteEpoch = minuteEpoch,
                     ProcessName = WanProcessTwo,
                     ProcessPath = @"C:\Program Files\Microsoft OneDrive\OneDrive.exe",
-                    BytesUploaded = 30000 + (pointIndex * 400),
-                    BytesDownloaded = 22000 + (pointIndex * 300)
+                    BytesUploaded = OneDriveRollupUploadBase + (pointIndex * OneDriveRollupUploadStep),
+                    BytesDownloaded = OneDriveRollupDownloadBase + (pointIndex * OneDriveRollupDownloadStep)
                 });
             }
 
             return trafficRollups;
         }
 
-        // Local (LAN) raw entries for the trailing ten minutes, covering both flow
-        // classifications LocalFlowClassifier recognises: SMB to the seeded NAS device (Data,
-        // tagged) and mDNS to the multicast group (Discovery).
+        // Local (LAN) raw entries for the trailing ten minutes, across five streams. Task 9
+        // widened this from the original two, because two could not exercise what the Local page
+        // actually does — every addition below buys a specific assertion in TrafficPhase:
+        //
+        // 1. System → NAS over SMB (Data, tagged "SMB") — the service-tag chip.
+        // 2. explorer.exe → NAS over SMB — a second app on one device, so the By-device lens has a
+        //    group with two children. LocalTrafficGroupRow.HasChildren is `Children.Count > 1`, so
+        //    with only stream 1 no row on either lens could ever expand and the drill-down was
+        //    untestable.
+        // 3. System → echo-lounge on 8009 (Data, untagged) — a second peer for one app, so the
+        //    By-app lens has a group with two children too, and the same drill-down assertion
+        //    holds on both lenses. The peer device matters: this was originally printer-office,
+        //    which DevicesPhase deletes two phases before TrafficPhase reads it, leaving the peer
+        //    unnameable and rendered as a bare IP. Point these streams only at devices no earlier
+        //    phase edits or deletes.
+        // 4. System → the router over mDNS (Discovery, to an IP that IS a seeded device) — folds
+        //    into LocalTrafficGrouper's background row and produces the "discovery only" chip.
+        //    The original seed's only discovery stream was #5, which the grouper drops outright,
+        //    so the fold and the chip could not appear at all.
+        // 5. System → the mDNS multicast group (Discovery, to an IP that is NOT a device) — kept
+        //    exactly as it was, and now load-bearing: the background row's own label counts its
+        //    children, so asserting it reads "1 device — discovery only" proves both that #4 was
+        //    folded and that #5 was dropped.
         private static List<LocalTrafficEntry> BuildLocalTrafficEntries(DateTime nowUtc, List<Device> devices)
         {
-            string nasIpAddress = devices[10].IpAddress;
+            string nasIpAddress = devices[NasDeviceIndex].IpAddress;
+            string secondPeerIpAddress = devices[SecondPeerDeviceIndex].IpAddress;
+            string routerIpAddress = devices[RouterDeviceIndex].IpAddress;
             List<LocalTrafficEntry> localTrafficEntries = new List<LocalTrafficEntry>();
 
             for (int pointIndex = 0; pointIndex < 20; pointIndex++)
@@ -379,10 +455,10 @@ namespace NetworkMonitor.UITests.Fixtures
                 localTrafficEntries.Add(new LocalTrafficEntry
                 {
                     Timestamp = timestamp,
-                    ProcessName = "System",
+                    ProcessName = LocalDataProcess,
                     RemoteIp = nasIpAddress,
-                    Protocol = 6,
-                    RemotePort = 445,
+                    Protocol = TcpProtocol,
+                    RemotePort = SmbPort,
                     BytesUploaded = 5000 + (pointIndex * 300),
                     BytesDownloaded = 40000 + (pointIndex * 2500)
                 });
@@ -390,10 +466,43 @@ namespace NetworkMonitor.UITests.Fixtures
                 localTrafficEntries.Add(new LocalTrafficEntry
                 {
                     Timestamp = timestamp,
-                    ProcessName = "System",
+                    ProcessName = LocalFileProcess,
+                    RemoteIp = nasIpAddress,
+                    Protocol = TcpProtocol,
+                    RemotePort = SmbPort,
+                    BytesUploaded = 1600 + (pointIndex * 90),
+                    BytesDownloaded = 12000 + (pointIndex * 700)
+                });
+
+                localTrafficEntries.Add(new LocalTrafficEntry
+                {
+                    Timestamp = timestamp,
+                    ProcessName = LocalDataProcess,
+                    RemoteIp = secondPeerIpAddress,
+                    Protocol = TcpProtocol,
+                    RemotePort = MediaPort,
+                    BytesUploaded = 600 + (pointIndex * 30),
+                    BytesDownloaded = 3000 + (pointIndex * 150)
+                });
+
+                localTrafficEntries.Add(new LocalTrafficEntry
+                {
+                    Timestamp = timestamp,
+                    ProcessName = LocalDataProcess,
+                    RemoteIp = routerIpAddress,
+                    Protocol = UdpProtocol,
+                    RemotePort = MdnsPort,
+                    BytesUploaded = 200 + (pointIndex * 10),
+                    BytesDownloaded = 0
+                });
+
+                localTrafficEntries.Add(new LocalTrafficEntry
+                {
+                    Timestamp = timestamp,
+                    ProcessName = LocalDataProcess,
                     RemoteIp = LocalDiscoveryMulticastIp,
-                    Protocol = 17,
-                    RemotePort = 5353,
+                    Protocol = UdpProtocol,
+                    RemotePort = MdnsPort,
                     BytesUploaded = 200 + (pointIndex * 10),
                     BytesDownloaded = 0
                 });
@@ -402,11 +511,15 @@ namespace NetworkMonitor.UITests.Fixtures
             return localTrafficEntries;
         }
 
-        // Local (LAN) rollups at 5-minute cadence for the trailing six hours, same two
-        // classifications as the raw entries above.
+        // Local (LAN) rollups at 5-minute cadence for the trailing six hours — the same five
+        // streams as the raw entries above, so the 1-hour and 6-hour windows show the same shape
+        // the 5-minute window does, and LocalNewestRollupBucketDownloadBytes is the newest
+        // minute's total across the three that the chart actually draws.
         private static List<LocalTrafficRollup> BuildLocalTrafficRollups(DateTime nowUtc, List<Device> devices)
         {
-            string nasIpAddress = devices[10].IpAddress;
+            string nasIpAddress = devices[NasDeviceIndex].IpAddress;
+            string secondPeerIpAddress = devices[SecondPeerDeviceIndex].IpAddress;
+            string routerIpAddress = devices[RouterDeviceIndex].IpAddress;
             List<LocalTrafficRollup> localTrafficRollups = new List<LocalTrafficRollup>();
 
             for (int pointIndex = 0; pointIndex < 72; pointIndex++)
@@ -417,22 +530,55 @@ namespace NetworkMonitor.UITests.Fixtures
                 localTrafficRollups.Add(new LocalTrafficRollup
                 {
                     MinuteEpoch = minuteEpoch,
-                    ProcessName = "System",
+                    ProcessName = LocalDataProcess,
                     RemoteIp = nasIpAddress,
-                    Protocol = 6,
-                    RemotePort = 445,
-                    BytesUploaded = 25000 + (pointIndex * 900),
-                    BytesDownloaded = 200000 + (pointIndex * 7000)
+                    Protocol = TcpProtocol,
+                    RemotePort = SmbPort,
+                    BytesUploaded = NasSmbRollupUploadBase + (pointIndex * NasSmbRollupUploadStep),
+                    BytesDownloaded = NasSmbRollupDownloadBase + (pointIndex * NasSmbRollupDownloadStep)
                 });
 
                 localTrafficRollups.Add(new LocalTrafficRollup
                 {
                     MinuteEpoch = minuteEpoch,
-                    ProcessName = "System",
+                    ProcessName = LocalFileProcess,
+                    RemoteIp = nasIpAddress,
+                    Protocol = TcpProtocol,
+                    RemotePort = SmbPort,
+                    BytesUploaded = NasFileRollupUploadBase + (pointIndex * NasFileRollupUploadStep),
+                    BytesDownloaded = NasFileRollupDownloadBase + (pointIndex * NasFileRollupDownloadStep)
+                });
+
+                localTrafficRollups.Add(new LocalTrafficRollup
+                {
+                    MinuteEpoch = minuteEpoch,
+                    ProcessName = LocalDataProcess,
+                    RemoteIp = secondPeerIpAddress,
+                    Protocol = TcpProtocol,
+                    RemotePort = MediaPort,
+                    BytesUploaded = SecondPeerRollupUploadBase + (pointIndex * SecondPeerRollupUploadStep),
+                    BytesDownloaded = SecondPeerRollupDownloadBase + (pointIndex * SecondPeerRollupDownloadStep)
+                });
+
+                localTrafficRollups.Add(new LocalTrafficRollup
+                {
+                    MinuteEpoch = minuteEpoch,
+                    ProcessName = LocalDataProcess,
+                    RemoteIp = routerIpAddress,
+                    Protocol = UdpProtocol,
+                    RemotePort = MdnsPort,
+                    BytesUploaded = DiscoveryRollupUploadBase + (pointIndex * DiscoveryRollupUploadStep),
+                    BytesDownloaded = 0
+                });
+
+                localTrafficRollups.Add(new LocalTrafficRollup
+                {
+                    MinuteEpoch = minuteEpoch,
+                    ProcessName = LocalDataProcess,
                     RemoteIp = LocalDiscoveryMulticastIp,
-                    Protocol = 17,
-                    RemotePort = 5353,
-                    BytesUploaded = 1000 + (pointIndex * 30),
+                    Protocol = UdpProtocol,
+                    RemotePort = MdnsPort,
+                    BytesUploaded = DiscoveryRollupUploadBase + (pointIndex * DiscoveryRollupUploadStep),
                     BytesDownloaded = 0
                 });
             }
@@ -589,9 +735,19 @@ namespace NetworkMonitor.UITests.Fixtures
             return summary;
         }
 
+        // Seconds since the Unix epoch truncated to the minute — NOT minutes since the epoch.
+        // Task 9: this used to return TotalMinutes, which is 60x too small, so every seeded rollup
+        // (WAN and LAN alike) carried a MinuteEpoch somewhere in January 1970. Both traffic pages
+        // read rollups for every window a minute or wider (InternetViewModel/LocalViewModel:
+        // `WHERE MinuteEpoch >= $cutoffEpoch`, with a cutoff in seconds), so the 1h, 6h, 24h and 7d
+        // views showed "0 apps · 0 B total" against a fixture that believed it had seeded six hours
+        // of traffic. Nothing asserted the traffic pages until this task, so the fixture had been
+        // silently empty there since Task 5. Mirrors TrafficTracker.MinuteEpochFor exactly, which
+        // is what actually writes these rows in the running app.
         private static long MinuteEpoch(DateTime timestampUtc)
         {
-            long minuteEpoch = (long) (timestampUtc - DateTime.UnixEpoch).TotalMinutes;
+            long secondsEpoch = (long)(timestampUtc - DateTime.UnixEpoch).TotalSeconds;
+            long minuteEpoch = (secondsEpoch / 60) * 60;
 
             return minuteEpoch;
         }

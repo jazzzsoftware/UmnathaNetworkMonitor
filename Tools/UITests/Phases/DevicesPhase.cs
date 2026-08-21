@@ -231,21 +231,13 @@ namespace NetworkMonitor.UITests.Phases
             return grid;
         }
 
+        // Task 9 moved the body of this to Navigator.SelectTab, now that TrafficPhase and
+        // SpeedTestPhase drive tabs of their own and the dance should exist once.
         private static void SelectTab(AppSession session, string tabAutomationId)
         {
-            AutomationElement tabItem = Waits.UntilFound(
-                () => session.MainWindow.FindFirstDescendant(tabAutomationId),
-                ControlTimeout,
-                $"the '{tabAutomationId}' tab to appear");
+            Navigator navigator = new Navigator(session);
 
-            ISelectionItemPattern selectionItemPattern = tabItem.Patterns.SelectionItem.Pattern;
-
-            selectionItemPattern.Select();
-
-            Waits.Until(
-                () => selectionItemPattern.IsSelected.Value,
-                ControlTimeout,
-                $"the '{tabAutomationId}' tab to report itself selected after Select()");
+            navigator.SelectTab(tabAutomationId);
         }
 
         private static StepResult AssertGridRowCount(string stepName, AutomationElement grid, int expectedCount)
@@ -267,7 +259,7 @@ namespace NetworkMonitor.UITests.Phases
 
         private static StepResult AssertRowFound(string stepName, AutomationElement grid, int nameColumn, string expectedSubstring)
         {
-            int rowIndex = FindRowIndexByNameText(grid, nameColumn, expectedSubstring);
+            int rowIndex = GridReader.FindRowIndex(grid, nameColumn, expectedSubstring);
             StepResult result;
 
             if (rowIndex >= 0)
@@ -285,7 +277,7 @@ namespace NetworkMonitor.UITests.Phases
         private static StepResult AssertNotesAttached(AutomationElement grid, int nameColumn, string hostname, string expectedNotes)
         {
             const string stepName = "The device with notes shows them";
-            int rowIndex = FindRowIndexByNameText(grid, nameColumn, hostname);
+            int rowIndex = GridReader.FindRowIndex(grid, nameColumn, hostname);
             StepResult result;
 
             if (rowIndex < 0)
@@ -403,25 +395,6 @@ namespace NetworkMonitor.UITests.Phases
             return result;
         }
 
-        private static int FindRowIndexByNameText(AutomationElement grid, int nameColumn, string expectedSubstring)
-        {
-            int rowCount = GridReader.RowCount(grid);
-            int matchedRow = -1;
-
-            for (int row = 0; row < rowCount && matchedRow < 0; row++)
-            {
-                string cellText = GridReader.CellText(grid, row, nameColumn);
-
-                if (cellText.Contains(expectedSubstring, StringComparison.Ordinal))
-                {
-                    matchedRow = row;
-                }
-
-            }
-
-            return matchedRow;
-        }
-
         // ContentDialog.Content is a plain string in ImportButtonClick/ExportButtonClick's result
         // dialogs, which WinUI wraps in a TextBlock whose Name carries the message text — but that
         // TextBlock is one descendant among several (title bar, buttons), so this scans rather than
@@ -491,7 +464,7 @@ namespace NetworkMonitor.UITests.Phases
 
         // Fix round 1 (2026-08-20): a real run's Edit/Delete steps both failed waiting for their
         // ContentDialog — "the Edit dialog for 02:00:00:00:00:07" and "the delete confirmation
-        // dialog" both timed out even though the row was correctly located (FindRowIndexByNameText
+        // dialog" both timed out even though the row was correctly located (GridReader.FindRowIndex
         // succeeded, so the failure was strictly after that) and the button itself was found (its
         // own distinct Waits.UntilFound message never appeared in the failure). The likeliest cause:
         // this method never scrolled the row into view before clicking, unlike GridReader.CellText —
@@ -1323,7 +1296,7 @@ namespace NetworkMonitor.UITests.Phases
                 AssertForegroundWindowBelongsToAppUnderTest(session);
 
                 AutomationElement approvedGrid = WaitForGrid(session, "ApprovedDevicesGrid");
-                int rowIndex = FindRowIndexByNameText(approvedGrid, ApprovedNameColumn, EditTargetHostname);
+                int rowIndex = GridReader.FindRowIndex(approvedGrid, ApprovedNameColumn, EditTargetHostname);
 
                 if (rowIndex < 0)
                 {
@@ -1388,7 +1361,7 @@ namespace NetworkMonitor.UITests.Phases
                         try
                         {
                             Waits.Until(
-                                () => FindRowIndexByNameText(approvedGrid, ApprovedNameColumn, EditedFriendlyName) >= 0,
+                                () => GridReader.FindRowIndex(approvedGrid, ApprovedNameColumn, EditedFriendlyName) >= 0,
                                 DataChangeTimeout,
                                 "the Approved grid to show the edited friendly name after Save");
 
@@ -1433,7 +1406,7 @@ namespace NetworkMonitor.UITests.Phases
             {
                 AutomationElement approvedGrid = WaitForGrid(session, "ApprovedDevicesGrid");
                 int countBeforeDelete = GridReader.RowCount(approvedGrid);
-                int rowIndex = FindRowIndexByNameText(approvedGrid, ApprovedNameColumn, DeleteTargetHostname);
+                int rowIndex = GridReader.FindRowIndex(approvedGrid, ApprovedNameColumn, DeleteTargetHostname);
 
                 if (rowIndex < 0)
                 {
