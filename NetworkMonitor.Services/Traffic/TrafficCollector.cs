@@ -16,16 +16,19 @@ namespace NetworkMonitor.Services.Traffic
         private const int IdleSlot = 2;
         private const int CounterSlots = 3;
         private const long MaxIdleDrains = 60;
-        private static readonly TimeSpan SessionSetupTimeout = TimeSpan.FromSeconds(5);
+        private const int MaxSetupAttempts = 2;
+        private static readonly TimeSpan SessionSetupTimeout = TimeSpan.FromSeconds(25);
         private readonly ConcurrentDictionary<int, long[]> _counters = new();
         private readonly ConcurrentDictionary<LocalFlowKey, long[]> _localCounters = new();
         private readonly LanClassifier _lanClassifier;
+        private readonly InAppNotificationService _notificationService;
         private TraceEventSession? _session;
         private CancellationTokenRegistration _stopRegistration;
 
-        public TrafficCollector(LanClassifier lanClassifier)
+        public TrafficCollector(LanClassifier lanClassifier, InAppNotificationService notificationService)
         {
             _lanClassifier = lanClassifier;
+            _notificationService = notificationService;
         }
 
         public Dictionary<int, (long Upload, long Download)> DrainAndReset()
@@ -107,7 +110,6 @@ namespace NetworkMonitor.Services.Traffic
                 {
                     _session = startedSession;
                     _stopRegistration = ct.Register(() => startedSession.Stop());
-                    AppDomain.CurrentDomain.ProcessExit += OnProcessExit;
                     AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandledException;
 
                     await Task.Run(() => startedSession.Source.Process(), CancellationToken.None);
@@ -126,7 +128,6 @@ namespace NetworkMonitor.Services.Traffic
 
         public override void Dispose()
         {
-            AppDomain.CurrentDomain.ProcessExit -= OnProcessExit;
             AppDomain.CurrentDomain.UnhandledException -= OnDomainUnhandledException;
             _stopRegistration.Dispose();
             _session?.Dispose();
@@ -175,14 +176,61 @@ namespace NetworkMonitor.Services.Traffic
 
         }
 
-        // A leftover "NetworkMonitorTraffic" ETW session from a process that was killed rather
-        // than exited through the tray has, in practice, left the native Stop()/StartTrace() calls
-        // in RunSessionSetup hanging with no way to cancel them — the only known recovery before
-        // this fix was running `logman stop NetworkMonitorTraffic -ets` from an elevated prompt.
-        // Running the setup on its own throwaway thread means a stuck call strands that thread
-        // instead of a shared pool worker, and the bounded Wait below is what stops it from ever
-        // blocking app startup: on timeout, capture is simply unavailable for this session.
+        // StopOrphanedSession()'s native Stop() call (and the StartTrace() calls in
+        // RunSessionSetup) have no timeout anywhere in the underlying TraceEvent library —
+        // confirmed by reading TraceEventSession.cs from microsoft/perfview. What actually makes
+        // them slow or stuck on a real machine was not caught directly here: repeated kill/relaunch
+        // cycles against the unbounded original code always completed in well under a second, and
+        // AppHost.StartAsync() already returns before this method ever runs, so a stall here cannot
+        // block the splash screen by itself — the only remaining path from "Stop() is stuck" to
+        // "shell never appears" is indirect (for example a stuck ControlTrace call holding an
+        // OS-wide ETW lock that something else on the UI thread later waits on), and that indirect
+        // path was not tested. Tools/UITests independently carries its own `logman stop` workaround
+        // for this same session name, which is suggestive but not proof of the mechanism.
+        //
+        // Regardless of the exact trigger, a native call with no bound of its own should not be
+        // able to hold the app up indefinitely. This runs the cleanup-and-create sequence on its
+        // own dedicated thread — so a permanently stuck call strands one throwaway thread rather
+        // than a shared pool worker — behind a generous, defence-in-depth timeout: long enough
+        // that a cold boot or an antivirus-loaded machine legitimately taking a while won't trip
+        // it, short enough to still bound a genuine hang, and retried once before finally giving up
+        // and telling the user capture is unavailable rather than only writing it to the log.
         private TraceEventSession? StartSessionWithBoundedWait()
+        {
+            TraceEventSession? result = null;
+            bool succeeded = false;
+
+            for (int attempt = 1; attempt <= MaxSetupAttempts && !succeeded; attempt++)
+            {
+                (TraceEventSession? Session, bool TimedOut, Exception? Failure) attemptResult = TryStartSessionOnce();
+
+                if (attemptResult.TimedOut)
+                {
+                    AppLog.Error(
+                        "TrafficCollector.StartSessionWithBoundedWait",
+                        new TimeoutException($"ETW session setup did not return within {SessionSetupTimeout.TotalSeconds:0}s (attempt {attempt} of {MaxSetupAttempts})."));
+                }
+                else if (attemptResult.Failure is not null)
+                {
+                    AppLog.Error("TrafficCollector.StartSessionWithBoundedWait", attemptResult.Failure);
+                }
+                else
+                {
+                    result = attemptResult.Session;
+                    succeeded = true;
+                }
+
+            }
+
+            if (!succeeded)
+            {
+                _notificationService.Show("Traffic capture is unavailable this session. Restart the app to try again.");
+            }
+
+            return result;
+        }
+
+        private (TraceEventSession? Session, bool TimedOut, Exception? Failure) TryStartSessionOnce()
         {
             SessionSetupOutcome outcome = new SessionSetupOutcome();
             Thread setupThread = new Thread(() => RunSessionSetup(outcome))
@@ -193,22 +241,31 @@ namespace NetworkMonitor.Services.Traffic
 
             setupThread.Start();
 
-            bool completedInTime = outcome.Ready.Wait(SessionSetupTimeout);
-            TraceEventSession? result = null;
+            bool signaled = outcome.Ready.Wait(SessionSetupTimeout);
 
-            if (!completedInTime)
+            if (!signaled)
             {
-                AppLog.Error(
-                    "TrafficCollector.StartSessionWithBoundedWait",
-                    new TimeoutException($"ETW session setup did not return within {SessionSetupTimeout.TotalSeconds:0}s. Traffic capture is unavailable this session. The known cause is a leftover '{SessionName}' session orphaned by a previously killed process, whose native Stop() call can hang indefinitely."));
+                int previousState = Interlocked.CompareExchange(ref outcome.State, SessionSetupOutcome.WaiterGaveUpFirst, SessionSetupOutcome.InProgress);
+
+                if (previousState != SessionSetupOutcome.InProgress)
+                {
+                    // The setup thread actually finished in the sliver of time between our Wait()
+                    // elapsing and this CompareExchange — it already holds SetupFinishedFirst, and
+                    // Ready is already set (or is being set this instant), so this cannot hang.
+                    signaled = outcome.Ready.Wait(SessionSetupTimeout);
+                }
+
             }
-            else if (outcome.Failure is not null)
+
+            (TraceEventSession? Session, bool TimedOut, Exception? Failure) result;
+
+            if (signaled)
             {
-                AppLog.Error("TrafficCollector.StartSessionWithBoundedWait", outcome.Failure);
+                result = (outcome.Session, false, outcome.Failure);
             }
             else
             {
-                result = outcome.Session;
+                result = (null, true, null);
             }
 
             return result;
@@ -237,22 +294,35 @@ namespace NetworkMonitor.Services.Traffic
             }
             finally
             {
-                outcome.Ready.Set();
+                int previousState = Interlocked.CompareExchange(ref outcome.State, SessionSetupOutcome.SetupFinishedFirst, SessionSetupOutcome.InProgress);
+
+                if (previousState == SessionSetupOutcome.InProgress)
+                {
+                    outcome.Ready.Set();
+                }
+                else
+                {
+                    // The waiter already gave up on this attempt (its bound elapsed first), so
+                    // nothing will ever read outcome.Session — stop and dispose it ourselves rather
+                    // than leaving a live, running session that nothing owns. Without this, a
+                    // timeout would manufacture exactly the kind of orphan this class exists to
+                    // clean up in the first place.
+                    outcome.Session?.Stop(noThrow: true);
+                    outcome.Session?.Dispose();
+                }
+
             }
 
         }
 
-        // Not every process death goes through the tray Exit item — an unhandled exception on a
-        // background thread (never seen by App.OnUnhandledException, which only covers the XAML
-        // dispatch pipeline) crashes the process without the BackgroundService ever observing
-        // cancellation. Catching it process-wide here is a best-effort reduction in how often a
-        // session gets orphaned in the first place; it does not replace the bounded-wait recovery
-        // above, which is what makes a hard kill (Task Manager, a debugger, a bad update) survivable.
-        private void OnProcessExit(object? sender, EventArgs eventArgs)
-        {
-            StopSessionBestEffort();
-        }
-
+        // Not every process death goes through the tray Exit item. An unhandled exception on a
+        // background thread never reaches App.OnUnhandledException (which only covers the XAML
+        // dispatch pipeline) and crashes the process without the BackgroundService ever observing
+        // cancellation — AppDomain.UnhandledException is the one place that still runs first in
+        // that case. This is a best-effort reduction in how often a session gets orphaned by that
+        // specific case only; it does nothing for Task Manager, a debugger kill, or a forced update
+        // install (none of those run any process code at all), which is exactly why the
+        // bounded-wait recovery in StartSessionWithBoundedWait is the change that actually matters.
         private void OnDomainUnhandledException(object? sender, UnhandledExceptionEventArgs eventArgs)
         {
             StopSessionBestEffort();
@@ -305,9 +375,14 @@ namespace NetworkMonitor.Services.Traffic
 
         private sealed class SessionSetupOutcome
         {
+            public const int InProgress = 0;
+            public const int SetupFinishedFirst = 1;
+            public const int WaiterGaveUpFirst = 2;
+
             public readonly ManualResetEventSlim Ready = new ManualResetEventSlim(false);
             public TraceEventSession? Session;
             public Exception? Failure;
+            public int State;
         }
     }
 }
