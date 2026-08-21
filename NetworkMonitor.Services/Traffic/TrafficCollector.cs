@@ -16,6 +16,7 @@ namespace NetworkMonitor.Services.Traffic
         private const int IdleSlot = 2;
         private const int CounterSlots = 3;
         private const long MaxIdleDrains = 60;
+        private static readonly TimeSpan SessionSetupTimeout = TimeSpan.FromSeconds(5);
         private readonly ConcurrentDictionary<int, long[]> _counters = new();
         private readonly ConcurrentDictionary<LocalFlowKey, long[]> _localCounters = new();
         private readonly LanClassifier _lanClassifier;
@@ -100,20 +101,18 @@ namespace NetworkMonitor.Services.Traffic
 
             try
             {
-                StopOrphanedSession();
+                TraceEventSession? startedSession = StartSessionWithBoundedWait();
 
-                _session = new TraceEventSession(SessionName);
-                _session.EnableKernelProvider(KernelTraceEventParser.Keywords.NetworkTCPIP);
+                if (startedSession is not null)
+                {
+                    _session = startedSession;
+                    _stopRegistration = ct.Register(() => startedSession.Stop());
+                    AppDomain.CurrentDomain.ProcessExit += OnProcessExit;
+                    AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandledException;
 
-                _session.Source.Kernel.TcpIpSend += args => AddBytes(args.ProcessID, args.daddr, args.size, upload: true, protocol: 6, remotePort: (ushort)args.dport);
-                _session.Source.Kernel.TcpIpRecv += args => AddBytes(args.ProcessID, args.daddr, args.size, upload: false, protocol: 6, remotePort: (ushort)args.dport);
-                _session.Source.Kernel.UdpIpSend += args => AddBytes(args.ProcessID, args.daddr, args.size, upload: true, protocol: 17, remotePort: (ushort)args.dport);
-                _session.Source.Kernel.UdpIpRecv += args => AddBytes(args.ProcessID, args.saddr, args.size, upload: false, protocol: 17, remotePort: (ushort)args.sport);
+                    await Task.Run(() => startedSession.Source.Process(), CancellationToken.None);
+                }
 
-                TraceEventSession startedSession = _session;
-                _stopRegistration = ct.Register(() => startedSession.Stop());
-
-                await Task.Run(() => startedSession.Source.Process(), CancellationToken.None);
             }
             catch (OperationCanceledException)
             {
@@ -127,6 +126,8 @@ namespace NetworkMonitor.Services.Traffic
 
         public override void Dispose()
         {
+            AppDomain.CurrentDomain.ProcessExit -= OnProcessExit;
+            AppDomain.CurrentDomain.UnhandledException -= OnDomainUnhandledException;
             _stopRegistration.Dispose();
             _session?.Dispose();
             base.Dispose();
@@ -174,6 +175,103 @@ namespace NetworkMonitor.Services.Traffic
 
         }
 
+        // A leftover "NetworkMonitorTraffic" ETW session from a process that was killed rather
+        // than exited through the tray has, in practice, left the native Stop()/StartTrace() calls
+        // in RunSessionSetup hanging with no way to cancel them — the only known recovery before
+        // this fix was running `logman stop NetworkMonitorTraffic -ets` from an elevated prompt.
+        // Running the setup on its own throwaway thread means a stuck call strands that thread
+        // instead of a shared pool worker, and the bounded Wait below is what stops it from ever
+        // blocking app startup: on timeout, capture is simply unavailable for this session.
+        private TraceEventSession? StartSessionWithBoundedWait()
+        {
+            SessionSetupOutcome outcome = new SessionSetupOutcome();
+            Thread setupThread = new Thread(() => RunSessionSetup(outcome))
+            {
+                IsBackground = true,
+                Name = "TrafficCollector-Setup"
+            };
+
+            setupThread.Start();
+
+            bool completedInTime = outcome.Ready.Wait(SessionSetupTimeout);
+            TraceEventSession? result = null;
+
+            if (!completedInTime)
+            {
+                AppLog.Error(
+                    "TrafficCollector.StartSessionWithBoundedWait",
+                    new TimeoutException($"ETW session setup did not return within {SessionSetupTimeout.TotalSeconds:0}s. Traffic capture is unavailable this session. The known cause is a leftover '{SessionName}' session orphaned by a previously killed process, whose native Stop() call can hang indefinitely."));
+            }
+            else if (outcome.Failure is not null)
+            {
+                AppLog.Error("TrafficCollector.StartSessionWithBoundedWait", outcome.Failure);
+            }
+            else
+            {
+                result = outcome.Session;
+            }
+
+            return result;
+        }
+
+        private void RunSessionSetup(SessionSetupOutcome outcome)
+        {
+
+            try
+            {
+                StopOrphanedSession();
+
+                TraceEventSession session = new TraceEventSession(SessionName);
+                session.EnableKernelProvider(KernelTraceEventParser.Keywords.NetworkTCPIP);
+
+                session.Source.Kernel.TcpIpSend += args => AddBytes(args.ProcessID, args.daddr, args.size, upload: true, protocol: 6, remotePort: (ushort)args.dport);
+                session.Source.Kernel.TcpIpRecv += args => AddBytes(args.ProcessID, args.daddr, args.size, upload: false, protocol: 6, remotePort: (ushort)args.dport);
+                session.Source.Kernel.UdpIpSend += args => AddBytes(args.ProcessID, args.daddr, args.size, upload: true, protocol: 17, remotePort: (ushort)args.dport);
+                session.Source.Kernel.UdpIpRecv += args => AddBytes(args.ProcessID, args.saddr, args.size, upload: false, protocol: 17, remotePort: (ushort)args.sport);
+
+                outcome.Session = session;
+            }
+            catch (Exception exception)
+            {
+                outcome.Failure = exception;
+            }
+            finally
+            {
+                outcome.Ready.Set();
+            }
+
+        }
+
+        // Not every process death goes through the tray Exit item — an unhandled exception on a
+        // background thread (never seen by App.OnUnhandledException, which only covers the XAML
+        // dispatch pipeline) crashes the process without the BackgroundService ever observing
+        // cancellation. Catching it process-wide here is a best-effort reduction in how often a
+        // session gets orphaned in the first place; it does not replace the bounded-wait recovery
+        // above, which is what makes a hard kill (Task Manager, a debugger, a bad update) survivable.
+        private void OnProcessExit(object? sender, EventArgs eventArgs)
+        {
+            StopSessionBestEffort();
+        }
+
+        private void OnDomainUnhandledException(object? sender, UnhandledExceptionEventArgs eventArgs)
+        {
+            StopSessionBestEffort();
+        }
+
+        private void StopSessionBestEffort()
+        {
+
+            try
+            {
+                _session?.Stop(noThrow: true);
+            }
+            catch (Exception exception)
+            {
+                AppLog.Error("TrafficCollector.StopSessionBestEffort", exception);
+            }
+
+        }
+
         private void AddBytes(int pid, IPAddress remote, int bytes, bool upload, byte protocol, ushort remotePort)
         {
 
@@ -203,6 +301,13 @@ namespace NetworkMonitor.Services.Traffic
 
             }
 
+        }
+
+        private sealed class SessionSetupOutcome
+        {
+            public readonly ManualResetEventSlim Ready = new ManualResetEventSlim(false);
+            public TraceEventSession? Session;
+            public Exception? Failure;
         }
     }
 }
