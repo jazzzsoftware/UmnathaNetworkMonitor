@@ -28,21 +28,26 @@ namespace NetworkMonitor.UITests.Runner
 
         private const long RequiredFreeBytes = 3L * 1024L * 1024L * 1024L;
 
-        // The full nine-phase suite targets roughly 15 minutes end to end (README.md's "Current
-        // state"). When the screen saver activates, Windows switches the input desktop to a
-        // separate one; synthetic input aimed at the original desktop is then refused
-        // (SendInput -> Win32Exception (5): Access is denied) and there is no foreground window
-        // at all (GetForegroundWindow() returns zero). Confirmed live: an operator's screen saver
-        // fired partway through an overnight run and turned 17 passed / 1 failed into 13 passed /
-        // 4 failed with no code change -- exactly the kind of non-deterministic, near-the-end
-        // failure pattern that reads as flaky tests rather than an environment problem.
-        private static readonly TimeSpan ExpectedMaximumRunDuration = TimeSpan.FromMinutes(15);
-
-        // Doubling the plan's own 15-minute target leaves headroom for a run that takes longer
-        // than expected (a slow phase, a slow machine) without demanding an operator hunt for the
-        // exact minimum -- and it is still a low-friction ask: raise the timeout, or turn the
-        // screen saver off, for the duration of one run.
-        private static readonly TimeSpan MinimumRequiredScreenSaverTimeout = TimeSpan.FromMinutes(30);
+        // When the screen saver activates, Windows switches the input desktop to a separate one;
+        // synthetic input aimed at the original desktop is then refused (SendInput ->
+        // Win32Exception (5): Access is denied) and there is no foreground window at all
+        // (GetForegroundWindow() returns zero). Confirmed live: an operator's screen saver fired
+        // partway through an overnight run and turned 17 passed / 1 failed into 13 passed / 4
+        // failed with no code change -- exactly the kind of non-deterministic, near-the-end
+        // failure pattern that reads as flaky tests rather than an environment problem. Synthetic
+        // input resets the idle timer while a run is actually driving the UI, so what happened
+        // overnight was idle time accumulating *between* runs until the saver came up, and the
+        // next run then started straight into it -- SPI_GETSCREENSAVERRUNNING below is the check
+        // that would have caught that at the start rather than partway through.
+        //
+        // This check is the softer of the two: it looks ahead at whether the saver is on course
+        // to fire mid-run, using how long *this* run's own registered phases are expected to take
+        // (Program.cs's BuildPhases/SumExpectedDuration) rather than the plan's eventual
+        // nine-phase target. At two phases that sum is well under a minute, so a normal desktop
+        // default (15 minutes) is nowhere near a real risk; a fixed floor pinned to the eventual
+        // target would refuse every run until then for no real reason, which is worse than the
+        // problem it is meant to prevent.
+        private const double ScreenSaverSafetyMarginMultiplier = 1.5;
 
         private const string DesktopRegistryKeyPath = @"Control Panel\Desktop";
         private const string ScreenSaveActiveValueName = "ScreenSaveActive";
@@ -61,7 +66,7 @@ namespace NetworkMonitor.UITests.Runner
             "UmnathaNetworkMonitor.uitest-displaced-*"
         };
 
-        public static async Task<PreflightResult> CheckAsync(CancellationToken cancellationToken)
+        public static async Task<PreflightResult> CheckAsync(CancellationToken cancellationToken, TimeSpan expectedRunDuration)
         {
             List<string> blockers = new List<string>();
             bool elevated = IsElevated();
@@ -78,7 +83,7 @@ namespace NetworkMonitor.UITests.Runner
                 blockers.Add(screenSaverRunningBlocker);
             }
 
-            string screenSaverTimeoutBlocker = FindScreenSaverTimeoutBlocker();
+            string screenSaverTimeoutBlocker = FindScreenSaverTimeoutBlocker(expectedRunDuration);
 
             if (screenSaverTimeoutBlocker.Length > 0)
             {
@@ -229,10 +234,17 @@ namespace NetworkMonitor.UITests.Runner
 
         // Distinct from FindScreenSaverRunningBlocker above: this refuses a run that has not hit
         // the screen saver yet but is on course to, because its configured timeout is shorter than
-        // this suite is expected to run for. Never writes to the registry -- only reads it and
-        // explains what the operator needs to change by hand, the same principle amendment A
-        // already applies to a running app: refuse and explain, never touch their configuration.
-        private static string FindScreenSaverTimeoutBlocker()
+        // this specific run is expected to take. expectedRunDuration is the sum of every phase
+        // actually registered for this run (Program.cs's BuildPhases/SumExpectedDuration), not a
+        // fixed figure pinned to the plan's eventual nine-phase target -- so a short run today
+        // does not get refused over a risk that does not yet exist, while a run that later grows
+        // to approach a normal screen-saver default gets refused for a real reason. The 1.5x
+        // margin on top absorbs a slower machine or a slightly-optimistic per-phase estimate
+        // without demanding the operator hunt for an exact minimum. Never writes to the registry
+        // -- only reads it and explains what the operator needs to change by hand, the same
+        // principle amendment A already applies to a running app: refuse and explain, never touch
+        // their configuration.
+        private static string FindScreenSaverTimeoutBlocker(TimeSpan expectedRunDuration)
         {
             string blocker = string.Empty;
 
@@ -243,22 +255,24 @@ namespace NetworkMonitor.UITests.Runner
                 if (screenSaverEnabled)
                 {
                     int timeoutSeconds = ReadRegistryInt(desktopKey, ScreenSaveTimeOutValueName);
+                    TimeSpan requiredMinimumTimeout = expectedRunDuration * ScreenSaverSafetyMarginMultiplier;
 
-                    if (timeoutSeconds > 0 && TimeSpan.FromSeconds(timeoutSeconds) < MinimumRequiredScreenSaverTimeout)
+                    if (timeoutSeconds > 0 && TimeSpan.FromSeconds(timeoutSeconds) < requiredMinimumTimeout)
                     {
                         double timeoutMinutes = timeoutSeconds / 60.0;
 
                         blocker =
                             $"The screen saver is enabled with a {timeoutMinutes:0.#} minute timeout "
-                            + $"(HKCU\\{DesktopRegistryKeyPath}\\{ScreenSaveTimeOutValueName}), but this suite is "
-                            + $"expected to run for about {ExpectedMaximumRunDuration.TotalMinutes:0} minutes end to "
-                            + "end -- it will activate mid-run, switch to a separate desktop, and start failing "
-                            + "steps non-deterministically from that point on (SendInput -> Win32Exception (5): "
-                            + "Access is denied, GetForegroundWindow() returning zero), in a way that looks like "
-                            + "flaky tests rather than an environment problem. Disable the screen saver or raise "
-                            + $"its timeout to at least {MinimumRequiredScreenSaverTimeout.TotalMinutes:0} minutes "
-                            + "for the duration of this run, then run again. This suite will not change that "
-                            + "setting for you.";
+                            + $"(HKCU\\{DesktopRegistryKeyPath}\\{ScreenSaveTimeOutValueName}), but this run's "
+                            + $"registered phases are expected to take about {expectedRunDuration.TotalSeconds:0}s, "
+                            + $"which with a {ScreenSaverSafetyMarginMultiplier:0.#}x safety margin needs at least "
+                            + $"{requiredMinimumTimeout.TotalMinutes:0.#} minutes of headroom -- otherwise the "
+                            + "saver can activate mid-run, switch to a separate desktop, and start failing steps "
+                            + "non-deterministically from that point on (SendInput -> Win32Exception (5): Access is "
+                            + "denied, GetForegroundWindow() returning zero), in a way that looks like flaky tests "
+                            + "rather than an environment problem. Disable the screen saver or raise its timeout to "
+                            + $"at least {requiredMinimumTimeout.TotalMinutes:0.#} minutes for the duration of this "
+                            + "run, then run again. This suite will not change that setting for you.";
                     }
 
                 }

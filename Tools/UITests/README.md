@@ -45,7 +45,8 @@ Before anything else runs, `Preflight.CheckAsync` verifies:
 - At least 3 GB free on the system drive (the update phase downloads two ~75 MB installers and
   copies the data folder aside).
 - The screen saver is not currently running, and is not enabled with a timeout short enough to
-  fire during a run (see Why the desktop must stay interactive, below).
+  fire before this specific run's registered phases are expected to finish (see Why the desktop
+  must stay interactive, below).
 
 Any blocker prints to the console and the process exits **2** — distinct from **1** (a real test
 failure) and **0** (everything passed). `InstalledApp.ShutDown` also plays its part here: whenever
@@ -65,12 +66,27 @@ workstation to a separate desktop object, and synthetic input aimed at the origi
 refused from that point on. A real run confirmed this directly — `SendInput` started throwing
 `Win32Exception (5): Access is denied` and `GetForegroundWindow()` started returning zero, and the
 run's pass count dropped from 17 passed / 1 failed to 13 passed / 4 failed with no code change in
-between. `Preflight.cs` refuses to start a run if the screen saver is already running
-(`SPI_GETSCREENSAVERRUNNING`), or if its configured timeout (`HKCU\Control Panel\Desktop\ScreenSaveTimeOut`)
-is short enough to fire before the suite is expected to finish — but it cannot stop one that
-activates for some other reason mid-run (a policy change, a second interactive session locking the
-screen). If a run fails partway through with exactly these symptoms, this is the first thing to
-rule out, not the phase code.
+between. Synthetic input resets Windows' own idle timer, so a saver essentially never fires while
+a run is actively driving the UI — what actually happened was idle time building up *between*
+runs until the saver activated, and the next run then started straight into it.
+
+`Preflight.cs` refuses to start a run in two situations:
+
+- **The screen saver is already running right now** (`SPI_GETSCREENSAVERRUNNING`) — a hard,
+  unconditional refusal, and the check that would have caught the overnight failure at the start
+  instead of partway through.
+- **Its configured timeout (`HKCU\Control Panel\Desktop\ScreenSaveTimeOut`) is shorter than this
+  specific run needs.** "Needs" is derived from the phases actually registered for this run
+  (`Program.cs`'s `BuildPhases`/`SumExpectedDuration`, each phase carrying its own hand-set
+  `Phase.ExpectedDuration` estimate) rather than the plan's eventual nine-phase target, with a
+  1.5x safety margin on top for a slower machine or an optimistic per-phase estimate. At today's
+  two registered phases that sum is well under a minute, so a normal desktop default (commonly 15
+  minutes) is nowhere near a real risk and a run proceeds; once the full nine phases exist and a
+  run approaches that same default, the comparison refuses for a real reason instead.
+
+Preflight cannot stop a screen saver that activates for some other reason mid-run (a policy
+change, a second interactive session locking the screen). If a run fails partway through with
+exactly these symptoms, this is the first thing to rule out, not the phase code.
 
 ## Phase 09 really uninstalls the app
 

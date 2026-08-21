@@ -34,7 +34,10 @@ if (args.Contains("--dump-tree"))
     return dumpTreeExitCode;
 }
 
-PreflightResult preflight = await Preflight.CheckAsync(CancellationToken.None);
+List<Phase> registeredPhases = BuildPhases();
+TimeSpan expectedRunDuration = SumExpectedDuration(registeredPhases);
+
+PreflightResult preflight = await Preflight.CheckAsync(CancellationToken.None, expectedRunDuration);
 
 if (!preflight.Ready)
 {
@@ -52,18 +55,54 @@ if (!preflight.Ready)
 }
 
 Console.WriteLine($"Preflight passed. Installed version: {Preflight.ReadInstalledVersion()}");
+Console.WriteLine($"Expected run duration (sum of registered phases' own estimates): {expectedRunDuration.TotalSeconds:0}s");
 Console.WriteLine();
 
-int runExitCode = await RunSuiteAsync();
+int runExitCode = await RunSuiteAsync(registeredPhases);
 
 return runExitCode;
+
+// Only two phases are registered so far (LaunchPhase, DevicesPhase); later tasks append to this
+// list as their phases are written. Each phase's own ExpectedDuration is a deliberately generous,
+// hand-set estimate (not the phase's internal hard timeouts, and not a measured average) used by
+// Preflight.CheckAsync — via the sum computed above — to judge whether the operator's screen-saver
+// timeout will survive a real run; see Preflight's own margin comment for how the sum is used.
+// Built here, before Preflight runs, specifically so that check reasons about the phases actually
+// registered for this run rather than a number hardcoded separately from them.
+static List<Phase> BuildPhases()
+{
+    List<Phase> phases = new List<Phase>
+    {
+        // A real run's Launch phase measured 5.1s end to end; 30s leaves room for a slower
+        // machine or a first-run DB migration without needing to be retuned for routine variance.
+        new Phase("01 Launch", true, LaunchPhase.RunAsync, TimeSpan.FromSeconds(30)),
+
+        // A real run's Devices phase measured 19.0s end to end, including a native file dialog
+        // round trip for CSV export/import; 90s covers a slower shell-handler launch on a loaded
+        // machine.
+        new Phase("02 Devices", false, DevicesPhase.RunAsync, TimeSpan.FromSeconds(90))
+    };
+
+    return phases;
+}
+
+static TimeSpan SumExpectedDuration(IReadOnlyList<Phase> phases)
+{
+    TimeSpan total = TimeSpan.Zero;
+
+    foreach (Phase phase in phases)
+    {
+        total += phase.ExpectedDuration;
+    }
+
+    return total;
+}
 
 // The real run: seeds a throwaway fixture, launches a local build against it (never the
 // operator's real data folder — see DataFolderFixture/AppUnderTest.LaunchLocalBuild, and
 // LaunchPhase's own fixture-write guard) via whichever phase runs first, drives every registered
-// phase and writes the HTML report. Only two phases are registered so far (LaunchPhase,
-// DevicesPhase); later tasks append to the list below as their phases are written.
-static async Task<int> RunSuiteAsync()
+// phase and writes the HTML report.
+static async Task<int> RunSuiteAsync(IReadOnlyList<Phase> phases)
 {
     string artifactFolder = Path.Combine(
         Path.GetTempPath(),
@@ -84,12 +123,6 @@ static async Task<int> RunSuiteAsync()
         Console.WriteLine();
 
         PhaseContext context = new PhaseContext(fixture.FolderPath, artifactFolder, fixture.Counts);
-
-        List<Phase> phases = new List<Phase>
-        {
-            new Phase("01 Launch", true, LaunchPhase.RunAsync),
-            new Phase("02 Devices", false, DevicesPhase.RunAsync)
-        };
 
         try
         {
