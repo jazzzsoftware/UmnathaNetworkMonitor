@@ -133,6 +133,11 @@ Solution-folder layout: the five projects are grouped under `/App/` (NetworkMoni
 - **Report both targets in the commit result** — after pushing, the commit summary must explicitly confirm both were updated (e.g. "✅ Pushed to GitHub (master) + DevOps (mirror)"). Never report a commit as done without stating both are in sync.
 - `master` tracks `all/master`, so `git status` reports against the ref you actually push to. There is no separate `origin` remote — `all` is the only remote and covers both targets.
 - The `all` remote lives in local `.git/config` (not tracked), so it must be set up once per clone.
+- **The long-lived branch is `master`. There is no `main`.** Tooling that guesses a default branch
+  tends to assume `main` and is wrong here: `all/HEAD` points at `all/master`, releases are cut from
+  `master`, and feature branches merge back into it. A feature branch pushes to its own name
+  (`git push all <branch>`), which still reaches both GitHub and DevOps because `all` carries both
+  push URLs - the "always push to both" rule is about the remote, not about the branch name.
 
 - **Always state the problem before the fix.** The body opens with a section explaining what was wrong and why, then a second section listing what changed. A reader six months out needs the reasoning, not just the diff — the diff is already in git. Include the concrete evidence that identified the cause (measured figures, log lines, the observation that gave it away) and, where it matters, what was ruled out.
 
