@@ -13,6 +13,13 @@ namespace NetworkMonitor.UITests.Runner
     // nothing, which is the ordinary case: Task 9's one real failure had to be diagnosed by
     // driving the app by hand afterwards.
     //
+    // There is deliberately no AddRange. It existed until a phase helper collected its steps into
+    // a plain List and handed the whole batch over afterwards: capture then ran at log time rather
+    // than failure time, so the By-device lens failures were photographed after the phase had
+    // already switched the lens back - evidence that looked authoritative and pointed the wrong
+    // way. Helpers take a StepLog and Add as they go, which keeps Add and the assertion the same
+    // moment.
+    //
     // Capture happens in Add, not at the end of the phase, deliberately. A screenshot taken after
     // the phase finished would show a screen the failure did not happen on — worse than no
     // evidence, because it looks like evidence. Everything here is best-effort and never throws:
@@ -51,16 +58,6 @@ namespace NetworkMonitor.UITests.Runner
             if (step.Outcome == StepOutcome.Failed)
             {
                 CaptureEvidence(step);
-            }
-
-        }
-
-        public void AddRange(IEnumerable<StepResult> steps)
-        {
-
-            foreach (StepResult step in steps)
-            {
-                Add(step);
             }
 
         }

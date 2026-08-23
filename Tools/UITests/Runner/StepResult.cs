@@ -26,9 +26,8 @@ namespace NetworkMonitor.UITests.Runner
 
         // When this step was recorded, and how long the work behind it took — measured from the
         // moment the previous step in the same phase was recorded, so it covers the driving as
-        // well as the assertion. Steps a phase records as a group (through StepLog.AddRange)
-        // attribute the group's time to its first step and report the rest as near-zero; the
-        // report says so in its legend rather than leaving that to be inferred.
+        // well as the assertion. Every step is recorded as it happens, so this timing is the real
+        // cost of that step rather than a share of a batch total.
         public DateTime CompletedAt
         {
             get;

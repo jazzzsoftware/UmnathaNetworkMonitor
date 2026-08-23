@@ -134,9 +134,9 @@ namespace NetworkMonitor.UITests.Phases
 
         private static void RunInternetTab(AppSession session, StepLog steps)
         {
-            steps.AddRange(RunRange(session, "Internet", InternetRange5mButtonAutomationId, FiveMinuteRange, FiveMinuteBuckets, 0L));
-            steps.AddRange(RunRange(session, "Internet", InternetRange6hButtonAutomationId, SixHourRange, SixHourBuckets, SeedDatabase.WanNewestRollupBucketDownloadBytes));
-            steps.AddRange(RunRange(session, "Internet", InternetRange1hButtonAutomationId, HourRange, HourBuckets, SeedDatabase.WanNewestRollupBucketDownloadBytes));
+            RunRange(session, "Internet", InternetRange5mButtonAutomationId, FiveMinuteRange, FiveMinuteBuckets, 0L, steps);
+            RunRange(session, "Internet", InternetRange6hButtonAutomationId, SixHourRange, SixHourBuckets, SeedDatabase.WanNewestRollupBucketDownloadBytes, steps);
+            RunRange(session, "Internet", InternetRange1hButtonAutomationId, HourRange, HourBuckets, SeedDatabase.WanNewestRollupBucketDownloadBytes, steps);
 
             AutomationElement internetGrid = WaitForGrid(session, InternetGridAutomationId);
 
@@ -144,14 +144,14 @@ namespace NetworkMonitor.UITests.Phases
             steps.Add(AssertRowPresent("The Internet grid lists the first seeded WAN app", internetGrid, GroupNameColumn, WanProcessOne));
             steps.Add(AssertRowPresent("The Internet grid lists the second seeded WAN app", internetGrid, GroupNameColumn, WanProcessTwo));
             steps.Add(AssertAllRowHasTraffic("The Internet grid's All Apps row totals the window's traffic", internetGrid, AllAppsRowName, InternetTotalColumn));
-            steps.AddRange(RunBucketSelection(session, "Internet", InternetGridAutomationId, AllAppsRowName, InternetTotalColumn));
+            RunBucketSelection(session, "Internet", InternetGridAutomationId, AllAppsRowName, InternetTotalColumn, steps);
         }
 
         private static void RunLocalTab(AppSession session, StepLog steps)
         {
-            steps.AddRange(RunRange(session, "Local", LocalRange5mButtonAutomationId, FiveMinuteRange, FiveMinuteBuckets, 0L));
-            steps.AddRange(RunRange(session, "Local", LocalRange6hButtonAutomationId, SixHourRange, SixHourBuckets, SeedDatabase.LocalNewestRollupBucketDownloadBytes));
-            steps.AddRange(RunRange(session, "Local", LocalRange1hButtonAutomationId, HourRange, HourBuckets, SeedDatabase.LocalNewestRollupBucketDownloadBytes));
+            RunRange(session, "Local", LocalRange5mButtonAutomationId, FiveMinuteRange, FiveMinuteBuckets, 0L, steps);
+            RunRange(session, "Local", LocalRange6hButtonAutomationId, SixHourRange, SixHourBuckets, SeedDatabase.LocalNewestRollupBucketDownloadBytes, steps);
+            RunRange(session, "Local", LocalRange1hButtonAutomationId, HourRange, HourBuckets, SeedDatabase.LocalNewestRollupBucketDownloadBytes, steps);
 
             AutomationElement localGrid = WaitForGrid(session, LocalGridAutomationId);
 
@@ -162,24 +162,24 @@ namespace NetworkMonitor.UITests.Phases
             steps.Add(AssertChipOnRow("The SMB service tag is shown on the app that moved the bytes", localGrid, LocalDataProcess, SmbServiceTag));
             steps.Add(AssertRowPresent("Discovery-only chatter is folded into its own row", localGrid, GroupNameColumn, DiscoveryRowName));
             steps.Add(AssertChipOnRow("The folded row carries the discovery chip", localGrid, DiscoveryRowName, DiscoveryChipText));
-            steps.AddRange(RunDrillDown(session));
-            steps.AddRange(RunLensToggle(session));
-            steps.AddRange(RunBucketSelection(session, "Local", LocalGridAutomationId, AllAppsRowName, LocalTotalColumn));
+            RunDrillDown(session, steps);
+            RunLensToggle(session, steps);
+            RunBucketSelection(session, "Local", LocalGridAutomationId, AllAppsRowName, LocalTotalColumn, steps);
         }
 
         // One range button, then everything that can be said about what the chart drew for it. The
         // wait for the summary is what proves the redraw happened at all, so a timeout here is
         // reported as this range's failure and its dependent assertions are skipped rather than
         // evaluated against whatever the previous range left on screen.
-        private static List<StepResult> RunRange(
+        private static void RunRange(
             AppSession session,
             string pageLabel,
             string rangeButtonAutomationId,
             string expectedRange,
             int expectedBuckets,
-            long peakFloorBytes)
+            long peakFloorBytes,
+            StepLog steps)
         {
-            List<StepResult> steps = new List<StepResult>();
             string redrawStepName = $"The {pageLabel} chart redraws for the {expectedRange} range";
 
             try
@@ -198,8 +198,6 @@ namespace NetworkMonitor.UITests.Phases
                 steps.Add(StepResult.Skip($"The {pageLabel} {expectedRange} chart's axis contains its own peak", "The chart never reported drawing this range (see the previous step)."));
                 steps.Add(StepResult.Skip($"The {pageLabel} {expectedRange} chart drew at least the seeded traffic", "The chart never reported drawing this range (see the previous step)."));
             }
-
-            return steps;
         }
 
         // Clicks a range button and waits for the chart to report drawing that range. Throws
@@ -224,9 +222,8 @@ namespace NetworkMonitor.UITests.Phases
         // range reloads every row from the database, and LocalPage.SyncGridSelection is supposed to
         // put the selection back by key afterwards. That is both observable (the chart reports the
         // new range) and the behaviour actually worth testing.
-        private static List<StepResult> RunDrillDown(AppSession session)
+        private static void RunDrillDown(AppSession session, StepLog steps)
         {
-            List<StepResult> steps = new List<StepResult>();
             const string openStepName = "Selecting an app with several peers opens its drill-down";
             const string reloadStepName = "Changing the range reloads the Local page under the open drill-down";
             const string stayOpenStepName = "The drill-down stays open across that reload";
@@ -285,18 +282,14 @@ namespace NetworkMonitor.UITests.Phases
                 }
 
             }
-
-            return steps;
         }
 
         // By device swaps what a group is and what its children are, which the two leading column
         // headers state outright ("App"/"Peers" becomes "Device"/"Apps"), and re-keys the rows onto
         // device names. Switched back at the end so the bucket-selection checks that follow run on
         // the lens the rest of this phase described.
-        private static List<StepResult> RunLensToggle(AppSession session)
+        private static void RunLensToggle(AppSession session, StepLog steps)
         {
-            List<StepResult> steps = new List<StepResult>();
-
             InvokeButton(session, LensDeviceButtonAutomationId);
 
             AutomationElement deviceLensGrid = WaitForGrid(session, LocalGridAutomationId);
@@ -310,8 +303,6 @@ namespace NetworkMonitor.UITests.Phases
             AutomationElement appLensGrid = WaitForGrid(session, LocalGridAutomationId);
 
             steps.Add(WaitForColumnHeaders("Switching back restores the By-app lens", appLensGrid, ByAppGroupHeader, ByAppChildHeader));
-
-            return steps;
         }
 
         // Clicking the chart pins both the chart and the grid to the one bucket that was clicked:
@@ -319,14 +310,14 @@ namespace NetworkMonitor.UITests.Phases
         // row's total falls to that bucket's traffic alone. The total is compared against itself
         // before and after rather than against a figure computed here, because which bucket the
         // click lands on depends on where the chart is on screen.
-        private static List<StepResult> RunBucketSelection(
+        private static void RunBucketSelection(
             AppSession session,
             string pageLabel,
             string gridAutomationId,
             string allRowName,
-            int totalColumn)
+            int totalColumn,
+            StepLog steps)
         {
-            List<StepResult> steps = new List<StepResult>();
             string pinStepName = $"Clicking a chart bucket pins the {pageLabel} page to it";
             string filterStepName = $"The pinned bucket filters the {pageLabel} grid";
             string resumeStepName = $"Dismissing the badge returns the {pageLabel} page to live";
@@ -373,8 +364,6 @@ namespace NetworkMonitor.UITests.Phases
                 }
 
             }
-
-            return steps;
         }
 
         private static StepResult AssertBucketCount(string stepName, ChartDrawValues values, int expectedBuckets)

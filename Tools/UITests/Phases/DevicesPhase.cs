@@ -185,7 +185,7 @@ namespace NetworkMonitor.UITests.Phases
             }
 
             SelectTab(session, "ApprovedDevicesTab");
-            steps.AddRange(RunCsvExportImport(session, context.ArtifactFolder, context.Seed.ApprovedDevices));
+            RunCsvExportImport(session, context.ArtifactFolder, context.Seed.ApprovedDevices, steps);
 
             // Fix round 1 (2026-08-20): Edit and Delete each re-fetch the grid themselves, inside
             // their own try/catch, rather than sharing one reference resolved out here. A real run
@@ -195,7 +195,7 @@ namespace NetworkMonitor.UITests.Phases
             // "phase completed without throwing" failure. Fetching inside each function's own
             // try/catch means a COM hiccup after CSV costs only that one step's result, not every
             // result gathered before it.
-            steps.AddRange(RunEditDevice(session));
+            RunEditDevice(session, steps);
             steps.Add(RunDeleteDevice(session));
 
             IReadOnlyList<StepResult> result = steps.Steps;
@@ -492,9 +492,8 @@ namespace NetworkMonitor.UITests.Phases
         // RunAsync: this is the least certain part of the phase (a native OS dialog, plus
         // ShellLauncher.Open launching an uncontrolled external process — see the comment inline
         // below), and a failure here should not cost the Edit/Delete steps that follow it.
-        private static List<StepResult> RunCsvExportImport(AppSession session, string artifactFolder, int approvedDeviceCount)
+        private static void RunCsvExportImport(AppSession session, string artifactFolder, int approvedDeviceCount, StepLog steps)
         {
-            List<StepResult> steps = new List<StepResult>();
             string exportPath = Path.Combine(artifactFolder, ExportedCsvFileName);
 
             // Fix round 2 (2026-08-20), operator's ruling: keep driving the real path — Export
@@ -634,8 +633,6 @@ namespace NetworkMonitor.UITests.Phases
                 }
 
             }
-
-            return steps;
         }
 
         // Fix round 2 (2026-08-20): ShellLauncher.Open's handler becoming the foreground window
@@ -752,11 +749,9 @@ namespace NetworkMonitor.UITests.Phases
 
         }
 
-        private static List<StepResult> RunEditDevice(AppSession session)
+        private static void RunEditDevice(AppSession session, StepLog steps)
         {
             const string stepName = "Editing a device's friendly name updates the grid";
-            List<StepResult> steps = new List<StepResult>();
-
             try
             {
                 // The CSV step immediately before this one can leave ShellLauncher.Open's handler
@@ -862,8 +857,6 @@ namespace NetworkMonitor.UITests.Phases
             {
                 steps.Add(StepResult.Fail(stepName, "the edit dialog round trip to complete without throwing", exception.Message));
             }
-
-            return steps;
         }
 
         private static StepResult RunDeleteDevice(AppSession session)

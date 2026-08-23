@@ -131,9 +131,8 @@ namespace NetworkMonitor.UITests.Evidence
             builder.Append("<section id=\"timeline\">\n<h2>Phase timeline</h2>\n");
             builder.Append(
                 "<p class=\"legend\">Each step shows the clock time it was recorded and how long the work behind it took, "
-                + "measured from the previous step. Steps a phase records as a group attribute the group's time to its "
-                + "first step, so a run of near-zero timings after one longer step is one batch, not twenty instant "
-                + "checks.</p>\n");
+                + "measured from the previous step. Every step is recorded at the moment it happens, so a timing is the "
+                + "real cost of that step, and a screenshot on failure shows the screen the failure happened on.</p>\n");
 
             foreach (PhaseResult phase in outcome.Phases)
             {

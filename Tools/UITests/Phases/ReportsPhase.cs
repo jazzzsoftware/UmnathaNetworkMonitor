@@ -89,8 +89,8 @@ namespace NetworkMonitor.UITests.Phases
         {
             steps.Add(AssertTextStartsWith(session, "The Daily Digest tab renders the latest report", PeriodSubtitleAutomationId, PeriodSubtitlePrefix));
             steps.Add(AssertTextStartsWith(session, "The rendered report says when it was generated", GeneratedTextAutomationId, GeneratedTextPrefix));
-            steps.AddRange(RunPdfExport(session, context.ArtifactFolder));
-            steps.AddRange(RunGenerateNow(session, context));
+            RunPdfExport(session, context.ArtifactFolder, steps);
+            RunGenerateNow(session, context, steps);
         }
 
         private static void RunHistoryTab(AppSession session, PhaseContext context, StepLog steps)
@@ -115,7 +115,7 @@ namespace NetworkMonitor.UITests.Phases
             else
             {
                 steps.Add(AssertTextStartsWith(session, "Selecting a report from the history renders it", PeriodSubtitleAutomationId, PeriodSubtitlePrefix));
-                steps.AddRange(RunCsvExport(session, context.ArtifactFolder));
+                RunCsvExport(session, context.ArtifactFolder, steps);
                 steps.Add(RunDelete(session, historyList, expectedCount));
             }
 
@@ -124,10 +124,9 @@ namespace NetworkMonitor.UITests.Phases
         // Wrapped whole: a native dialog plus an external handler process is the least predictable
         // thing this phase does, and a failure in it should cost this step rather than the rest of
         // the phase.
-        private static List<StepResult> RunPdfExport(AppSession session, string artifactFolder)
+        private static void RunPdfExport(AppSession session, string artifactFolder, StepLog steps)
         {
             const string stepName = "Exporting the digest writes a real PDF to the fixture folder";
-            List<StepResult> steps = new List<StepResult>();
             string exportPath = Path.Combine(artifactFolder, ExportedPdfFileName);
             string handlerProcessName = ShellFileHandler.ResolveHandlerProcessName(PdfExtension);
             string preExistingHandlerBlocker = ShellFileHandler.FindPreExistingHandlerBlocker(handlerProcessName, PdfExtension);
@@ -183,14 +182,11 @@ namespace NetworkMonitor.UITests.Phases
                 }
 
             }
-
-            return steps;
         }
 
-        private static List<StepResult> RunCsvExport(AppSession session, string artifactFolder)
+        private static void RunCsvExport(AppSession session, string artifactFolder, StepLog steps)
         {
             const string stepName = "Exporting every report to CSV writes a file";
-            List<StepResult> steps = new List<StepResult>();
             string exportPath = Path.Combine(artifactFolder, ExportedCsvFileName);
             string handlerProcessName = ShellFileHandler.ResolveHandlerProcessName(CsvExtension);
             string preExistingHandlerBlocker = ShellFileHandler.FindPreExistingHandlerBlocker(handlerProcessName, CsvExtension);
@@ -234,17 +230,14 @@ namespace NetworkMonitor.UITests.Phases
                 }
 
             }
-
-            return steps;
         }
 
         // "Generate now" builds a digest for the trailing period and stores it, so the proof it
         // worked is a new row in the history rather than anything on the digest view itself, whose
         // text is dominated by the period it covers.
-        private static List<StepResult> RunGenerateNow(AppSession session, PhaseContext context)
+        private static void RunGenerateNow(AppSession session, PhaseContext context, StepLog steps)
         {
             const string stepName = "Generating a digest on demand adds one to the history";
-            List<StepResult> steps = new List<StepResult>();
             int expectedCount = context.Seed.DigestReports + 1;
 
             try
@@ -270,8 +263,6 @@ namespace NetworkMonitor.UITests.Phases
             {
                 steps.Add(StepResult.Fail(stepName, $"{expectedCount} reports in the history", failure.Message));
             }
-
-            return steps;
         }
 
         private static StepResult RunDelete(AppSession session, AutomationElement historyList, int countBeforeDelete)

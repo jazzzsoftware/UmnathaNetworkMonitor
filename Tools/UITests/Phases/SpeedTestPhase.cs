@@ -90,13 +90,13 @@ namespace NetworkMonitor.UITests.Phases
             steps.Add(AssertText(session, "The Last Test tile reports the newest download", DownloadBitsTextAutomationId, NewestDownloadRateText));
             steps.Add(AssertText(session, "The Last Test tile reports the newest upload", UploadBitsTextAutomationId, NewestUploadRateText));
 
-            steps.AddRange(RunChart(session, "throughput", ThroughputRange, ThroughputSeries, DefaultRangeBuckets, ThroughputPeak));
-            steps.AddRange(RunChart(session, "latency", LatencyRange, LatencySeries, DefaultRangeBuckets, LatencyPeakWithinDay));
+            RunChart(session, "throughput", ThroughputRange, ThroughputSeries, DefaultRangeBuckets, ThroughputPeak, steps);
+            RunChart(session, "latency", LatencyRange, LatencySeries, DefaultRangeBuckets, LatencyPeakWithinDay, steps);
 
             InvokeButton(session, Range7dButtonAutomationId);
 
-            steps.AddRange(RunChart(session, "throughput", ThroughputRange, ThroughputSeries, SeededResultCount, ThroughputPeak));
-            steps.AddRange(RunChart(session, "latency", LatencyRange, LatencySeries, SeededResultCount, LatencyPeakWithinWeek));
+            RunChart(session, "throughput", ThroughputRange, ThroughputSeries, SeededResultCount, ThroughputPeak, steps);
+            RunChart(session, "latency", LatencyRange, LatencySeries, SeededResultCount, LatencyPeakWithinWeek, steps);
 
             steps.Add(StepResult.Skip(
                 "A real speed test runs and records a result",
@@ -114,15 +114,15 @@ namespace NetworkMonitor.UITests.Phases
         // Waits for the chart to publish a summary for its own range token, then reads everything
         // else off that one summary. A timeout is this chart's failure and skips the assertions
         // that depend on it, rather than letting them read whatever the previous range drew.
-        private static List<StepResult> RunChart(
+        private static void RunChart(
             AppSession session,
             string chartLabel,
             string rangeToken,
             string expectedSeries,
             int expectedBuckets,
-            long expectedPeak)
+            long expectedPeak,
+            StepLog steps)
         {
-            List<StepResult> steps = new List<StepResult>();
             string drawStepName = $"The {chartLabel} chart reports drawing {expectedBuckets} results";
 
             try
@@ -166,8 +166,6 @@ namespace NetworkMonitor.UITests.Phases
                 steps.Add(StepResult.Skip($"The {chartLabel} chart's peak matches the seeded results", "The chart never reported drawing this range (see the previous step)."));
                 steps.Add(StepResult.Skip($"The {chartLabel} chart's axis contains its own peak", "The chart never reported drawing this range (see the previous step)."));
             }
-
-            return steps;
         }
 
         // Matches on the bucket count as well as the range token, because both charts keep their
