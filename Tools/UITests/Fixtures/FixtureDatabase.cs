@@ -60,6 +60,18 @@ namespace NetworkMonitor.UITests.Fixtures
             return maximum;
         }
 
+        // The whole-millisecond latency of the newest speed test result, which is what the mini
+        // graph's speed test line shows. Read live rather than hardcoded from the seed: phase 04
+        // drives a real speed test, so by the time the widget is checked the newest result is that
+        // one and not the fixture's. Asserting against whatever is newest is also the widget's
+        // actual contract - show the latest result - rather than a restatement of the seed.
+        public static long NewestSpeedTestLatencyMs(string dataFolder)
+        {
+            long latencyMs = ExecuteScalar(dataFolder, "SELECT CAST(ROUND(LatencyMs) AS INTEGER) FROM SpeedTestResults ORDER BY Timestamp DESC LIMIT 1");
+
+            return latencyMs;
+        }
+
         private static long ExecuteScalar(string dataFolder, string sql)
         {
             string databasePath = Path.Combine(dataFolder, DatabaseFileName);

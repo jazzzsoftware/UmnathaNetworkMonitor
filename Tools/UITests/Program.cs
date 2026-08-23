@@ -119,8 +119,10 @@ return runExitCode;
 // 2. With Preflight's 1.5x margin on top, that demanded 28.5 minutes of screen-saver headroom to
 // protect a 2-minute run and refused machines with an ordinary 15-minute saver. Each value below
 // is roughly three times the worst of the four measured runs, so a considerably slower machine
-// still fits, and the 1.5x margin still applies after that. The eight non-destructive phases now
-// sum to 230s and all nine to 530s, so a stock 15-minute saver clears either.
+// still fits, and the 1.5x margin still applies after that. The eight non-destructive phases sum
+// to 290s and all nine to 590s, so a stock 15-minute saver clears either - but the nine-phase run
+// now needs 14.75 of those 15 minutes, because phase 04 drives a real speed test. Anything shorter
+// than a 15-minute saver will refuse the full run, and that is the cost of covering that button.
 static List<Phase> BuildPhases(bool includeUpdateLifecycle)
 {
     List<Phase> phases = new List<Phase>
@@ -138,10 +140,12 @@ static List<Phase> BuildPhases(bool includeUpdateLifecycle)
         // Measured 6.1-7.9s; 30s.
         new Phase("03 Traffic", false, TrafficPhase.RunAsync, TimeSpan.FromSeconds(30)),
 
-        // Four chart summaries and a grid read against thirty seeded results, with no real speed
-        // test run (see SpeedTestPhase's header for why). Measured 1.1-1.8s; 15s is the smallest
-        // value this file bothers with rather than a figure worth tuning.
-        new Phase("04 Speed Test", false, SpeedTestPhase.RunAsync, TimeSpan.FromSeconds(15)),
+        // Four chart summaries and a grid read against thirty seeded results, and then a REAL speed
+        // test against the operator's line. That measured 19.5s of the phase's 20.7s, and it is the
+        // only part of this suite whose length depends on the connection rather than the machine, so
+        // 75s is a wider multiple than the local phases carry. Its own hard timeout is three minutes;
+        // this is the estimate the screen-saver check reasons about.
+        new Phase("04 Speed Test", false, SpeedTestPhase.RunAsync, TimeSpan.FromSeconds(75)),
 
         // Two native save dialogs with an external file handler apiece, plus generating a digest
         // (which renders its charts through Win2D) and deleting one. The slowest of the local

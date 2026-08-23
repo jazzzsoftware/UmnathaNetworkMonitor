@@ -2,6 +2,7 @@ using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Patterns;
 using NetworkMonitor.Core.Charting;
 using NetworkMonitor.UITests.Driving;
+using NetworkMonitor.UITests.Fixtures;
 using NetworkMonitor.UITests.Runner;
 
 namespace NetworkMonitor.UITests.Phases
@@ -36,6 +37,13 @@ namespace NetworkMonitor.UITests.Phases
         private const string SpeedTestTabAutomationId = "SpeedTestTab";
         private const string HistoryGridAutomationId = "SpeedTestHistoryGrid";
         private const string Range7dButtonAutomationId = "SpeedTestRange7dButton";
+        private const string RunSpeedTestButtonAutomationId = "RunSpeedTestButton";
+        private const string SpeedTestResultsTable = "SpeedTestResults";
+
+        // A real test measures for tens of seconds and then writes its row. Three minutes is not
+        // an expectation of how long it takes - it is how long to wait before calling it failed on
+        // a slow or dropping connection.
+        private static readonly TimeSpan RealSpeedTestTimeout = TimeSpan.FromMinutes(3);
         private const string ChartRootAutomationId = "ChartRoot";
         private const string DownloadBitsTextAutomationId = "DownloadBitsText";
         private const string UploadBitsTextAutomationId = "UploadBitsText";
@@ -98,17 +106,63 @@ namespace NetworkMonitor.UITests.Phases
             RunChart(session, "throughput", ThroughputRange, ThroughputSeries, SeededResultCount, ThroughputPeak, steps);
             RunChart(session, "latency", LatencyRange, LatencySeries, SeededResultCount, LatencyPeakWithinWeek, steps);
 
-            steps.Add(StepResult.Skip(
-                "A real speed test runs and records a result",
-                "Deliberately not driven: a real test depends on the operator's internet at that moment, is "
-                + "non-deterministic and takes tens of seconds. The Run Speed Test button is therefore exercised "
-                + "by nothing in this suite, and the fixture keeps SpeedTestEnabled off so the background worker "
-                + "does not add results mid-run either."));
+            steps.Add(RunRealSpeedTest(session, context));
 
             IReadOnlyList<StepResult> result = steps.Steps;
             Task<IReadOnlyList<StepResult>> completed = Task.FromResult(result);
 
             return completed;
+        }
+
+        // Drives the real Run Speed Test button and waits for a result row to reach the database.
+        //
+        // Asserts only that a result was recorded, never its values: throughput and latency depend
+        // on the operator's line at that moment, and an equality or even a floor would be asserting
+        // the state of their internet connection rather than the behaviour of the app. What this
+        // does cover is the one button in the Speed Test page that nothing else in the suite
+        // touches, end to end - click, run, persist, appear.
+        //
+        // This is the only step in the suite that needs a working internet connection, and it will
+        // fail when the line is down. That is a deliberate trade: the alternative was leaving the
+        // button uncovered, which is what the suite did until now.
+        private static StepResult RunRealSpeedTest(AppSession session, PhaseContext context)
+        {
+            const string stepName = "A real speed test runs and records a result";
+            StepResult result;
+
+            try
+            {
+                long resultsBefore = FixtureDatabase.CountRows(context.DataFolder, SpeedTestResultsTable);
+
+                InvokeButton(session, RunSpeedTestButtonAutomationId);
+
+                Waits.Until(
+                    () =>
+                    {
+                        long resultsNow = FixtureDatabase.CountRows(context.DataFolder, SpeedTestResultsTable);
+
+                        bool recorded = resultsNow > resultsBefore;
+
+                        return recorded;
+                    },
+                    RealSpeedTestTimeout,
+                    "the speed test to finish and record a result");
+
+                result = StepResult.Pass(stepName);
+            }
+            catch (TimeoutException timeout)
+            {
+                result = StepResult.Fail(
+                    stepName,
+                    "a new row in SpeedTestResults after driving Run Speed Test",
+                    timeout.Message + " Check the machine has a working internet connection; this step needs one.");
+            }
+            catch (Exception failure)
+            {
+                result = StepResult.Fail(stepName, "the Run Speed Test button to be driven", failure.Message);
+            }
+
+            return result;
         }
 
         // Waits for the chart to publish a summary for its own range token, then reads everything

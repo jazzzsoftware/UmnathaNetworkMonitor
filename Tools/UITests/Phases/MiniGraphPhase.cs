@@ -78,7 +78,7 @@ namespace NetworkMonitor.UITests.Phases
             navigator.GoTo(NavRoute.Settings);
             navigator.SelectTab(OtherTabAutomationId);
 
-            RunWidgetContent(session, steps);
+            RunWidgetContent(session, context, steps);
             RunSectionSwitch(session, context, steps);
             RunLastSectionRule(session, context, steps);
             RunOrientation(session, context, steps);
@@ -92,12 +92,17 @@ namespace NetworkMonitor.UITests.Phases
 
         // What the widget is for: the same figures the pages show, small enough to leave on screen.
         // Both numbers come from the seed, so they are assertions rather than smoke.
-        private static void RunWidgetContent(AppSession session, StepLog steps)
+        private static void RunWidgetContent(AppSession session, PhaseContext context, StepLog steps)
         {
             steps.Add(AssertWidgetWindowExists(session));
             steps.Add(AssertSectionShown(session, "The widget shows its Internet section", LabelTextAutomationId, InternetSectionLabel));
             steps.Add(AssertSectionShown(session, "The widget shows its Local section", LabelTextAutomationId, LocalSectionLabel));
-            steps.Add(AssertWidgetTextContains(session, "The widget's speed test line reports the newest seeded result", SpeedTestLineAutomationId, "19 ms"));
+            // Read from the database rather than hardcoded to the seed: phase 04 drives a real speed
+            // test, so the newest result by this point is that one. Asserting against whatever is
+            // newest is the widget's actual contract anyway.
+            long newestLatencyMs = FixtureDatabase.NewestSpeedTestLatencyMs(context.DataFolder);
+
+            steps.Add(AssertWidgetTextContains(session, "The widget's speed test line reports the newest result", SpeedTestLineAutomationId, $"{newestLatencyMs} ms"));
             steps.Add(AssertWidgetTextContains(session, "The widget counts the seeded unapproved devices", UnknownDevicesLineAutomationId, "3 unknown devices"));
         }
 
