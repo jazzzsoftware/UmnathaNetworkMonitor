@@ -149,6 +149,11 @@ namespace NetworkMonitor.UITests.Fixtures
                 set;
             } = false;
 
+            // Wider than SeedDatabase.StaleRollupAgeDays on purpose, and 7 is as wide as it can be:
+            // TrafficPurgeDaysBox caps at 7 in SettingsPage.xaml. ScanWorker runs its retention sweep
+            // immediately at startup, so a window narrower than the stale rollups would delete them
+            // before PurgePhase ever pressed Purge Now and the button would have nothing to do.
+            // PurgePhase narrows this through the UI when it wants the purge to bite.
             public int TrafficPurgeDays
             {
                 get;

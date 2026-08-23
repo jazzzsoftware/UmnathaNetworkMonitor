@@ -647,10 +647,29 @@ namespace NetworkMonitor.ViewModels
             {
                 await using AppDbContext db = await _dbFactory.CreateDbContextAsync();
                 DateTime trafficCutoff = DateTime.UtcNow.AddDays(-TrafficPurgeDays);
-                deleted = await db.TrafficEntries
-                    .Where(entry => entry.Timestamp < trafficCutoff)
+
+                // Deliberately NOT TrafficEntries. TrafficTracker already deletes every raw entry
+                // older than an hour, every five minutes, so a query for raw entries older than
+                // TrafficPurgeDays - a value in DAYS - could never match a single row. This button
+                // reported "Purged 0 entries" every time it was pressed and did nothing at all.
+                // What retention actually means for traffic is the rollups, which is what
+                // ScanWorker's automatic sweep purges; this now runs the same sweep on demand.
+                long rollupCutoffEpoch = (long)(trafficCutoff - DateTime.UnixEpoch).TotalSeconds;
+
+                int rollupsDeleted = await db.Database.ExecuteSqlRawAsync(
+                    "DELETE FROM TrafficRollups WHERE MinuteEpoch < {0}",
+                    new object[] { rollupCutoffEpoch });
+
+                int localRollupsDeleted = await db.Database.ExecuteSqlRawAsync(
+                    "DELETE FROM LocalTrafficRollups WHERE MinuteEpoch < {0}",
+                    new object[] { rollupCutoffEpoch });
+
+                int speedTestsDeleted = await db.SpeedTestResults
+                    .Where(result => result.Timestamp < trafficCutoff)
                     .ExecuteDeleteAsync();
-                TrafficPurgeStatus = $"Purged {deleted} entr{(deleted == 1 ? "y" : "ies")} at {DateTime.Now:HH:mm:ss}";
+
+                deleted = rollupsDeleted + localRollupsDeleted + speedTestsDeleted;
+                TrafficPurgeStatus = $"Purged {deleted} record{(deleted == 1 ? string.Empty : "s")} at {DateTime.Now:HH:mm:ss}";
             }
             else
             {

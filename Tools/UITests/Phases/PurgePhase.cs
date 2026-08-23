@@ -50,6 +50,16 @@ namespace NetworkMonitor.UITests.Phases
         private const string TrafficRollupsTable = "TrafficRollups";
         private const string LocalTrafficRollupsTable = "LocalTrafficRollups";
 
+        // The fixture starts with a 7-day window so ScanWorker's startup sweep leaves the stale
+        // rollups alone; this is what the window is narrowed to before Purge Now is pressed, and so
+        // it is also the cutoff the button will use. Still wider than the six hours of ordinary
+        // seeded rollups, which must survive.
+        private static readonly TimeSpan PurgeCompletionTimeout = TimeSpan.FromSeconds(15);
+
+        private const int TrafficNarrowedDays = 1;
+        private const int TrafficPurgeDaysInFixture = 7;
+        private const string TrafficPurgeDaysBoxAutomationId = "TrafficPurgeDaysBox";
+
         // One day, so the seeded events (nowUtc-47h .. nowUtc-3h) straddle the cutoff and the purge
         // has both something to delete and something to leave alone.
         private const int HistoryWindowDays = 1;
@@ -85,13 +95,22 @@ namespace NetworkMonitor.UITests.Phases
         {
             const string stepName = "Purging traffic leaves the rollups the charts read";
             StepResult result;
+            StepResult staleResult = StepResult.Fail(StaleRollupStepName, "the purge to run", "the purge did not complete, so nothing could be counted");
 
             navigator.SelectTab(TrafficTabAutomationId);
+
+            // Narrowed first, exactly as RunHistoryPurge does. Without this the button is a no-op by
+            // construction: ScanWorker sweeps the same window at startup, so nothing older than it
+            // is ever left for the manual press to find.
+            steps.Add(RunTrafficWindowChange(session, context));
 
             try
             {
                 long wanRollupsBefore = FixtureDatabase.CountRows(context.DataFolder, TrafficRollupsTable);
                 long lanRollupsBefore = FixtureDatabase.CountRows(context.DataFolder, LocalTrafficRollupsTable);
+                long staleCutoffEpoch = StaleCutoffEpoch();
+                long staleWanBefore = FixtureDatabase.CountRollupsOlderThan(context.DataFolder, TrafficRollupsTable, staleCutoffEpoch);
+                long staleLanBefore = FixtureDatabase.CountRollupsOlderThan(context.DataFolder, LocalTrafficRollupsTable, staleCutoffEpoch);
 
                 ClickButton(session, PurgeTrafficButtonAutomationId, "the Purge Traffic button");
                 ConfirmDialog(session, TrafficDialogTitle, ConfirmButtonText);
@@ -103,6 +122,16 @@ namespace NetworkMonitor.UITests.Phases
 
                 long wanRollupsAfter = FixtureDatabase.CountRows(context.DataFolder, TrafficRollupsTable);
                 long lanRollupsAfter = FixtureDatabase.CountRows(context.DataFolder, LocalTrafficRollupsTable);
+                // The dialog closing means the purge was ASKED FOR, not that it finished:
+                // PurgeTrafficAsync is async and the deletion lands afterwards. The old assertion
+                // here only checked that rollups survived, which passed either way and hid the race;
+                // asserting a deletion needs an actual wait for it.
+                WaitForStaleRollupsToClear(context, staleCutoffEpoch);
+
+                long staleWanAfter = FixtureDatabase.CountRollupsOlderThan(context.DataFolder, TrafficRollupsTable, staleCutoffEpoch);
+                long staleLanAfter = FixtureDatabase.CountRollupsOlderThan(context.DataFolder, LocalTrafficRollupsTable, staleCutoffEpoch);
+
+                staleResult = BuildStaleRollupResult(staleWanBefore, staleLanBefore, staleWanAfter, staleLanAfter);
                 bool rollupsIntact = wanRollupsAfter >= wanRollupsBefore && lanRollupsAfter >= lanRollupsBefore;
 
                 if (rollupsIntact)
@@ -126,12 +155,117 @@ namespace NetworkMonitor.UITests.Phases
             }
 
             steps.Add(result);
-            steps.Add(StepResult.Skip(
-                "Purging traffic deletes raw entries older than the retention window",
-                "Not assertable, and that is a finding rather than a gap: TrafficTracker.PurgeRawEntriesAsync already "
-                + "deletes every raw TrafficEntry older than one hour, every five minutes, so the button's own query — "
-                + "entries older than TrafficPurgeDays, a value in DAYS — can never match anything. ScanWorker's "
-                + "automatic sweep documents this and purges the rollups instead; the manual button does not."));
+            steps.Add(staleResult);
+            steps.Add(RunRestoreTrafficWindow(session, context));
+        }
+
+        private const string StaleRollupStepName = "Purging traffic deletes rollups older than the retention window";
+
+        // Best-effort: on timeout the counts are read anyway and the assertion reports what is
+        // actually left, which is a better failure than a timeout message.
+        private static void WaitForStaleRollupsToClear(PhaseContext context, long staleCutoffEpoch)
+        {
+
+            try
+            {
+                Waits.Until(
+                    () =>
+                    {
+                        long wanLeft = FixtureDatabase.CountRollupsOlderThan(context.DataFolder, TrafficRollupsTable, staleCutoffEpoch);
+                        long lanLeft = FixtureDatabase.CountRollupsOlderThan(context.DataFolder, LocalTrafficRollupsTable, staleCutoffEpoch);
+
+                        bool cleared = wanLeft == 0L && lanLeft == 0L;
+
+                        return cleared;
+                    },
+                    PurgeCompletionTimeout,
+                    "the traffic purge to delete the rollups older than the retention window");
+            }
+            catch (TimeoutException)
+            {
+            }
+
+        }
+
+        private static StepResult RunTrafficWindowChange(AppSession session, PhaseContext context)
+        {
+            string stepName = $"The traffic retention window is narrowed to {TrafficNarrowedDays} days";
+            StepResult result;
+
+            try
+            {
+                SetNumberBoxValue(session, TrafficPurgeDaysBoxAutomationId, TrafficNarrowedDays);
+                WaitForSetting(context, "TrafficPurgeDays", TrafficNarrowedDays.ToString());
+
+                result = StepResult.Pass(stepName);
+            }
+            catch (Exception failure)
+            {
+                result = StepResult.Fail(stepName, $"TrafficPurgeDays to become {TrafficNarrowedDays}", failure.Message);
+            }
+
+            return result;
+        }
+
+        private static StepResult RunRestoreTrafficWindow(AppSession session, PhaseContext context)
+        {
+            string stepName = $"The traffic retention window is restored to {TrafficPurgeDaysInFixture} days";
+            StepResult result;
+
+            try
+            {
+                SetNumberBoxValue(session, TrafficPurgeDaysBoxAutomationId, TrafficPurgeDaysInFixture);
+                WaitForSetting(context, "TrafficPurgeDays", TrafficPurgeDaysInFixture.ToString());
+
+                result = StepResult.Pass(stepName);
+            }
+            catch (Exception failure)
+            {
+                result = StepResult.Fail(stepName, $"TrafficPurgeDays to return to {TrafficPurgeDaysInFixture}", failure.Message);
+            }
+
+            return result;
+        }
+
+        // The cutoff the app itself uses: TrafficPurgeDays before now, as seconds since the Unix
+        // epoch, which is how the rollup tables are keyed.
+        private static long StaleCutoffEpoch()
+        {
+            DateTime cutoffUtc = DateTime.UtcNow.AddDays(-TrafficNarrowedDays);
+            long epochSeconds = (long)(cutoffUtc - DateTime.UnixEpoch).TotalSeconds;
+
+            return epochSeconds;
+        }
+
+        // The fixture seeds a handful of rollups deliberately outside the retention window so this
+        // button has something it is supposed to delete. Until 2026-08-23 it had nothing: it queried
+        // raw TrafficEntries older than TrafficPurgeDays, and TrafficTracker had already deleted
+        // every raw entry older than an hour, so the button reported "Purged 0 entries" and did
+        // nothing. It now runs the same sweep ScanWorker does, and this asserts the result.
+        private static StepResult BuildStaleRollupResult(long staleWanBefore, long staleLanBefore, long staleWanAfter, long staleLanAfter)
+        {
+            StepResult result;
+
+            if (staleWanBefore <= 0L || staleLanBefore <= 0L)
+            {
+                result = StepResult.Fail(
+                    StaleRollupStepName,
+                    $"the fixture to hold rollups older than the retention window ({SeedDatabase.StaleRollupsPerTable} per table)",
+                    $"{staleWanBefore} WAN and {staleLanBefore} LAN stale rollups were present before the purge");
+            }
+            else if (staleWanAfter == 0L && staleLanAfter == 0L)
+            {
+                result = StepResult.Pass(StaleRollupStepName);
+            }
+            else
+            {
+                result = StepResult.Fail(
+                    StaleRollupStepName,
+                    $"every rollup older than the window to be deleted (was {staleWanBefore} WAN, {staleLanBefore} LAN)",
+                    $"{staleWanAfter} WAN and {staleLanAfter} LAN stale rollups remain");
+            }
+
+            return result;
         }
 
         private static void RunHistoryPurge(AppSession session, PhaseContext context, Navigator navigator, StepLog steps)

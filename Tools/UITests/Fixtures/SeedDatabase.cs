@@ -69,6 +69,13 @@ namespace NetworkMonitor.UITests.Fixtures
         // higher — never lower. See TrafficPhase's header for the rest of that reasoning.
         public const long WanNewestRollupBucketDownloadBytes = ChromeRollupDownloadBase + OneDriveRollupDownloadBase;
 
+        // Rollups seeded older than the window PurgePhase narrows to, but still inside the fixture's
+        // own 7-day window so ScanWorker's startup sweep leaves them alone. Gives the manual Purge
+        // Now button something it is supposed to delete. Everything else sits inside the trailing six
+        // hours and must survive; these are the only rows that should not.
+        public const int StaleRollupAgeDays = 3;
+        public const int StaleRollupsPerTable = 3;
+
         // The same floor for the Local chart. Only the data streams count: LocalViewModel's chart
         // SQL excludes discovery ports outright (`NOT LocalFlowClassifier.DiscoverySqlPredicate`),
         // so the two seeded mDNS streams contribute nothing to what the chart draws.
@@ -415,6 +422,20 @@ namespace NetworkMonitor.UITests.Fixtures
                 });
             }
 
+            for (int staleIndex = 0; staleIndex < StaleRollupsPerTable; staleIndex++)
+            {
+                DateTime staleTimestamp = nowUtc.AddDays(-StaleRollupAgeDays - staleIndex);
+
+                trafficRollups.Add(new TrafficRollup
+                {
+                    MinuteEpoch = MinuteEpoch(staleTimestamp),
+                    ProcessName = WanProcessOne,
+                    ProcessPath = @"C:\Program Files\Google\Chrome\Application\chrome.exe",
+                    BytesUploaded = ChromeRollupUploadBase,
+                    BytesDownloaded = ChromeRollupDownloadBase
+                });
+            }
+
             return trafficRollups;
         }
 
@@ -579,6 +600,22 @@ namespace NetworkMonitor.UITests.Fixtures
                     Protocol = UdpProtocol,
                     RemotePort = MdnsPort,
                     BytesUploaded = DiscoveryRollupUploadBase + (pointIndex * DiscoveryRollupUploadStep),
+                    BytesDownloaded = 0
+                });
+            }
+
+            for (int staleIndex = 0; staleIndex < StaleRollupsPerTable; staleIndex++)
+            {
+                DateTime staleTimestamp = nowUtc.AddDays(-StaleRollupAgeDays - staleIndex);
+
+                localTrafficRollups.Add(new LocalTrafficRollup
+                {
+                    MinuteEpoch = MinuteEpoch(staleTimestamp),
+                    ProcessName = LocalDataProcess,
+                    RemoteIp = LocalDiscoveryMulticastIp,
+                    Protocol = UdpProtocol,
+                    RemotePort = MdnsPort,
+                    BytesUploaded = DiscoveryRollupUploadBase,
                     BytesDownloaded = 0
                 });
             }

@@ -72,6 +72,15 @@ namespace NetworkMonitor.UITests.Fixtures
             return latencyMs;
         }
 
+        // Rollup tables key on MinuteEpoch (seconds since the Unix epoch) rather than a Timestamp
+        // column, so the age comparison is arithmetic rather than the text-sort trick above.
+        public static long CountRollupsOlderThan(string dataFolder, string tableName, long minuteEpochCutoff)
+        {
+            long count = ExecuteScalar(dataFolder, $"SELECT COUNT(*) FROM {tableName} WHERE MinuteEpoch < {minuteEpochCutoff}");
+
+            return count;
+        }
+
         private static long ExecuteScalar(string dataFolder, string sql)
         {
             string databasePath = Path.Combine(dataFolder, DatabaseFileName);
