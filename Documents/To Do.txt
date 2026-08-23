@@ -194,42 +194,12 @@ Done - Investigated the two logged errors (2026-08-20). ScanWorker double-dispos
     UnauthorizedAccessException was an antivirus scanner briefly refusing the temp-file rename, now retried and reported instead of silently swallowed.
 Done - Add % markers to opacity slider.
 
-Done - UI automated testing. Run it with: dotnet run --project Tools/UITests   (elevated)
-    145 passed, 0 failed, 2 skipped across nine phases, including the destructive uninstall/
-    install/update lifecycle. Needs an elevated terminal, an active local desktop, and an
-    internet connection (phase 04 now drives a real speed test). Runs under a stock 15-minute
-    screen saver with nothing to configure. Spec and plan in Documents/superpowers/.
+Done - UI automated testing. Nine phases drive the real app end to end, including the uninstall/install/update cycle.
+    Run with: dotnet run --project Tools/UITests   (elevated; add --all-with-update-lifecycle for phase 09)
+    145 pass / 0 fail / 2 skipped. Needs an elevated terminal, an active local desktop and an internet connection.
+    Both skips are recorded wont-fix decisions: the logging toggle is Debug-only, and run-at-startup would write a
+    logon task on your machine. Still uncovered: the Local live-rate chip, mixed-DPI, and the 24-hour digest schedule.
 
-    Five of the eight original gaps were closed on 2026-08-23:
-      1. Done - a real speed test now runs and its result is asserted (values are not, they
-         depend on the line). This is why the suite now needs the internet.
-      6. Done - the unapproved-only toast checkbox is driven; the suite turns its parent
-         setting on for the length of the assertion and puts both back.
-      7. Done - and it was a real product defect, not a test gap. Purge Now deleted nothing at
-         all, ever: it queried raw entries older than TrafficPurgeDays while TrafficTracker had
-         already removed everything older than an hour. It now runs the same rollup sweep
-         ScanWorker does. Note the button only does visible work if you narrow the retention
-         setting first - ScanWorker sweeps the same window at startup and every 24 hours.
-      Also closed: the 5-minute chart floor on both traffic tabs, which used to skip on every
-      run because the floor was a constant and the window had moved past the seeded rows.
-
-    Closed as won't-fix, with the reasoning recorded in the skip text itself:
-      4. The logging toggle - compiles to disabled in Debug and the suite drives Debug by
-         design. Reaching it needs a whole second pass against a Release build.
-      5. Run at startup - driving it writes a real logon task in your account pointing at the
-         Debug build. A killed run would strand it. The suite no longer contains any code that
-         can call schtasks.exe.
-
-    Still genuinely uncovered, documented in the phases that would own them:
-      2. The Local page live-rate chip - needs a live LAN flow above 0.5 Mb/s, which a fixture
-         cannot manufacture.
-      3. Mixed-DPI - C2-2 and C2-5 still need a second monitor at a different scale factor
-         (manual-test-plan.md Part 1).
-      8. The 24-hour digest schedule - bound to wall-clock time; only its output is reachable.
-
-    Smaller thing worth doing sometime: SetNumberBoxValue reports a value the control rejected
-    as a bare timeout, with no hint the control refused it. TrafficPurgeDaysBox caps at 7, and
-    that cost a debugging round on 2026-08-23.
 Done - Fix the kill-orphans-ETW-session defect is in the shipped app
 
 
