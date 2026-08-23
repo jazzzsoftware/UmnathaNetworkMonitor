@@ -118,7 +118,7 @@ namespace NetworkMonitor.UITests.Phases
 
             steps.Add(RunStartupToggle(session));
             steps.Add(RunToggleSetting(session, context, "Toast notifications", "ShowToastsToggle", "ShowToasts"));
-            steps.Add(RunToggleSetting(session, context, "Unapproved-only toasts", "UnapprovedOnlyToastsCheckBox", "UnapprovedOnlyToasts"));
+            steps.Add(RunDependentToggleSetting(session, context, "Unapproved-only toasts", "UnapprovedOnlyToastsCheckBox", "UnapprovedOnlyToasts", "ShowToastsToggle", "ShowToasts"));
             steps.Add(RunToggleSetting(session, context, "The automatic update check", "AutoCheckForUpdatesToggle", "AutoCheckForUpdates"));
             steps.Add(RunToggleSetting(session, context, "The mini graph's visibility", "ShowMiniGraphToggle", "ShowMiniGraph"));
             steps.Add(RunToggleSetting(session, context, "The mini graph's Internet section", "MiniGraphShowInternetCheckBox", "MiniGraphShowInternet"));
@@ -136,6 +136,80 @@ namespace NetworkMonitor.UITests.Phases
 
         // Toggle switches and check boxes are the same thing to UIA: both carry TogglePattern, and
         // both are flipped and flipped back here.
+        // UnapprovedOnlyToasts is bound to IsEnabled on ShowToasts (SettingsPage.xaml), so its check
+        // box is greyed out while the fixture leaves toasts off, and the step skipped itself rather
+        // than assert anything. Turning the parent on for the length of this one assertion is safe:
+        // the four things that raise a toast are a manual scan finishing, a network change, a speed
+        // test finishing and a device changing state, none of which the suite provokes in this
+        // phase, and a Windows toast does not take the foreground even if one did. Both settings are
+        // put back before the step returns, and the fixture's settings.json is a throwaway in %TEMP%
+        // either way.
+        private static StepResult RunDependentToggleSetting(
+            AppSession session,
+            PhaseContext context,
+            string description,
+            string automationId,
+            string settingName,
+            string parentAutomationId,
+            string parentSettingName)
+        {
+            string stepName = $"{description} round-trips through settings.json";
+            string parentOriginal = string.Empty;
+            bool parentWasEnabled = false;
+            StepResult result;
+
+            try
+            {
+                parentOriginal = ReadSetting(context, parentSettingName);
+                AutomationElement control = FindControl(session, automationId);
+
+                if (!control.Properties.IsEnabled.ValueOrDefault)
+                {
+                    AutomationElement parent = FindControl(session, parentAutomationId);
+
+                    parent.Patterns.Toggle.Pattern.Toggle();
+                    WaitForSettingToChangeFrom(context, parentSettingName, parentOriginal);
+                    parentWasEnabled = true;
+                }
+
+                result = RunToggleSetting(session, context, description, automationId, settingName);
+            }
+            catch (Exception failure)
+            {
+                result = StepResult.Fail(stepName, $"'{parentSettingName}' to be turned on so '{settingName}' can be driven", failure.Message);
+            }
+            finally
+            {
+
+                if (parentWasEnabled)
+                {
+                    RestoreParentSetting(session, context, parentAutomationId, parentSettingName, parentOriginal);
+                }
+
+            }
+
+            return result;
+        }
+
+        // Best-effort and reported rather than thrown: failing to put the parent back must not turn
+        // a recorded assertion into a phase abort, and the file it writes is a throwaway.
+        private static void RestoreParentSetting(AppSession session, PhaseContext context, string parentAutomationId, string parentSettingName, string parentOriginal)
+        {
+
+            try
+            {
+                AutomationElement parent = FindControl(session, parentAutomationId);
+
+                parent.Patterns.Toggle.Pattern.Toggle();
+                WaitForSetting(context, parentSettingName, parentOriginal);
+            }
+            catch (Exception failure)
+            {
+                Console.WriteLine($"SettingsPhase: could not restore '{parentSettingName}' to '{parentOriginal}': {failure.Message}");
+            }
+
+        }
+
         private static StepResult RunToggleSetting(AppSession session, PhaseContext context, string description, string automationId, string settingName)
         {
             string stepName = $"{description} round-trips through settings.json";
@@ -374,10 +448,11 @@ namespace NetworkMonitor.UITests.Phases
                 {
                     result = StepResult.Skip(
                         stepName,
-                        "The logging toggle is disabled in the build under test, which was confirmed by reading the control "
-                        + "itself. SettingsViewModel.LoggingToggleEnabled compiles to false in Debug and logging is forced on; "
-                        + "the suite drives a locally built Debug binary, so this setting cannot be exercised here. It is "
-                        + "reachable only in a Release build.");
+                        "Not covered by this suite, by design, and not outstanding work. "
+                        + "SettingsViewModel.LoggingToggleEnabled compiles to false in Debug and logging is forced on, "
+                        + "which was confirmed here by reading the control itself. The suite drives a locally built Debug "
+                        + "binary deliberately, so the only way to reach this toggle would be a second pass against a "
+                        + "Release build - a great deal of machinery for one setting. Decided 2026-08-23: left uncovered.");
                 }
 
             }

@@ -80,6 +80,12 @@ namespace NetworkMonitor.UITests.Phases
         private const string WanProcessTwo = "OneDrive.exe";
         private const string LocalDataProcess = "System";
         private const string LocalFileProcess = "explorer.exe";
+
+        private const string WanTrafficTable = "TrafficEntries";
+        private const string LocalTrafficTable = "LocalTrafficEntries";
+
+        private static readonly string[] WanSeededProcesses = [WanProcessOne, WanProcessTwo];
+        private static readonly string[] LocalSeededProcesses = [LocalDataProcess, LocalFileProcess];
         private const string SmbServiceTag = "SMB";
         private const string DiscoveryChipText = "discovery only";
         private const string DiscoveryRowName = "1 device — discovery only";
@@ -120,11 +126,11 @@ namespace NetworkMonitor.UITests.Phases
             navigator.GoTo(NavRoute.Traffic);
             navigator.SelectTab(InternetTabAutomationId);
 
-            RunInternetTab(session, steps);
+            RunInternetTab(session, context, steps);
 
             navigator.SelectTab(LocalTabAutomationId);
 
-            RunLocalTab(session, steps);
+            RunLocalTab(session, context, steps);
 
             IReadOnlyList<StepResult> result = steps.Steps;
             Task<IReadOnlyList<StepResult>> completed = Task.FromResult(result);
@@ -132,11 +138,11 @@ namespace NetworkMonitor.UITests.Phases
             return completed;
         }
 
-        private static void RunInternetTab(AppSession session, StepLog steps)
+        private static void RunInternetTab(AppSession session, PhaseContext context, StepLog steps)
         {
-            RunRange(session, "Internet", InternetRange5mButtonAutomationId, FiveMinuteRange, FiveMinuteBuckets, 0L, steps);
-            RunRange(session, "Internet", InternetRange6hButtonAutomationId, SixHourRange, SixHourBuckets, SeedDatabase.WanNewestRollupBucketDownloadBytes, steps);
-            RunRange(session, "Internet", InternetRange1hButtonAutomationId, HourRange, HourBuckets, SeedDatabase.WanNewestRollupBucketDownloadBytes, steps);
+            RunRange(session, "Internet", InternetRange5mButtonAutomationId, FiveMinuteRange, FiveMinuteBuckets, () => FiveMinuteFloor(context, WanTrafficTable, WanSeededProcesses), steps);
+            RunRange(session, "Internet", InternetRange6hButtonAutomationId, SixHourRange, SixHourBuckets, () => SeedDatabase.WanNewestRollupBucketDownloadBytes, steps);
+            RunRange(session, "Internet", InternetRange1hButtonAutomationId, HourRange, HourBuckets, () => SeedDatabase.WanNewestRollupBucketDownloadBytes, steps);
 
             AutomationElement internetGrid = WaitForGrid(session, InternetGridAutomationId);
 
@@ -147,11 +153,11 @@ namespace NetworkMonitor.UITests.Phases
             RunBucketSelection(session, "Internet", InternetGridAutomationId, AllAppsRowName, InternetTotalColumn, steps);
         }
 
-        private static void RunLocalTab(AppSession session, StepLog steps)
+        private static void RunLocalTab(AppSession session, PhaseContext context, StepLog steps)
         {
-            RunRange(session, "Local", LocalRange5mButtonAutomationId, FiveMinuteRange, FiveMinuteBuckets, 0L, steps);
-            RunRange(session, "Local", LocalRange6hButtonAutomationId, SixHourRange, SixHourBuckets, SeedDatabase.LocalNewestRollupBucketDownloadBytes, steps);
-            RunRange(session, "Local", LocalRange1hButtonAutomationId, HourRange, HourBuckets, SeedDatabase.LocalNewestRollupBucketDownloadBytes, steps);
+            RunRange(session, "Local", LocalRange5mButtonAutomationId, FiveMinuteRange, FiveMinuteBuckets, () => FiveMinuteFloor(context, LocalTrafficTable, LocalSeededProcesses), steps);
+            RunRange(session, "Local", LocalRange6hButtonAutomationId, SixHourRange, SixHourBuckets, () => SeedDatabase.LocalNewestRollupBucketDownloadBytes, steps);
+            RunRange(session, "Local", LocalRange1hButtonAutomationId, HourRange, HourBuckets, () => SeedDatabase.LocalNewestRollupBucketDownloadBytes, steps);
 
             AutomationElement localGrid = WaitForGrid(session, LocalGridAutomationId);
 
@@ -177,7 +183,7 @@ namespace NetworkMonitor.UITests.Phases
             string rangeButtonAutomationId,
             string expectedRange,
             int expectedBuckets,
-            long peakFloorBytes,
+            Func<long> peakFloor,
             StepLog steps)
         {
             string redrawStepName = $"The {pageLabel} chart redraws for the {expectedRange} range";
@@ -185,6 +191,12 @@ namespace NetworkMonitor.UITests.Phases
             try
             {
                 ChartDrawValues values = SwitchRange(session, rangeButtonAutomationId, expectedRange);
+
+                // Evaluated after the redraw on purpose. A floor read from the database before the
+                // chart drew would use a window whose left edge is further back than the one the
+                // chart actually used, and could demand a peak the chart never saw. Reading it now
+                // makes the queried window a subset of the drawn one, so the floor stays safe.
+                long peakFloorBytes = peakFloor();
 
                 steps.Add(StepResult.Pass(redrawStepName));
                 steps.Add(AssertBucketCount($"The {pageLabel} {expectedRange} chart buckets the window as expected", values, expectedBuckets));
@@ -400,6 +412,19 @@ namespace NetworkMonitor.UITests.Phases
 
         // A floor of zero means "this window has no honest floor" rather than "any value passes" —
         // see finding 3 in this file's header for why the 5-minute window is in that position.
+        // The 5-minute window reads raw rows, and the fixture seeds only the few minutes before it
+        // ran, so how much of that is still inside the window depends on how long the run has been
+        // going. Reading the floor from the database at assert time turns a step that always
+        // skipped into one that asserts whenever any seeded row remains, and still skips honestly
+        // when they have genuinely aged out.
+        private static long FiveMinuteFloor(PhaseContext context, string tableName, IReadOnlyList<string> processNames)
+        {
+            DateTime cutoffUtc = DateTime.UtcNow.AddMinutes(-5);
+            long floorBytes = FixtureDatabase.MaxSeededBucketDownload(context.DataFolder, tableName, cutoffUtc, processNames);
+
+            return floorBytes;
+        }
+
         private static StepResult AssertPeakFloor(string stepName, ChartDrawValues values, long peakFloorBytes)
         {
             StepResult result;
@@ -408,9 +433,11 @@ namespace NetworkMonitor.UITests.Phases
             {
                 result = StepResult.Skip(
                     stepName,
-                    "The 5-minute window reads raw traffic entries, and the fixture's raw rows only cover the five "
-                    + "minutes before it was seeded — by the time this phase runs they have aged out of the window. "
-                    + "The 1h and 6h windows read rollups spanning six hours and do carry a floor.");
+                    "No seeded raw rows are left inside the 5-minute window, so there is no floor to assert against. "
+                    + "The fixture seeds raw entries covering only the few minutes before it ran, and the window has "
+                    + "moved past them; the floor is read from the database at assert time, so this step asserts "
+                    + "whenever any of them remain and skips only when they have genuinely aged out. The 1h and 6h "
+                    + "windows read rollups spanning six hours and always carry a floor.");
             }
             else if (values.Peak >= peakFloorBytes)
             {

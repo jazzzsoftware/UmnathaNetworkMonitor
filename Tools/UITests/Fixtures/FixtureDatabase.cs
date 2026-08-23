@@ -1,3 +1,4 @@
+using System.Linq;
 using Microsoft.Data.Sqlite;
 
 namespace NetworkMonitor.UITests.Fixtures
@@ -27,6 +28,36 @@ namespace NetworkMonitor.UITests.Fixtures
             long count = ExecuteScalar(dataFolder, $"SELECT COUNT(*) FROM {tableName} WHERE Timestamp < '{cutoffText}'");
 
             return count;
+        }
+
+        // The largest per-timestamp download total among seeded rows still inside the window.
+        //
+        // This is a safe floor for the chart's peak bucket: rows sharing a timestamp necessarily
+        // land in the same bucket, so the drawn peak can only be at or above this. Restricted to the
+        // seeded process names on purpose - the app under test is capturing real traffic into this
+        // same table while the suite drives it, and counting that would race the draw and could
+        // demand a peak the chart never saw.
+        //
+        // Returns 0 when the seeded rows have aged out of the window entirely, which is the caller's
+        // cue to skip rather than invent an assertion. That is what the 5-minute range does: its raw
+        // rows only cover the few minutes before the fixture was seeded, so whether any remain
+        // depends on how long the run has been going.
+        public static long MaxSeededBucketDownload(string dataFolder, string tableName, DateTime cutoffUtc, IReadOnlyList<string> processNames)
+        {
+            string cutoffText = cutoffUtc.ToString("yyyy-MM-dd HH:mm:ss");
+            string quotedNames = string.Join(", ", processNames.Select(processName => $"'{processName.Replace("'", "''")}'"));
+            string sql =
+                $"SELECT MAX(bucketTotal) FROM (SELECT SUM(BytesDownloaded) AS bucketTotal FROM {tableName} "
+                + $"WHERE Timestamp >= '{cutoffText}' AND ProcessName IN ({quotedNames}) GROUP BY Timestamp)";
+
+            long maximum = ExecuteScalar(dataFolder, sql);
+
+            if (maximum < 0L)
+            {
+                maximum = 0L;
+            }
+
+            return maximum;
         }
 
         private static long ExecuteScalar(string dataFolder, string sql)
