@@ -496,6 +496,8 @@ namespace NetworkMonitor.UITests.Phases
 
             valuePattern.SetValue(value.ToString());
             Commit(input);
+
+            NumberBoxDriver.VerifyAccepted(numberBox, input, automationId, value);
         }
 
         private static void SetTextBoxValue(AppSession session, string automationId, string text)

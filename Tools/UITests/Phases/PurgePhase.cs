@@ -460,6 +460,8 @@ namespace NetworkMonitor.UITests.Phases
             input.Focus();
             Keyboard.Type(VirtualKeyShort.RETURN);
             Keyboard.Type(VirtualKeyShort.TAB);
+
+            NumberBoxDriver.VerifyAccepted(numberBox, input, automationId, value);
         }
 
         private static void WaitForSetting(PhaseContext context, string settingName, string expectedRawJson)
