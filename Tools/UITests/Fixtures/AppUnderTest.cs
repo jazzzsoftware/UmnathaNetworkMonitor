@@ -116,20 +116,66 @@ namespace NetworkMonitor.UITests.Fixtures
             return application;
         }
 
+        // An app that has already exited is not a shutdown failure. UpdateLifecyclePhase drives
+        // "Update now" and the app installs the update and exits on its own, then the phase's
+        // finally block calls in here anyway. Hunting for a tray icon on that dead process failed,
+        // fell through to Close()/Kill() and warned that the WAL was not checkpointed - three
+        // alarming lines describing a process that had shut itself down normally minutes earlier.
         public static void ShutDown(Application application)
         {
-            bool exitedGracefully = TryExitViaTray(application);
+            bool alreadyExited = HasAlreadyExited(application);
 
-            if (exitedGracefully)
+            if (alreadyExited)
             {
-                Console.WriteLine("AppUnderTest.ShutDown: exited via the tray Exit menu item (WAL checkpointed).");
+                Console.WriteLine("AppUnderTest.ShutDown: the process had already exited on its own; no shutdown was needed.");
+                StopTrafficSession();
             }
             else
             {
-                Console.WriteLine("AppUnderTest.ShutDown: tray Exit path unavailable or failed; falling back to Close()/Kill().");
-                CloseThenKill(application);
+                bool exitedGracefully = TryExitViaTray(application);
+
+                if (exitedGracefully)
+                {
+                    Console.WriteLine("AppUnderTest.ShutDown: exited via the tray Exit menu item (WAL checkpointed).");
+                }
+                else
+                {
+                    Console.WriteLine("AppUnderTest.ShutDown: tray Exit path unavailable or failed; falling back to Close()/Kill().");
+                    CloseThenKill(application);
+                }
+
             }
 
+        }
+
+        // For callers that close the app themselves rather than through ShutDown.
+        // UpdateLifecyclePhase does exactly that: CloseMainWindow only closes this app to the
+        // tray, so it follows up with Kill, and neither route reaches OnExitApp where
+        // TrafficCollector stops its own session. The installer relaunching the app after an
+        // update is what makes that reachable - a real run left NetworkMonitorTraffic running
+        // after the suite had already, correctly, confirmed it was gone at the earlier shutdown.
+        public static void EnsureTrafficSessionStopped()
+        {
+            StopTrafficSession();
+        }
+
+        // Reading the state of a process that has gone can throw; still running is the safe
+        // assumption, because it keeps the old Close()/Kill() path rather than skipping cleanup.
+        private static bool HasAlreadyExited(Application application)
+        {
+            bool exited;
+
+            try
+            {
+                exited = application.HasExited;
+            }
+            catch (Exception exception)
+            {
+                Console.WriteLine($"AppUnderTest: could not read the process state ({exception.Message}); assuming it is still running.");
+                exited = false;
+            }
+
+            return exited;
         }
 
         private static void ValidateDataFolder(string dataFolder)

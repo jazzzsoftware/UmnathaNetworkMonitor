@@ -571,6 +571,11 @@ namespace NetworkMonitor.UITests.Phases
                 anyLeft = Process.GetProcessesByName(AppProcessName).Length > 0;
             }
 
+            if (announcedPids.Count > 0)
+            {
+                AppUnderTest.EnsureTrafficSessionStopped();
+            }
+
         }
 
         private static bool WaitForExit(Process process, TimeSpan timeout)
