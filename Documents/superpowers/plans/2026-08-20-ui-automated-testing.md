@@ -1,5 +1,16 @@
 # UI Automated Testing Implementation Plan
 
+> **Status: complete, 2026-08-23.** Every task in this plan shipped; the branch is
+> `feature/ui-automated-testing`. The checkboxes below were ticked retroactively from the commit
+> record on 2026-08-23, not as the work progressed — they had all been left unchecked, so treat the
+> commits as the authoritative record of what was done and this file as the design intent behind it.
+>
+> The suite as shipped: **145 passed, 0 failed, 2 skipped** across nine phases. Both remaining skips
+> are recorded decisions rather than pending work — the logging toggle (Debug-only by design) and
+> Run at startup (would write a scheduled task on the operator's machine). Still deliberately not
+> covered, and documented in the phases that would own them: mixed-DPI, the Local live-rate chip and
+> the 24-hour digest schedule.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** One elevated command, `dotnet run --project Tools/UITests`, that drives the installed build through every page and control it exposes against seeded data, proves the uninstall → baseline install → update → verify lifecycle, and leaves an HTML report and a non-zero exit code behind on any failure.
@@ -143,7 +154,7 @@ The *decision* is pure logic and belongs in Core where the test project can reac
 - Consumes: nothing.
 - Produces: `AppDataFolderResolver.Resolve(string? overrideValue, string localApplicationDataPath) → string`. Later tasks set the `UMNATHA_DATA_FOLDER` environment variable on a launched process and rely on the app honouring it.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `NetworkMonitor.Tests/Common/AppDataFolderResolverTests.cs`:
 
@@ -191,12 +202,12 @@ namespace NetworkMonitor.Tests.Common
 }
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `dotnet test NetworkMonitor.Tests/NetworkMonitor.Tests.csproj --filter AppDataFolderResolverTests`
 Expected: FAIL — `The type or namespace name 'AppDataFolderResolver' could not be found`.
 
-- [ ] **Step 3: Write the resolver**
+- [x] **Step 3: Write the resolver**
 
 Create `NetworkMonitor.Core/Common/AppDataFolderResolver.cs`:
 
@@ -228,12 +239,12 @@ namespace NetworkMonitor.Core.Common
 }
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `dotnet test NetworkMonitor.Tests/NetworkMonitor.Tests.csproj --filter AppDataFolderResolverTests`
 Expected: PASS, 5 tests.
 
-- [ ] **Step 5: Point `AppPaths` at the resolver**
+- [x] **Step 5: Point `AppPaths` at the resolver**
 
 Replace the whole of `NetworkMonitor.Services/Data/AppPaths.cs`:
 
@@ -252,7 +263,7 @@ namespace NetworkMonitor.Services.Data
 }
 ```
 
-- [ ] **Step 6: Give MigrationVerify the Core reference it now needs**
+- [x] **Step 6: Give MigrationVerify the Core reference it now needs**
 
 `Tools/MigrationVerify` compiles `AppPaths.cs` in via `<Compile Include>` (line 33) and references **Models only**, so it will not build until it can see Core. In `Tools/MigrationVerify/MigrationVerify.csproj`, replace the `ItemGroup` at lines 11–13 with:
 
@@ -264,7 +275,7 @@ namespace NetworkMonitor.Services.Data
   </ItemGroup>
 ```
 
-- [ ] **Step 7: Verify everything still builds and passes**
+- [x] **Step 7: Verify everything still builds and passes**
 
 Run: `dotnet build NetworkMonitor.slnx -c Debug -p:Platform=x64`
 Expected: Build succeeded, 0 warnings.
@@ -275,7 +286,7 @@ Expected: Build succeeded. (This is the check that Step 6 mattered — it fails 
 Run: `dotnet test NetworkMonitor.Tests/NetworkMonitor.Tests.csproj`
 Expected: PASS, **506 tests** (501 + 5).
 
-- [ ] **Step 8: Prove the override actually redirects the app**
+- [x] **Step 8: Prove the override actually redirects the app**
 
 This is the one behaviour a unit test cannot reach, and it is the whole point of the task.
 
@@ -288,7 +299,7 @@ Remove-Item Env:\UMNATHA_DATA_FOLDER
 
 Expected: MigrationVerify still exits 0 with all checks passing (it works in its own `%TEMP%` sandbox regardless), **and** `%LOCALAPPDATA%\UmnathaNetworkMonitor` is untouched. Confirm by comparing `(Get-Item "$env:LOCALAPPDATA\UmnathaNetworkMonitor\networkmonitor.db").LastWriteTime` before and after.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add NetworkMonitor.Core/Common/AppDataFolderResolver.cs NetworkMonitor.Tests/Common/AppDataFolderResolverTests.cs NetworkMonitor.Services/Data/AppPaths.cs Tools/MigrationVerify/MigrationVerify.csproj
@@ -319,7 +330,7 @@ DB impact: **none.** The override changes which file is opened, never its schema
 
 **`peak` and `scale` are different numbers.** `peak` is the largest value in the data; `scale` is the axis maximum the chart scaled to. They are usually close and never identical, and conflating them would make the assertion in Task 9 tautological.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `NetworkMonitor.Tests/Charting/ChartDrawSummaryTests.cs`:
 
@@ -397,12 +408,12 @@ namespace NetworkMonitor.Tests.Charting
 }
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `dotnet test NetworkMonitor.Tests/NetworkMonitor.Tests.csproj --filter ChartDrawSummaryTests`
 Expected: FAIL — `ChartDrawSummary` and `ChartDrawValues` not found.
 
-- [ ] **Step 3: Write the value type**
+- [x] **Step 3: Write the value type**
 
 Create `NetworkMonitor.Core/Charting/ChartDrawValues.cs`:
 
@@ -418,7 +429,7 @@ namespace NetworkMonitor.Core.Charting
 }
 ```
 
-- [ ] **Step 4: Write the formatter**
+- [x] **Step 4: Write the formatter**
 
 Create `NetworkMonitor.Core/Charting/ChartDrawSummary.cs`:
 
@@ -486,12 +497,12 @@ namespace NetworkMonitor.Core.Charting
 }
 ```
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 Run: `dotnet test NetworkMonitor.Tests/NetworkMonitor.Tests.csproj --filter ChartDrawSummaryTests`
 Expected: PASS, 7 tests (four facts plus the three-case theory).
 
-- [ ] **Step 6: Write the range mapper**
+- [x] **Step 6: Write the range mapper**
 
 `ChartDrawRange` converts the bucket width the chart is actually drawing into the range token the report asserts on. It is written before the wiring because Step 8 calls it. Create `NetworkMonitor.Core/Charting/ChartDrawRange.cs`:
 
@@ -528,7 +539,7 @@ Add three cases to `ChartDrawSummaryTests` pinning the boundaries — `1.0 → "
 Run: `dotnet test NetworkMonitor.Tests/NetworkMonitor.Tests.csproj --filter ChartDrawSummaryTests`
 Expected: PASS, 10 tests.
 
-- [ ] **Step 7: Name the two chart roots**
+- [x] **Step 7: Name the two chart roots**
 
 `TrafficAreaChart.xaml` lines 9–10 are currently:
 
@@ -562,7 +573,7 @@ Replace with:
 
 Per the XAML attribute-order rule, `x:Name` leads — the same correction C4-7 made to `TrafficHostPage`.
 
-- [ ] **Step 8: Publish the summary from `TrafficAreaChart`**
+- [x] **Step 8: Publish the summary from `TrafficAreaChart`**
 
 At the **end** of `ChartCanvasDraw` (the method starting at line 587), after all drawing, add:
 
@@ -594,7 +605,7 @@ Then add this private method, placed with the other private methods:
 
 Add `using NetworkMonitor.Core.Charting;` — the file already imports `NetworkMonitor.Models.Charting`, which is a different namespace.
 
-- [ ] **Step 9: Publish the summary from `SpeedTrendChart`**
+- [x] **Step 9: Publish the summary from `SpeedTrendChart`**
 
 `SpeedTrendChart` draws XAML shapes onto a `Canvas` rather than Win2D, so publish at the end of its redraw method (the one `OnSizeChanged` calls):
 
@@ -614,7 +625,7 @@ Add `using NetworkMonitor.Core.Charting;` — the file already imports `NetworkM
 
 Call it with the counts and maxima that method already computes. If the local names differ, use the existing ones — do not introduce new state to feed the summary.
 
-- [ ] **Step 10: Build and run the full suite**
+- [x] **Step 10: Build and run the full suite**
 
 Run: `dotnet build NetworkMonitor.slnx -c Debug -p:Platform=x64`
 Expected: Build succeeded, 0 warnings.
@@ -622,7 +633,7 @@ Expected: Build succeeded, 0 warnings.
 Run: `dotnet test NetworkMonitor.Tests/NetworkMonitor.Tests.csproj`
 Expected: PASS, **516 tests** (501 baseline + 5 from Task 1 + 10 from this task).
 
-- [ ] **Step 11: Commit**
+- [x] **Step 11: Commit**
 
 ```bash
 git add NetworkMonitor.Core/Charting/ NetworkMonitor.Tests/Charting/ChartDrawSummaryTests.cs "NetworkMonitor/Views/Controls/"
@@ -656,7 +667,7 @@ A console app that starts, refuses to run when the machine is not ready, says ex
 - `PhaseContext` carries what every phase needs and nothing more: `AppSession Session` (set by Task 6, `null` until then), `string DataFolder`, `string ArtifactFolder`, `SeedCounts Seed` (Task 5). It is a mutable class, not a record — `Session` is replaced when a phase restarts the app.
 - `PhaseResult` is `(string Name, TimeSpan Duration, bool Aborted, IReadOnlyList<StepResult> Steps)`. `RunOutcome` is `(IReadOnlyList<PhaseResult> Phases, TimeSpan TotalDuration)` with computed `PassedCount`, `FailedCount`, `SkippedCount` and `ExitCode` — `0` only when nothing failed and nothing aborted.
 
-- [ ] **Step 1: Create the project file**
+- [x] **Step 1: Create the project file**
 
 Create `Tools/UITests/UITests.csproj`:
 
@@ -706,7 +717,7 @@ Create `Tools/UITests/UITests.csproj`:
 </Project>
 ```
 
-- [ ] **Step 2: Verify FlaUI 5.0.0 actually resolves**
+- [x] **Step 2: Verify FlaUI 5.0.0 actually resolves**
 
 The spec names FlaUI 5.0.0. Confirm before building anything on it — a wrong version number here stalls every later task.
 
@@ -715,7 +726,7 @@ Expected: Restore succeeded.
 
 If it fails with `NU1102: Unable to find package FlaUI.Core with version (>= 5.0.0)`, run `dotnet package search FlaUI.Core --exact-match --take 1`, use the highest released version, and **record the substitution at the top of `Tools/UITests/README.md`** in Step 8 rather than leaving the spec's number standing unremarked.
 
-- [ ] **Step 3: Write the result types**
+- [x] **Step 3: Write the result types**
 
 Create `Tools/UITests/Runner/StepOutcome.cs`:
 
@@ -798,7 +809,7 @@ namespace NetworkMonitor.UITests.Runner
 }
 ```
 
-- [ ] **Step 4: Write preflight**
+- [x] **Step 4: Write preflight**
 
 Create `Tools/UITests/Runner/PreflightResult.cs`:
 
@@ -925,7 +936,7 @@ namespace NetworkMonitor.UITests.Runner
 
 The registry key name is the Inno `AppId` from `Tools/Installer/NetworkMonitor.iss:24` with Inno's `_is1` suffix. Both registry views are read because an admin install writes the 64-bit view but the suffix convention is shared.
 
-- [ ] **Step 5: Write the phase runner and entry point**
+- [x] **Step 5: Write the phase runner and entry point**
 
 Create `PhaseContext.cs`, `Phase.cs`, `PhaseResult.cs`, `RunOutcome.cs` and `PhaseRunner.cs` to the shapes in **Interfaces** above, implementing the two failure classes from the spec:
 
@@ -963,21 +974,21 @@ return 0;
 
 Exit code 2 is preflight refusal, distinct from 1 (a real failure) and 0 (everything passed).
 
-- [ ] **Step 6: Run it un-elevated and confirm it refuses clearly**
+- [x] **Step 6: Run it un-elevated and confirm it refuses clearly**
 
 Run: `dotnet run --project Tools/UITests`
 Expected: Exit code 2, listing "Not elevated" **and** "Umnatha Network Monitor is not installed" — both true on this machine today. This is the task's real test: the runner reports the machine's state instead of crashing on it.
 
-- [ ] **Step 7: Run it elevated and confirm the elevation blocker clears**
+- [x] **Step 7: Run it elevated and confirm the elevation blocker clears**
 
 From an elevated terminal, run the same command.
 Expected: Exit code 2, with only the not-installed blocker remaining.
 
-- [ ] **Step 8: Write the README**
+- [x] **Step 8: Write the README**
 
 Create `Tools/UITests/README.md` covering: what the suite is, the one command, that it **must** be elevated, that phase 09 really uninstalls the app, where the report lands, where a stranded backup would be and how to restore it by hand, and the FlaUI version actually in use if Step 2 forced a substitution.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add Tools/UITests/
@@ -1004,7 +1015,7 @@ Built before any phase, because a phase that fails without evidence wastes the r
 
 Our method is `Write`, not `Capture`, because FlaUI's own screenshot helper is the static class `FlaUI.Core.Capturing.Capture` — a method of the same name in a class that calls `Capture.Element(...)` reads ambiguously. `RunEnvironment.Read()` for the same reason: it does not capture anything.
 
-- [ ] **Step 1: Write the screenshot writer**
+- [x] **Step 1: Write the screenshot writer**
 
 ```csharp
 using System.Drawing.Imaging;
@@ -1053,19 +1064,19 @@ namespace NetworkMonitor.UITests.Evidence
 
 Evidence capture never throws into the run — a failed screenshot must not mask the failure it was documenting.
 
-- [ ] **Step 2: Write the tree dumper**
+- [x] **Step 2: Write the tree dumper**
 
 `UiaTreeDumper.Dump` walks the automation subtree from a given root, depth-limited to 12, writing one indented line per element: `ControlType | AutomationId | Name | IsEnabled | IsOffscreen`. Rooted at the element the failing step was looking for, or the window if the step never found one.
 
-- [ ] **Step 3: Write the environment read**
+- [x] **Step 3: Write the environment read**
 
 `RunEnvironment.Read()` records: app version before and after the run, OS build (`Environment.OSVersion` + the `CurrentBuildNumber` registry value), primary-monitor DPI scale, the app's theme and chart colour scheme read from the fixture `settings.json`, and whether the process is elevated. All of it goes in the report's Environment section.
 
-- [ ] **Step 4: Write the HTML report**
+- [x] **Step 4: Write the HTML report**
 
 A single self-contained file — inline CSS, screenshots embedded as `data:` URIs so the report survives being moved. Sections in the spec's order: **Verdict** (passed / failed / aborted, counts, total wall-clock), **Phase timeline** (each phase, duration, step results), **Each failure** (assertion, expected, actual, inline screenshot, collapsible tree dump), **Not covered by this run** (Task 13 fills the list), **Environment**.
 
-- [ ] **Step 5: Prove the report renders from fabricated results**
+- [x] **Step 5: Prove the report renders from fabricated results**
 
 Add a temporary `--selftest` argument to `Program.cs` that builds three fake `StepResult`s — one passed, one failed with a screenshot of the desktop and a tree dump, one skipped — and writes a report. Run it, open the HTML, confirm the failure's screenshot renders inline and the tree dump expands.
 
@@ -1074,7 +1085,7 @@ Expected: A report opens showing 1 passed, 1 failed, 1 skipped.
 
 Keep `--selftest` — it is how the report gets changed later without a 15-minute run.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add Tools/UITests/Evidence/ Tools/UITests/Program.cs
@@ -1100,7 +1111,7 @@ The run must never touch the operator's real 74 MB database. This task builds th
 - Consumes: `AppDataFolderResolver.OverrideVariableName` (Task 1); the linked `AppDbContext` and `DatabaseInitializer`; `Models` entity types.
 - Produces: `DataFolderFixture.CreateAsync() → DataFolderFixture` with `FolderPath`; `SeedDatabase.BuildAsync(string dbPath) → SeedCounts`; `InstalledApp.Launch(string dataFolder) → Application`; `InstalledApp.ShutDown(Application app)`; `RealDataGuard.CopyAside() → string`, `RealDataGuard.Restore(string backupPath)`.
 
-- [ ] **Step 1: Write the seed counts**
+- [x] **Step 1: Write the seed counts**
 
 `SeedCounts` is the single source of the known values. From the spec's fixture list:
 
@@ -1119,34 +1130,34 @@ namespace NetworkMonitor.UITests.Environment
 
 The spec's fixture: **12 known devices** across approved and unapproved, one renamed, one with notes; **48 hours of device events** including arrivals and departures; traffic and rollup rows across the 5-minute, 1-hour and 6-hour windows for both WAN and LAN; local traffic across data and discovery classifications; **30 speed-test results** with a visible trend; **three generated digests**.
 
-- [ ] **Step 2: Build the fixture through the app's own migrations**
+- [x] **Step 2: Build the fixture through the app's own migrations**
 
 `SeedDatabase.BuildAsync` creates an empty file, runs `DatabaseInitializer.InitializeAsync` against it — the app's real migration path — then inserts the known rows through `AppDbContext`. Using the real migrations rather than a checked-in `.db` means **the fixture cannot drift from the schema, and a broken migration fails the suite loudly**.
 
 Timestamps are computed relative to a `DateTime nowUtc` parameter, never `DateTime.UtcNow` inline, so the same fixture is reproducible and the 5-minute / 1-hour / 6-hour windows land where the assertions expect.
 
-- [ ] **Step 3: Write the data folder fixture**
+- [x] **Step 3: Write the data folder fixture**
 
 `DataFolderFixture.CreateAsync` makes `%TEMP%\umnatha-uitests\<timestamp>\`, seeds `networkmonitor.db` into it via `SeedDatabase`, writes a known `settings.json`, and exposes `FolderPath` for `InstalledApp` to pass as `UMNATHA_DATA_FOLDER`.
 
-- [ ] **Step 4: Write the real-data guard**
+- [x] **Step 4: Write the real-data guard**
 
 Per spec step 2, `CopyAside` **copies** `%LOCALAPPDATA%\UmnathaNetworkMonitor` to `UmnathaNetworkMonitor.uitest-backup-<timestamp>` and leaves the original in place — a hard kill mid-phase must leave the original where the app expects it. It records the row counts of the live database before copying, so `Restore` can verify them afterwards.
 
 `Restore` deletes whatever data folder now exists, restores the backup over it, verifies the database opens and reports the same row counts, then deletes the backup. **If it cannot complete, it writes the backup location in large letters to the console and returns false** — the runner never leaves the operator guessing where their history went.
 
-- [ ] **Step 5: Write the installed-app launcher**
+- [x] **Step 5: Write the installed-app launcher**
 
 `InstalledApp.Launch` reads `InstallLocation` from the uninstall key, starts `NetworkMonitor.exe` with `UMNATHA_DATA_FOLDER` set in its environment, and returns the FlaUI `Application`. `ShutDown` uses the tray Exit path where possible and falls back to `Close()` then `Kill()`, because the graceful exit is what checkpoints the WAL.
 
-- [ ] **Step 6: Prove the fixture builds and the real folder is untouched**
+- [x] **Step 6: Prove the fixture builds and the real folder is untouched**
 
 Extend `--selftest` to build a fixture and print the seeded counts.
 
 Run (elevated): `dotnet run --project Tools/UITests -- --selftest`
 Expected: prints the seeded counts matching `SeedCounts`, and `%LOCALAPPDATA%\UmnathaNetworkMonitor\networkmonitor.db` has an unchanged `LastWriteTime`. Verify that timestamp explicitly before and after — it is the claim the whole suite rests on.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add Tools/UITests/Environment/
@@ -1169,7 +1180,7 @@ DB impact: **none.** `SeedDatabase` runs the existing migrations against a tempo
 - Consumes: `InstalledApp` (Task 5).
 - Produces: `Waits.Until(Func<bool> condition, TimeSpan timeout, string whatWeWereWaitingFor)`; `Waits.UntilFound<T>(Func<T?> find, TimeSpan timeout, string what) → T`; `AppSession.MainWindow`, `AppSession.MiniGraphWindow`, `AppSession.ByAutomationId(string id)`; `Navigator.GoTo(NavRoute route)`; `GridReader.RowCount(AutomationElement grid) → int`, `GridReader.CellText(AutomationElement grid, int row, int column) → string`.
 
-- [ ] **Step 1: Write `Waits` — the only place a delay exists**
+- [x] **Step 1: Write `Waits` — the only place a delay exists**
 
 Per the spec's flake policy: **no `Thread.Sleep` as a synchronisation device**, every wait is a condition poll with a timeout and a message naming what it was waiting for, **no retry-until-green**, and every timeout is named and justified where it is declared.
 
@@ -1232,19 +1243,19 @@ namespace NetworkMonitor.UITests.Driving
 
 The single `Thread.Sleep` in the codebase is the poll interval inside `Until`, and that is the point of concentrating it here. Any phase that reaches for its own `Thread.Sleep` is a review rejection.
 
-- [ ] **Step 2: Write `AppSession`**
+- [x] **Step 2: Write `AppSession`**
 
 Wraps the FlaUI `Application` and `UIA3Automation`, exposes the main window and the mini-graph window (a separate top-level window, found by class or title), and offers `ByAutomationId` returning null rather than throwing so callers can assert absence.
 
-- [ ] **Step 3: Write `Navigator`**
+- [x] **Step 3: Write `Navigator`**
 
 The shell is a `NavigationView` with three items tagged `traffic`, `devices` and `reports` (`MainWindow.xaml:22-59`), plus Settings. **Select nav items with `SelectionItemPattern.Select()`, not `Invoke()`** — the spec is explicit, and invoking a `NavigationViewItem` does not reliably change selection.
 
-- [ ] **Step 4: Write `GridReader`**
+- [x] **Step 4: Write `GridReader`**
 
 Uses the DataGrid's UIA `Grid` and `GridItem` patterns. Per the spec's risk table: **assert on row count via the grid's UIA pattern rather than by enumerating children**, and scroll to realise rows before reading them, because virtualisation hides unrealised rows from UIA. Verify this during implementation against the seeded 12 devices — do not assume it.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add Tools/UITests/Driving/
@@ -1266,12 +1277,12 @@ The control census across the driven surfaces (counted 2026-08-20): 66 buttons, 
 **Files:**
 - Modify: `NetworkMonitor/MainWindow.xaml`, `NetworkMonitor/MiniGraphWindow.xaml`, and the 11 files in `NetworkMonitor/Views/`
 
-- [ ] **Step 1: Confirm the starting point**
+- [x] **Step 1: Confirm the starting point**
 
 Run: `rg "AutomationProperties.AutomationId" NetworkMonitor/`
 Expected: no matches.
 
-- [ ] **Step 2: Add identifiers page by page**
+- [x] **Step 2: Add identifiers page by page**
 
 Work one file at a time. For each control the suite drives, add the attached property in the **simple-assignment group**, before event handlers and bindings:
 
@@ -1285,7 +1296,7 @@ Work one file at a time. For each control the suite drives, add the attached pro
 
 Minimum set per page — nav and shell first (`MainWindow`: the three nav items, Settings, the update banner and its "Update now" / "Later" / "Cancel" buttons), then Devices (the four tabs, scan, search, CSV import/export, edit, delete, the four grids), Traffic (Internet and Local, range selector, lens toggle, both charts' roots, drill-down), Speed Test (grid, trend chart root, run), Reports (digest list, render, PDF export), Settings (every setting the round-trip test touches), Mini graph (both orientations, section toggles, opacity slider).
 
-- [ ] **Step 3: Verify each page with the tree dumper, not by eye**
+- [x] **Step 3: Verify each page with the tree dumper, not by eye**
 
 This is why Task 4 came first. After each page, launch the app and dump that page's subtree:
 
@@ -1294,7 +1305,7 @@ Expected: every identifier added appears in the dump with the exact spelling the
 
 Add `--dump-tree` to `Program.cs` as a standing diagnostic — it is the tool for adding identifiers later.
 
-- [ ] **Step 4: Confirm nothing moved**
+- [x] **Step 4: Confirm nothing moved**
 
 Run: `dotnet build NetworkMonitor.slnx -c Debug -p:Platform=x64`
 Expected: Build succeeded, 0 warnings.
@@ -1304,7 +1315,7 @@ Expected: PASS, 516 tests.
 
 Then launch the app and look at each touched page. Attached properties cannot move anything, but the spec's risk table promises a manual pass and this is it.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add NetworkMonitor/ Tools/UITests/Program.cs
@@ -1362,20 +1373,20 @@ Rename `InstalledApp` to reflect that it now launches whichever build is under t
 - Modify: `Tools/UITests/Fixtures/InstalledApp.cs` (B)
 - Modify: `Tools/UITests/Program.cs`
 
-- [ ] **Step 1: Write `LaunchPhase`**
+- [x] **Step 1: Write `LaunchPhase`**
 
 Cold start against the seeded fixture: the splash appears and closes, the main window reaches the ready state, the mini-graph window exists if settings say it should, the title carries the expected version, and no error dialog is present. `abortsRun` is **true** — if the app will not start, nothing after it means anything.
 
-- [ ] **Step 2: Write `DevicesPhase`**
+- [x] **Step 2: Write `DevicesPhase`**
 
 All / Approved / Unapproved / History tabs. Against the seeded 12 devices: the All grid's row count matches `SeedCounts.KnownDevices`, the renamed device shows its name, the device with notes shows them, Approved and Unapproved split as seeded, History shows the 48 hours of events with arrivals and departures. Then CSV export to the fixture folder and re-import, edit a device, delete a device and confirm the count drops by one.
 
-- [ ] **Step 3: Wire both into the sequence and run**
+- [x] **Step 3: Wire both into the sequence and run**
 
 Run (elevated): `dotnet run --project Tools/UITests`
 Expected: Exit 0, report shows both phases green. If a step fails, the report has the screenshot and the tree dump — diagnose from those, not by re-running.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add Tools/UITests/
@@ -1679,7 +1690,7 @@ A green run must not read as total coverage. This task makes the report say what
 - Create: `Tools/UITests/Evidence/NotCovered.cs`
 - Modify: `Tools/UITests/README.md`, `NetworkMonitor.slnx`, `CLAUDE.md`, `Documents/To Do.txt`
 
-- [ ] **Step 1: Write the "Not covered by this run" list**
+- [x] **Step 1: Write the "Not covered by this run" list**
 
 Fixed, from the spec's boundary section plus what Task 11 found:
 
@@ -1693,11 +1704,11 @@ Fixed, from the spec's boundary section plus what Task 11 found:
 
 It renders as a section of the report on **every** run, pass or fail.
 
-- [ ] **Step 2: Flag the time budget**
+- [x] **Step 2: Flag the time budget**
 
 `PhaseRunner` already records per-phase durations. If the total exceeds 15 minutes, the report says so and names the slowest phase.
 
-- [ ] **Step 3: Register in the slnx**
+- [x] **Step 3: Register in the slnx**
 
 Add after the `/Tools/RetentionProbe/` folder, matching the `MigrationVerify` shape — **`<File>` entries, never `<Project>`**:
 
@@ -1711,26 +1722,26 @@ Add after the `/Tools/RetentionProbe/` folder, matching the `MigrationVerify` sh
 
 This plan itself is already registered under `/Documents/superpowers/plans/` — it was added when the plan was written, per the standing rule that the slnx tracks `Documents/` as it changes.
 
-- [ ] **Step 4: Confirm the solution build never touches the runner**
+- [x] **Step 4: Confirm the solution build never touches the runner**
 
 Run: `dotnet build NetworkMonitor.slnx -c Debug -p:Platform=x64`
 Expected: Build succeeded, 0 warnings, and **no UITests output** in the log. This is the guarantee that a routine build cannot uninstall the operator's app.
 
-- [ ] **Step 5: Update CLAUDE.md**
+- [x] **Step 5: Update CLAUDE.md**
 
 Add `Tools/UITests/` to the `/Tools/` list with one line on what it does and that it is destructive. Add the `UMNATHA_DATA_FOLDER` override to the Notes section — it is now the supported way to point an install at a copied database for diagnosis, and it is what `Tools/HistoryRestore` should target rather than the live file. Add `Tools/UITests/Program.cs` to the Key Files table.
 
-- [ ] **Step 6: Update the To Do**
+- [x] **Step 6: Update the To Do**
 
 Change the `UI automated testing - spec written` line to `Done - UI automated testing`, with a note that mixed-DPI is still manual.
 
-- [ ] **Step 7: Full verification**
+- [x] **Step 7: Full verification**
 
 Run: `dotnet build NetworkMonitor.slnx -c Debug -p:Platform=x64` → 0 warnings.
 Run: `dotnet test NetworkMonitor.Tests/NetworkMonitor.Tests.csproj` → 516 tests pass.
 Run (elevated): `dotnet run --project Tools/UITests` → exit 0, nine phases green, report under 15 minutes, "Not covered" section present.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add Tools/UITests/ NetworkMonitor.slnx CLAUDE.md "Documents/To Do.txt"
