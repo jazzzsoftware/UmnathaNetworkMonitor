@@ -523,6 +523,12 @@ namespace NetworkMonitor.UITests.Phases
             DateTime deadline = DateTime.UtcNow + AppCloseTimeout;
             bool anyLeft = true;
 
+            // Re-enumeration is deliberate (see 1 above), but a process that is still terminating
+            // keeps appearing in it, so the same pid used to be announced on every round - seven
+            // times for one process in a real run. The intent is reported once per pid, which also
+            // keeps a genuinely new process started by the installer visible as its own line.
+            HashSet<int> announcedPids = new HashSet<int>();
+
             while (anyLeft && DateTime.UtcNow < deadline)
             {
                 Process[] running = Process.GetProcessesByName(AppProcessName);
@@ -534,7 +540,11 @@ namespace NetworkMonitor.UITests.Phases
 
                     try
                     {
-                        Console.WriteLine($"UpdateLifecyclePhase: closing NetworkMonitor (pid {process.Id}) before touching the install or the data folder.");
+
+                        if (announcedPids.Add(process.Id))
+                        {
+                            Console.WriteLine($"UpdateLifecyclePhase: closing NetworkMonitor (pid {process.Id}) before touching the install or the data folder.");
+                        }
 
                         process.CloseMainWindow();
 

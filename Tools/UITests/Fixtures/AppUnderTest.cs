@@ -394,19 +394,28 @@ namespace NetworkMonitor.UITests.Fixtures
         // Best-effort and always reported, never thrown: a failed cleanup here must not mask the
         // Close()/Kill() outcome above, and Preflight's stale-session check is the backstop if
         // this does not succeed.
+        //
+        // The outcome is read from a follow-up query, not from the stop's exit code. 'logman stop'
+        // exits 2 when the session does not exist, and that is the GOOD case - the app released it
+        // on the way out - so keying the message off that exit code announced a clean shutdown as an
+        // unconfirmed one, in the same words used for a genuine orphan. Two real runs produced that
+        // identical line, one having leaked the session and one not, and only a manual logman query
+        // told them apart.
         private static void StopTrafficSession()
         {
-            bool stopped = TryRunLogman($"stop {TrafficSessionName} -ets");
+            TryRunLogman($"stop {TrafficSessionName} -ets");
 
-            if (stopped)
+            bool stillRunning = TryRunLogman($"query {TrafficSessionName} -ets");
+
+            if (stillRunning)
             {
-                Console.WriteLine($"AppUnderTest: stopped the '{TrafficSessionName}' ETW session left behind by a non-graceful exit.");
+                Console.WriteLine(
+                    $"AppUnderTest: the '{TrafficSessionName}' ETW session is STILL RUNNING after the stop. The next "
+                    + $"launch will hang before its shell appears; stop it by hand: logman stop {TrafficSessionName} -ets");
             }
             else
             {
-                Console.WriteLine(
-                    $"AppUnderTest: could not confirm the '{TrafficSessionName}' ETW session was stopped. If the "
-                    + $"next launch hangs before its shell appears, stop it by hand: logman stop {TrafficSessionName} -ets");
+                Console.WriteLine($"AppUnderTest: confirmed the '{TrafficSessionName}' ETW session is not running.");
             }
 
         }
