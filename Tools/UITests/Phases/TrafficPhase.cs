@@ -302,8 +302,8 @@ namespace NetworkMonitor.UITests.Phases
             AutomationElement deviceLensGrid = WaitForGrid(session, LocalGridAutomationId);
 
             steps.Add(WaitForColumnHeaders("The By-device lens relabels the grid's columns", deviceLensGrid, ByDeviceGroupHeader, ByDeviceChildHeader));
-            steps.Add(AssertRowPresent("The By-device lens leads with the All Devices row", deviceLensGrid, GroupNameColumn, AllDevicesRowName));
-            steps.Add(AssertRowPresent("The By-device lens groups the seeded LAN traffic by device", deviceLensGrid, GroupNameColumn, NasDeviceName));
+            steps.Add(WaitForRowPresent("The By-device lens leads with the All Devices row", deviceLensGrid, GroupNameColumn, AllDevicesRowName));
+            steps.Add(WaitForRowPresent("The By-device lens groups the seeded LAN traffic by device", deviceLensGrid, GroupNameColumn, NasDeviceName));
 
             InvokeButton(session, LensAppButtonAutomationId);
 
@@ -430,6 +430,38 @@ namespace NetworkMonitor.UITests.Phases
             else
             {
                 result = StepResult.Fail(stepName, $"peak >= {peakFloorBytes} bytes (the newest seeded minute)", $"peak={values.Peak}");
+            }
+
+            return result;
+        }
+
+        // The Lens setter assigns GroupHeader/ChildHeader synchronously but rebuilds the rows from
+        // a fire-and-forget LoadAsync, so a column-header check is satisfied before any row exists.
+        // A row assertion taken straight after a lens switch has to wait for the reload, not for
+        // the headers that raced ahead of it.
+        private static StepResult WaitForRowPresent(string stepName, AutomationElement grid, int column, string expectedSubstring)
+        {
+            StepResult result;
+
+            try
+            {
+                Waits.Until(
+                    () =>
+                    {
+                        int rowIndex = GridReader.FindRowIndex(grid, column, expectedSubstring);
+
+                        bool present = rowIndex >= 0;
+
+                        return present;
+                    },
+                    DataChangeTimeout,
+                    $"a row whose first column contains '{expectedSubstring}'");
+
+                result = StepResult.Pass(stepName);
+            }
+            catch (TimeoutException)
+            {
+                result = StepResult.Fail(stepName, $"a row whose first column contains '{expectedSubstring}'", "no matching row");
             }
 
             return result;
