@@ -109,67 +109,69 @@ int runExitCode = await RunSuiteAsync(registeredPhases);
 
 return runExitCode;
 
-// Eight phases are registered; Task 12's update lifecycle is the one still to come. Each phase's
-// own ExpectedDuration is a deliberately generous, hand-set estimate (not the phase's internal
-// hard timeouts, and not a measured average) used by Preflight.CheckAsync — via the sum computed
-// above — to judge whether the operator's screen-saver timeout will survive a real run; see
-// Preflight's own margin comment for how the sum is used. Built here, before Preflight runs, so
+// Each phase carries its own ExpectedDuration, used by Preflight.CheckAsync - via the sum computed
+// above - to judge whether the operator's screen-saver timeout will survive a real run. It is not
+// the phase's internal hard timeouts, which are far longer. Built here, before Preflight runs, so
 // that check reasons about the phases actually registered rather than a hardcoded number.
+//
+// Recalibrated 2026-08-23 against four consecutive full runs. The original figures were hand-set
+// guesses that had never been checked, and they summed to 19 minutes for a suite that takes about
+// 2. With Preflight's 1.5x margin on top, that demanded 28.5 minutes of screen-saver headroom to
+// protect a 2-minute run and refused machines with an ordinary 15-minute saver. Each value below
+// is roughly three times the worst of the four measured runs, so a considerably slower machine
+// still fits, and the 1.5x margin still applies after that. The eight non-destructive phases now
+// sum to 230s and all nine to 530s, so a stock 15-minute saver clears either.
 static List<Phase> BuildPhases(bool includeUpdateLifecycle)
 {
     List<Phase> phases = new List<Phase>
     {
-        // A real run's Launch phase measured 5.1s end to end; 30s leaves room for a slower
-        // machine or a first-run DB migration without needing to be retuned for routine variance.
-        new Phase("01 Launch", true, LaunchPhase.RunAsync, TimeSpan.FromSeconds(30)),
+        // Measured 2.5-5.0s across four runs. 15s leaves room for a slower machine or a
+        // first-run DB migration.
+        new Phase("01 Launch", true, LaunchPhase.RunAsync, TimeSpan.FromSeconds(15)),
 
-        // A real run's Devices phase measured 19.0s end to end, including a native file dialog
-        // round trip for CSV export/import; 90s covers a slower shell-handler launch on a loaded
-        // machine.
-        new Phase("02 Devices", false, DevicesPhase.RunAsync, TimeSpan.FromSeconds(90)),
+        // Measured 14.1-20.3s, including a native file dialog round trip for CSV export/import.
+        // 45s covers a slower shell-handler launch on a loaded machine.
+        new Phase("02 Devices", false, DevicesPhase.RunAsync, TimeSpan.FromSeconds(45)),
 
         // Six chart redraws (three ranges on each traffic tab, plus two more for the drill-down's
         // reload check), a lens switch and two bucket selections, each waiting on a real reload.
-        // Measured at 54s; 90s is headroom without pushing the run's declared length into the
-        // screen-saver check for no reason.
-        new Phase("03 Traffic", false, TrafficPhase.RunAsync, TimeSpan.FromSeconds(90)),
+        // Measured 6.1-7.9s; 30s.
+        new Phase("03 Traffic", false, TrafficPhase.RunAsync, TimeSpan.FromSeconds(30)),
 
         // Four chart summaries and a grid read against thirty seeded results, with no real speed
-        // test run (see SpeedTestPhase's header for why). Measured at 2s; 30s is ample.
-        new Phase("04 Speed Test", false, SpeedTestPhase.RunAsync, TimeSpan.FromSeconds(30)),
+        // test run (see SpeedTestPhase's header for why). Measured 1.1-1.8s; 15s is the smallest
+        // value this file bothers with rather than a figure worth tuning.
+        new Phase("04 Speed Test", false, SpeedTestPhase.RunAsync, TimeSpan.FromSeconds(15)),
 
         // Two native save dialogs with an external file handler apiece, plus generating a digest
-        // (which renders its charts through Win2D) and deleting one; 60s covers the render, which
-        // is the slow part.
+        // (which renders its charts through Win2D) and deleting one. The slowest of the local
+        // phases at 18.3-25.3s, and the render is the slow part; 60s.
         new Phase("05 Reports", false, ReportsPhase.RunAsync, TimeSpan.FromSeconds(60)),
 
         // Around twenty settings, each changed, waited for on disk and restored; individually
-        // fast, but the file wait is what sets the pace. 90s is generous for the whole sweep.
-        new Phase("06 Settings", false, SettingsPhase.RunAsync, TimeSpan.FromSeconds(90)),
+        // fast, but the file wait sets the pace. Measured 7.3-11.3s; 30s.
+        new Phase("06 Settings", false, SettingsPhase.RunAsync, TimeSpan.FromSeconds(30)),
 
         // Section switches, the last-section rule, and eleven orientation changes for the U-1
-        // height invariant — each one a window teardown and rebuild. 90s covers that.
-        new Phase("07 Mini Graph", false, MiniGraphPhase.RunAsync, TimeSpan.FromSeconds(90)),
+        // height invariant - each one a window teardown and rebuild. Measured 3.1-5.0s; 20s.
+        new Phase("07 Mini Graph", false, MiniGraphPhase.RunAsync, TimeSpan.FromSeconds(20)),
 
-        // Two confirmation dialogs each way and a handful of database reads; 60s is ample.
-        // Registered last of the driving phases because it deletes the rows the others assert
-        // against.
-        new Phase("08 Purge", false, PurgePhase.RunAsync, TimeSpan.FromSeconds(60))
+        // Two confirmation dialogs each way and a handful of database reads. Measured 2.3-3.2s;
+        // 15s. Registered last of the driving phases because it deletes the rows the others
+        // assert against.
+        new Phase("08 Purge", false, PurgePhase.RunAsync, TimeSpan.FromSeconds(15))
     };
 
     if (includeUpdateLifecycle)
     {
         // Two ~75 MB downloads, two silent installs, an uninstall and a cold start of an old
-        // build. Ten minutes is an estimate of a real run on a working connection — the same kind
-        // of figure every other phase here carries, and deliberately NOT the sum of this phase's
-        // internal timeouts, which allow closer to twenty between them.
-        //
-        // The distinction matters because this number feeds the screen-saver headroom check, and
-        // that check is a real guard rather than a formality: a saver firing mid-run switches
-        // desktops and fails everything after it. A run including this phase will still refuse on a
-        // machine with a short saver timeout, which is correct — this is precisely the run that
-        // must not be interrupted.
-        phases.Add(new Phase("09 Update Lifecycle", false, UpdateLifecyclePhase.RunAsync, TimeSpan.FromMinutes(10)));
+        // build. Measured 48.8-71.5s across four runs on a working connection. Five minutes is
+        // deliberately more generous than the ~3x the local phases carry, because this is the one
+        // phase whose length depends on the network rather than the machine, and it is the run
+        // that must not be interrupted halfway through an uninstall. Still deliberately NOT the
+        // sum of this phase's internal timeouts, which allow closer to twenty minutes between
+        // them.
+        phases.Add(new Phase("09 Update Lifecycle", false, UpdateLifecyclePhase.RunAsync, TimeSpan.FromMinutes(5)));
     }
 
     return phases;

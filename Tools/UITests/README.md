@@ -83,13 +83,17 @@ runs until the saver activated, and the next run then started straight into it.
   instead of partway through.
 - **Its configured timeout (`HKCU\Control Panel\Desktop\ScreenSaveTimeOut`) is shorter than this
   specific run needs.** "Needs" is derived from the phases actually registered for this run
-  (`Program.cs`'s `BuildPhases`/`SumExpectedDuration`, each phase carrying its own hand-set
-  `Phase.ExpectedDuration` estimate) rather than the plan's eventual nine-phase target, with a
-  1.5x safety margin on top for a slower machine or an optimistic per-phase estimate. The eight
-  non-destructive phases sum to nine minutes (a real run spends about 85 seconds of it), which a
-  normal desktop default of 15 minutes clears. Adding phase 09 takes the sum to nineteen minutes
-  and so needs about 29 minutes of headroom — a 15-minute saver is refused, correctly: that is
-  precisely the run that must not be interrupted halfway through an uninstall.
+  (`Program.cs`'s `BuildPhases`/`SumExpectedDuration`, each phase carrying its own
+  `Phase.ExpectedDuration`, set at roughly three times the worst of four measured runs) with a
+  1.5x safety margin on top. The eight non-destructive phases sum to 230s and need under six
+  minutes of headroom; all nine sum to 530s and need about 13.5, so **a stock 15-minute screen
+  saver clears either run** and no setting needs changing to use this suite.
+
+  Those estimates were hand-set guesses until 2026-08-23, when four runs showed they summed to
+  nine times the real runtime: 19 minutes declared for a suite that takes about 2, which with the
+  margin demanded 28.5 minutes of headroom and refused ordinary machines outright. If you find
+  yourself being asked to lengthen a screen saver to run a two-minute suite, re-measure rather
+  than change the setting.
 
 Preflight cannot stop a screen saver that activates for some other reason mid-run (a policy
 change, a second interactive session locking the screen). If a run fails partway through with

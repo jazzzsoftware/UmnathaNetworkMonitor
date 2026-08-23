@@ -322,7 +322,7 @@ namespace NetworkMonitor.UITests.Phases
             string filterStepName = $"The pinned bucket filters the {pageLabel} grid";
             string resumeStepName = $"Dismissing the badge returns the {pageLabel} page to live";
             AutomationElement grid = WaitForGrid(session, gridAutomationId);
-            int allRowIndex = GridReader.FindRowIndex(grid, GroupNameColumn, allRowName);
+            int allRowIndex = WaitForRowIndex(grid, GroupNameColumn, allRowName);
             string totalBefore = allRowIndex < 0 ? string.Empty : GridReader.CellText(grid, allRowIndex, totalColumn);
 
             ClickChart(session);
@@ -424,31 +424,51 @@ namespace NetworkMonitor.UITests.Phases
             return result;
         }
 
-        // The Lens setter assigns GroupHeader/ChildHeader synchronously but rebuilds the rows from
-        // a fire-and-forget LoadAsync, so a column-header check is satisfied before any row exists.
-        // A row assertion taken straight after a lens switch has to wait for the reload, not for
-        // the headers that raced ahead of it.
-        private static StepResult WaitForRowPresent(string stepName, AutomationElement grid, int column, string expectedSubstring)
+        // WaitForGrid proves the grid ELEMENT exists; it says nothing about whether its rows have
+        // arrived. The lens toggle that runs immediately before RunBucketSelection hands over a grid
+        // whose reload may still be in flight - the Lens setter assigns the column headers
+        // synchronously and rebuilds the rows from a fire-and-forget LoadAsync - so reading the row
+        // once returned nothing and made the comparison step skip itself, on one run in five.
+        private static int WaitForRowIndex(AutomationElement grid, int column, string expectedSubstring)
         {
-            StepResult result;
+            int rowIndex = -1;
 
             try
             {
                 Waits.Until(
                     () =>
                     {
-                        int rowIndex = GridReader.FindRowIndex(grid, column, expectedSubstring);
+                        rowIndex = GridReader.FindRowIndex(grid, column, expectedSubstring);
 
-                        bool present = rowIndex >= 0;
+                        bool found = rowIndex >= 0;
 
-                        return present;
+                        return found;
                     },
                     DataChangeTimeout,
                     $"a row whose first column contains '{expectedSubstring}'");
-
-                result = StepResult.Pass(stepName);
             }
             catch (TimeoutException)
+            {
+                rowIndex = -1;
+            }
+
+            return rowIndex;
+        }
+
+        // The Lens setter assigns GroupHeader/ChildHeader synchronously but rebuilds the rows from
+        // a fire-and-forget LoadAsync, so a column-header check is satisfied before any row exists.
+        // A row assertion taken straight after a lens switch has to wait for the reload, not for
+        // the headers that raced ahead of it.
+        private static StepResult WaitForRowPresent(string stepName, AutomationElement grid, int column, string expectedSubstring)
+        {
+            int rowIndex = WaitForRowIndex(grid, column, expectedSubstring);
+            StepResult result;
+
+            if (rowIndex >= 0)
+            {
+                result = StepResult.Pass(stepName);
+            }
+            else
             {
                 result = StepResult.Fail(stepName, $"a row whose first column contains '{expectedSubstring}'", "no matching row");
             }

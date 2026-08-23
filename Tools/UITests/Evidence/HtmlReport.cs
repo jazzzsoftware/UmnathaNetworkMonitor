@@ -85,6 +85,67 @@ namespace NetworkMonitor.UITests.Evidence
             return path;
         }
 
+        // One entry per cause: what it is, what it looks like when it happens, and what the operator
+        // can do about it if they choose to. HTML fragments because that is what the report wants.
+        private static readonly string[] EnvironmentalCauses =
+        [
+            "<b>The screen saver activated mid-run.</b> Windows switches to a separate desktop and "
+            + "synthetic input stops landing: <code>SendInput</code> throws <code>Win32Exception (5): "
+            + "Access is denied</code> and <code>GetForegroundWindow()</code> returns zero, so every "
+            + "step after that point fails while everything before it passed. Preflight refuses to "
+            + "start if the saver is already running, or if its timeout is shorter than this run needs, "
+            + "but it cannot stop one that starts for another reason. If you need more headroom, "
+            + "lengthen or disable it yourself in Screen Saver Settings and put it back afterwards - "
+            + "this suite will not change it for you.",
+
+            "<b>Somebody used the machine while the run was driving it.</b> A click, a keystroke or a "
+            + "window taking focus sends the next synthetic input somewhere it was not meant to go. The "
+            + "failures look random and cluster around whatever was on screen at the time. Leave the "
+            + "desktop alone for the length of the run.",
+
+            "<b>The session was not an active local desktop.</b> UI Automation and <code>SendInput</code> "
+            + "both need one, so a locked workstation, a disconnected RDP session, or a run started from "
+            + "a service or scheduled task fails broadly and early. <code>query session</code> should "
+            + "show your session as <code>Active</code>.",
+
+            "<b>Display scaling, resolution or monitor layout changed.</b> Elements move or leave the "
+            + "visible tree, so a click lands on the wrong control. Changing DPI mid-run, or docking and "
+            + "undocking, will do it.",
+
+            "<b>Antivirus or a security agent interfered.</b> It can hold a handle to a file the suite "
+            + "has just written, delay or block the installer in phase 09, or scan the temp fixture "
+            + "folder while it is in use. This has bitten this codebase before: a scanner briefly "
+            + "refusing a temp-file rename is what silently discarded a settings save.",
+
+            "<b>An external file handler misbehaved.</b> The export steps open the file they just wrote "
+            + "with whatever is registered for it - Excel, a PDF reader - and the suite closes it again. "
+            + "A handler that shows a modal prompt on open (a licence nag, a repair dialog, an offer to "
+            + "recover unsaved files) blocks that step and steals focus from the next one.",
+
+            "<b>The network was slow, blocked or rate limited.</b> Phase 09 only: it resolves releases "
+            + "from GitHub and downloads roughly 150 MB. A proxy, an outage or a GitHub rate limit fails "
+            + "it for reasons that have nothing to do with the app.",
+
+            "<b>The machine was heavily loaded.</b> The waits are generous but bounded, so a build, a "
+            + "backup or a Windows Update running alongside can push a real reload past its timeout and "
+            + "produce a failure that will not reproduce on a quiet machine.",
+
+            "<b>A previous run left something behind.</b> A stale <code>NetworkMonitorTraffic</code> ETW "
+            + "session hangs the next launch before its shell appears, and a stranded "
+            + "<code>UmnathaNetworkMonitor.uitest-*</code> folder means your real data is parked in two "
+            + "places at once. Preflight refuses on both and names the fix; see Recovering a stranded "
+            + "backup in the README.",
+
+            "<b>The real app was already running.</b> A second launch hands off to it through the "
+            + "single-instance mutex, which would drive your real database instead of the fixture. "
+            + "Preflight refuses rather than risk that, and never closes it for you - exit it from the "
+            + "tray icon.",
+
+            "<b>The build under test was stale.</b> The suite drives a local Debug build, and if it "
+            + "predates the change you are testing, or predates the data-folder override, preflight says "
+            + "so. Rebuild with <code>dotnet build NetworkMonitor.slnx -c Debug -p:Platform=x64</code>."
+        ];
+
         private static string BuildDocument(RunOutcome outcome, RunEnvironment environment)
         {
             StringBuilder builder = new StringBuilder();
@@ -95,6 +156,7 @@ namespace NetworkMonitor.UITests.Evidence
             builder.Append(BuildVerdictSection(outcome));
             builder.Append(BuildTimelineSection(outcome));
             builder.Append(BuildFailuresSection(outcome));
+            builder.Append(BuildEnvironmentalCausesSection(outcome));
             builder.Append(BuildNotCoveredSection());
             builder.Append(BuildEnvironmentSection(environment));
             builder.Append("</body>\n</html>\n");
@@ -257,6 +319,36 @@ namespace NetworkMonitor.UITests.Evidence
             }
 
             return fragment;
+        }
+
+        // Shown only when something failed. Every entry here is a condition OUTSIDE the fixture:
+        // the suite seeds its own database, drives its own copy of the app and cleans up after
+        // itself, so when it fails the cause is often the machine rather than the code. The suite
+        // deliberately changes none of these settings for the operator - it is a test runner, not a
+        // configuration tool, and a run that is killed partway through would leave any change it
+        // had made behind. It reports what to look at and leaves the decision where it belongs.
+        private static string BuildEnvironmentalCausesSection(RunOutcome outcome)
+        {
+            StringBuilder builder = new StringBuilder();
+
+            if (outcome.FailedCount > 0)
+            {
+                builder.Append("<section id=\"environmental-causes\">\n<h2>Notes: what can fail a run from outside the fixture</h2>\n");
+                builder.Append(
+                    "<p class=\"legend\">Check these before the phase code. None of them are changed for you by this "
+                    + "suite; where something needs changing, it is yours to decide and yours to change back.</p>\n<ul>\n");
+
+                foreach (string cause in EnvironmentalCauses)
+                {
+                    builder.Append($"<li>{cause}</li>\n");
+                }
+
+                builder.Append("</ul>\n</section>\n");
+            }
+
+            string section = builder.ToString();
+
+            return section;
         }
 
         private static string BuildNotCoveredSection()
