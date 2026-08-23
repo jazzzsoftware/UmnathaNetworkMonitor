@@ -7,17 +7,17 @@ Plan: `Documents/superpowers/plans/2026-08-20-ui-automated-testing.md`
 One elevated command drives the real app through every page it exposes, against a seeded
 throwaway database, and proves the uninstall → install → update cycle.
 
-| | |
-|---|---|
-| Result | **145 passed, 0 failed, 2 skipped** |
-| Duration | 79s (eight phases) |
-| Phases | 9 (the ninth is opt-in) |
-| Size | 12,410 lines under `Tools/UITests` |
-| Commits | 43 |
+| Run | Result | Duration |
+|---|---|---|
+| Default, eight phases | **145 passed, 0 failed, 2 skipped** | 79s |
+| Full, nine phases | **153 passed, 0 failed, 2 skipped** | 164s |
 
-The result above is a default run. The full nine-phase run has not been re-measured since the
-skip work landed on 2026-08-23; its last recorded figure was 146 passed / 0 failed / 7 skipped,
-from before those skips became assertions.
+Both measured 2026-08-23 against `master`, alongside 516 unit tests passing and a solution build
+at zero warnings. The nine-phase run also cleared preflight at a stock 15-minute screen saver,
+which is the case the duration estimates were recalibrated for - before that, the same run
+demanded 28.5 minutes of headroom and refused to start.
+
+12,410 lines under `Tools/UITests`, across 43 commits.
 
 ---
 

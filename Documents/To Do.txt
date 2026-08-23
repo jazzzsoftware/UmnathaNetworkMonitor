@@ -193,13 +193,11 @@ Done - Rename Horizontal Strip to orientation and make a drop down.
 Done - Investigated the two logged errors (2026-08-20). ScanWorker double-dispose ObjectDisposedException was already fixed on 2026-08-12 by the _disposed guard; AtomicFile
     UnauthorizedAccessException was an antivirus scanner briefly refusing the temp-file rename, now retried and reported instead of silently swallowed.
 Done - Add % markers to opacity slider.
-
 Done - UI automated testing. Nine phases drive the real app end to end, including the uninstall/install/update cycle.
     Run with: dotnet run --project Tools/UITests   (elevated; add --all-with-update-lifecycle for phase 09)
     145 pass / 0 fail / 2 skipped. Needs an elevated terminal, an active local desktop and an internet connection.
     Both skips are recorded wont-fix decisions: the logging toggle is Debug-only, and run-at-startup would write a
     logon task on your machine. Still uncovered: the Local live-rate chip, mixed-DPI, and the 24-hour digest schedule.
-
 Done - Fix the kill-orphans-ETW-session defect is in the shipped app
 
 
