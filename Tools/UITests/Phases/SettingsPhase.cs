@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Definitions;
 using FlaUI.Core.Input;
@@ -52,8 +51,6 @@ namespace NetworkMonitor.UITests.Phases
         // whole file. Sub-second in practice; ten seconds is headroom, not an expected wait.
         private static readonly TimeSpan SaveTimeout = TimeSpan.FromSeconds(10);
 
-        // schtasks.exe answers a query or a delete in well under a second.
-        private static readonly TimeSpan SchTasksTimeout = TimeSpan.FromSeconds(15);
 
         public static Task<IReadOnlyList<StepResult>> RunAsync(PhaseContext context)
         {
@@ -464,69 +461,33 @@ namespace NetworkMonitor.UITests.Phases
             return result;
         }
 
-        // Run at startup writes nothing to settings.json: WindowsStartupService creates a logon
-        // scheduled task, at highest privileges, pointing at whichever executable is running — here
-        // the Debug build under test. That is a change to the operator's machine, outside the
-        // fixture sandbox and outside anything RealDataGuard restores.
+        // Not covered by this suite, by decision rather than difficulty. Decided 2026-08-23.
         //
-        // So it is only driven when the task does not already exist, it is deleted in a finally
-        // whatever happens, and the assertion is made against schtasks itself rather than any
-        // UI text. If the operator already uses the feature, the toggle is left strictly alone.
+        // Driving this toggle makes the app create a real Windows logon task, through schtasks, in
+        // the operator's own account - the one piece of state in the whole suite that lives outside
+        // the fixture sandbox and outside anything RealDataGuard can restore. Worse, the task it
+        // creates points at the Debug build under test, so a run killed between creating it and
+        // removing it leaves the operator's machine launching a throwaway binary at logon, silently,
+        // with nothing on screen to say so.
+        //
+        // The earlier version drove it whenever no task already existed and deleted it in a finally.
+        // That narrowed the window without closing it, and it still wrote system state the operator
+        // did not ask this suite to touch. This is a test runner, not a configuration tool: where a
+        // machine setting is involved it reports and leaves the decision alone.
         private static StepResult RunStartupToggle(AppSession session)
         {
             const string stepName = "Run at startup creates and removes its logon task";
-            StepResult result;
 
-            if (StartupTaskExists())
-            {
-                result = StepResult.Skip(
-                    stepName,
-                    $"A scheduled task named '{StartupTaskName}' already exists, which means the operator uses this feature. "
-                    + "Driving the toggle would delete and recreate their task pointing at the Debug build under test, so it "
-                    + "is left untouched.");
-            }
-            else
-            {
-
-                try
-                {
-                    AutomationElement control = FindControl(session, "RunAtStartupToggle");
-                    ITogglePattern togglePattern = control.Patterns.Toggle.Pattern;
-
-                    try
-                    {
-                        togglePattern.Toggle();
-
-                        Waits.Until(
-                            () => StartupTaskExists(),
-                            SaveTimeout,
-                            $"a scheduled task named '{StartupTaskName}' to exist after turning Run at startup on");
-
-                        togglePattern.Toggle();
-
-                        Waits.Until(
-                            () => !StartupTaskExists(),
-                            SaveTimeout,
-                            $"the '{StartupTaskName}' scheduled task to be gone after turning Run at startup off again");
-
-                        result = StepResult.Pass(stepName);
-                    }
-                    finally
-                    {
-                        DeleteStartupTaskIfPresent();
-                    }
-
-                }
-                catch (Exception failure)
-                {
-                    result = StepResult.Fail(stepName, $"the '{StartupTaskName}' scheduled task to appear and then be removed", failure.Message);
-                }
-
-            }
+            StepResult result = StepResult.Skip(
+                stepName,
+                "Not covered by this suite, by decision rather than difficulty. Driving it makes the app write a real "
+                + $"Windows logon task named '{StartupTaskName}' in your account, pointing at the Debug build under "
+                + "test. A run killed between creating that task and removing it would leave your machine launching a "
+                + "throwaway binary at logon, with nothing to say so. The suite does not change machine settings; "
+                + "test this one by hand if you need it covered. Decided 2026-08-23: left uncovered.");
 
             return result;
         }
-
         private static void SetNumberBoxValue(AppSession session, string automationId, int value)
         {
             AutomationElement numberBox = FindControl(session, automationId);
@@ -655,88 +616,6 @@ namespace NetworkMonitor.UITests.Phases
             int value = int.Parse(rawJson.Trim('"'), System.Globalization.CultureInfo.InvariantCulture);
 
             return value;
-        }
-
-        private static bool StartupTaskExists()
-        {
-            int exitCode = RunSchTasks($"/query /tn \"{StartupTaskName}\"");
-            bool exists = exitCode == 0;
-
-            return exists;
-        }
-
-        private static void DeleteStartupTaskIfPresent()
-        {
-
-            if (StartupTaskExists())
-            {
-                RunSchTasks($"/delete /tn \"{StartupTaskName}\" /f");
-            }
-
-        }
-
-        // Mirrors WindowsStartupService's own use of schtasks.exe, so this asserts against the
-        // same thing the app manipulates rather than a second opinion about where startup entries
-        // live.
-        private static int RunSchTasks(string arguments)
-        {
-            int exitCode = -1;
-
-            try
-            {
-                ProcessStartInfo startInfo = new ProcessStartInfo
-                {
-                    FileName = "schtasks.exe",
-                    Arguments = arguments,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true
-                };
-
-                using (Process? process = Process.Start(startInfo))
-                {
-
-                    if (process is not null)
-                    {
-                        process.StandardOutput.ReadToEnd();
-                        process.StandardError.ReadToEnd();
-
-                        bool exited = WaitForProcessExit(process, SchTasksTimeout);
-
-                        if (exited)
-                        {
-                            exitCode = process.ExitCode;
-                        }
-
-                    }
-
-                }
-
-            }
-            catch (Exception failure)
-            {
-                Console.WriteLine($"SettingsPhase: schtasks.exe {arguments} failed: {failure.Message}");
-            }
-
-            return exitCode;
-        }
-
-        private static bool WaitForProcessExit(Process process, TimeSpan timeout)
-        {
-            bool exited;
-
-            try
-            {
-                Waits.Until(() => process.HasExited, timeout, "schtasks.exe to exit");
-                exited = true;
-            }
-            catch (TimeoutException)
-            {
-                exited = false;
-            }
-
-            return exited;
         }
     }
 }
