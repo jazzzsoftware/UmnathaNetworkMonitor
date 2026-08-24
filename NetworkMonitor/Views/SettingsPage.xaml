@@ -1591,9 +1591,51 @@
                     Spacing="8">
 
                     <TextBlock
-                        Text="v0.0.12"
+                        Text="v0.0.13"
                         FontWeight="SemiBold"
                         FontSize="16" />
+
+                    <TextBlock
+                        Text="• New: Automated UI testing. Nine phases drive the real app end to end, including a full uninstall, install and update cycle. It is developer tooling and is not part of what you install. Every fix below is something it found."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• New: Charts, grids and device notes are now readable by a screen reader. Each chart announces its range and trend instead of an empty graphic."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• Changed: The mini graph's opacity slider ticks are labelled with percentages."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• Fixed: The app could hang on startup after being killed. A traffic session left behind by the previous run blocked the next launch; it is now found and stopped first."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• Fixed: Purge Now deleted nothing and always reported 'Purged 0 entries'. It now runs the same retention sweep the app runs daily."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• Fixed: An antivirus scan could discard a settings save while the app still showed 'Settings saved'. The save is now retried, and confirmed only once it reaches disk."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• Fixed: The main window opened nearly full screen on a first run, and a size saved on a large monitor reopened off the edge of a smaller one."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• Under the hood: A redirectable data folder and stable control identifiers, both added so the suite can drive a real app without touching your data."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="• Note: Nothing here changes the database. Your history carries across untouched."
+                        TextWrapping="Wrap" />
+
+                    <TextBlock
+                        Text="v0.0.12"
+                        FontWeight="SemiBold"
+                        FontSize="16"
+                        Margin="0,12,0,0" />
 
                     <TextBlock
                         Text="• New: Chart colour schemes. Settings has a new Theme tab with five schemes — Classic, Horizon, Aurora, Ember and Ocean — plus Custom, where you set each colour yourself by clicking its swatch. The choice applies straight away across the Internet, Local and Speed test charts, the mini graph, the coloured Download and Upload figures in the grids, and the chart legends. Each colour is adjusted automatically to stay readable on both the dark and light card backgrounds."

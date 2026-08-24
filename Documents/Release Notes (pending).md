@@ -32,5 +32,5 @@ mislabelled as shipped, because nothing unreleased is in the dialog at all.
 
 ## Next release
 
-_Nothing pending. Everything that was staged here shipped in v0.0.12 and now lives in the
+_Nothing pending. Everything that was staged here shipped in v0.0.13 and now lives in the
 Release Notes dialog._
