@@ -2,7 +2,12 @@
 
 ## Status
 
-Draft, not yet posted.
+Posted 2026-08-24 to *Fun topics, videos, etc.*
+
+https://www.audiosciencereview.com/forum/index.php?threads/umnatha-network-monitor-a-free-app-that-watches-your-home-network.72982/
+
+Rendering confirmed in a browser after posting: images embedded, bullets rendered,
+paragraphs clean.
 
 ## Where it goes
 
@@ -26,6 +31,10 @@ below with `-` bullets and `**bold**` will show those characters literally.
 - **Unwrap the paragraphs before pasting.** This file is hard-wrapped for readability, and
   XenForo preserves newlines as line breaks — pasted as-is, every paragraph would come out
   ragged. Join each paragraph into one line first.
+- **The live thread cannot be checked programmatically.** ASR returns HTTP 404 to
+  automated fetches, for both the full slug URL and the short `?threads/<id>/` form -
+  bot protection refusing non-browser requests, not a bad link. Rendering has to be
+  eyeballed in a browser.
 - Those URLs track `master`, so moving anything under `Documents/Images/` breaks the
   images in a live post. Pin a commit SHA instead of `master` if a link needs freezing.
 
@@ -77,5 +86,4 @@ file on your own PC. No account, no cloud, no telemetry, no paid version.
 
 https://github.com/jazzzsoftware/UmnathaNetworkMonitor
 
-I hope you find it useful.
-Happy to answer anything.
+I hope you find it useful. Happy to answer your questions.
