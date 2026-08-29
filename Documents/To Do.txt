@@ -203,8 +203,8 @@ Done - Fix the kill-orphans-ETW-session defect is in the shipped app
 
 
 
-Github/Marketing:
-Done - Topics
+Marketing:
+Done - Post on ASR
 Post on Reddit
 Post on Hacker News, Product Hunt, Dev.to and Hashnode
 
