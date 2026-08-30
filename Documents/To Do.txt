@@ -201,6 +201,7 @@ Done - UI automated testing. Nine phases drive the real app end to end, includin
 Done - Fix the kill-orphans-ETW-session defect is in the shipped app
 
 
+x86 and ARM64 builds fail with NETSDK1032. NetworkMonitor.csproj pins <RuntimeIdentifier>win-x64</RuntimeIdentifier> unconditionally while declaring Platforms x86;x64;ARM64, so only x64 builds. Two parts: (1) make the RuntimeIdentifier conditional on $(Platform), as Bubbles Screensaver now does; (2) complete the slnx platform mappings - only Debug|x64 is mapped for NetworkMonitor and NetworkMonitor.Services, leaving the other five Configuration|Platform pairs to Visual Studio inference, which is what produced a solution load error in Bubbles Screensaver. Do both together; the RID fix alone still leaves VS able to trip on the inference gap.
 
 
 Marketing:
